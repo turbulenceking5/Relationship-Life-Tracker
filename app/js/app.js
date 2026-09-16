@@ -1,7 +1,7 @@
 import { supabase } from './supabaseClient.js';
 import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
 import { renderAuthScreen } from './auth.js';
-import { renderHouseholdScreen, getMyHousehold, renderInviteInfo } from './household.js';
+import { renderHouseholdScreen, getMyHousehold, renderInviteInfo, getHouseholdMembers, updateSplitPercents } from './household.js';
 import { isStandalone, isPushSupported, getSubscriptionStatus, enablePush, disablePush } from './notifications.js';
 
 const appEl = document.getElementById('app');
@@ -98,10 +98,13 @@ async function renderMainApp() {
 function showAccountSheet() {
   const { dialog, body } = makeSheet('Account & household');
   const notificationsSection = h('div', { class: 'meta' }, 'Checking notification status…');
+  const splitSection = h('div', { class: 'meta' }, 'Loading…');
 
   mount(body, [
     h('p', { class: 'meta' }, ctx.user.email),
     renderInviteInfo(ctx.household),
+    h('div', { class: 'section-title' }, 'Expense split'),
+    splitSection,
     h('div', { class: 'section-title' }, 'Notifications'),
     notificationsSection,
     h('button', {
@@ -115,6 +118,68 @@ function showAccountSheet() {
   openSheet(dialog);
 
   renderNotificationsSection(notificationsSection);
+  renderSplitSection(splitSection);
+}
+
+async function renderSplitSection(container) {
+  let members;
+  try {
+    members = await getHouseholdMembers(ctx.household.id);
+  } catch (err) {
+    mount(container, h('p', { class: 'error-msg' }, `Could not load members: ${err.message}`));
+    return;
+  }
+
+  if (members.length !== 2) {
+    mount(container, h('p', { class: 'meta' }, 'Invite your partner to set how shared expenses are split — this needs exactly two household members.'));
+    return;
+  }
+
+  const [a, b] = members;
+  const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
+  const successEl = h('div', { class: 'success-msg', style: 'display:none' });
+  const percentA = h('input', { type: 'number', min: '0', max: '100', step: '1', value: a.split_percent });
+  const percentB = h('input', { type: 'number', min: '0', max: '100', step: '1', value: b.split_percent, disabled: true });
+
+  percentA.addEventListener('input', () => {
+    const val = Math.max(0, Math.min(100, parseFloat(percentA.value) || 0));
+    percentB.value = Math.round((100 - val) * 100) / 100;
+  });
+
+  const form = h('form', {
+    onsubmit: async (e) => {
+      e.preventDefault();
+      errorEl.style.display = 'none';
+      successEl.style.display = 'none';
+      const valA = parseFloat(percentA.value);
+      if (!(valA >= 0 && valA <= 100)) {
+        errorEl.textContent = 'Enter a percentage between 0 and 100.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      try {
+        await updateSplitPercents(ctx.household.id, a.user_id, valA, b.user_id, 100 - valA);
+        successEl.textContent = 'Split saved.';
+        successEl.style.display = 'block';
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+      }
+    },
+  }, [
+    h('div', { class: 'field-row' }, [
+      h('div', { class: 'field' }, [h('label', {}, a.display_name), percentA]),
+      h('div', { class: 'field' }, [h('label', {}, `${b.display_name} (auto)`), percentB]),
+    ]),
+    errorEl,
+    successEl,
+    h('button', { class: 'btn secondary small', type: 'submit' }, 'Save split'),
+  ]);
+
+  mount(container, [
+    h('p', { class: 'meta' }, 'What share of shared expenses each of you is responsible for — used for the "who owes who" balance on the Expenses tab.'),
+    form,
+  ]);
 }
 
 async function renderNotificationsSection(container) {

@@ -7,9 +7,9 @@ inventing a new pattern.
 ## Add-item sheets: always use `makeSheet()`
 
 Every "add a thing" form (events, expenses, replacement items,
-documents, rent periods, goals, goal transactions, plus the
-account/settings sheet) is a native `<dialog>` built via `makeSheet()` in
-`app/js/dom.js`:
+documents, rent periods, goals, goal transactions, settle-up payments,
+plus the account/settings sheet) is a native `<dialog>` built via
+`makeSheet()` in `app/js/dom.js`:
 
 ```js
 const { dialog, body } = makeSheet('Add expense');

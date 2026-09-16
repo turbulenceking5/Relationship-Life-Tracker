@@ -15,7 +15,8 @@ auth.users (Supabase-managed)
      │ member of (N:M via household_members)          │ display name
      ▼                                                │
  households ──1:N── events                            │
-     │        ──1:N── expenses ─────────── paid_by ───┘
+     │        ──1:N── expenses ─────────── paid_by ───┤
+     │        ──1:N── settlements ── from_user/to_user ┘
      │        ──1:N── replacement_items
      │        ──1:N── rent_payments
      │        ──1:N── custom_goals ──1:N── goal_transactions
@@ -53,6 +54,7 @@ this" instead of a raw UUID.
 | `household_id` | uuid → households | PK part 1 |
 | `user_id` | uuid → auth.users | PK part 2 |
 | `role` | text | `owner` \| `member` |
+| `split_percent` | numeric(5,2) | default 50; this member's share of shared expenses, see [`04-feature-expenses.md`](04-feature-expenses.md) |
 | `joined_at` | timestamptz | |
 
 `user_id` also carries a second foreign key to `profiles.id` (in addition
@@ -90,6 +92,25 @@ embed failed with "Could not find a relationship."
 | `notes` | text | optional |
 | `created_by` | uuid → auth.users | |
 | `created_at` / `updated_at` | timestamptz | |
+
+### `settlements`
+See [`04-feature-expenses.md`](04-feature-expenses.md). A direct balancing
+payment between two household members — separate from `expenses` since
+it isn't a purchase, just money moving between partners to zero out
+the running "who owes who" balance.
+
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `household_id` | uuid → households | |
+| `from_user` | uuid → auth.users | who paid |
+| `to_user` | uuid → auth.users | who received it |
+| `amount` | numeric(12,2) | required, > 0 |
+| `currency` | text | default `AUD` |
+| `settlement_date` | date | default today |
+| `notes` | text | optional |
+| `created_by` | uuid → auth.users | |
+| `created_at` | timestamptz | |
 
 ### `replacement_items`
 The "tap filter" use case — physical things replaced on a cadence.

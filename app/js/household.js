@@ -15,10 +15,29 @@ export async function getMyHousehold() {
 export async function getHouseholdMembers(householdId) {
   const { data, error } = await supabase
     .from('household_members')
-    .select('user_id, profiles ( display_name )')
+    .select('user_id, split_percent, profiles ( display_name )')
     .eq('household_id', householdId);
   if (error) throw error;
-  return data.map((m) => ({ user_id: m.user_id, display_name: m.profiles?.display_name || 'Member' }));
+  return data.map((m) => ({ user_id: m.user_id, display_name: m.profiles?.display_name || 'Member', split_percent: Number(m.split_percent) }));
+}
+
+// Only meaningful for a two-person household — the whole point of
+// split_percent is "what share of shared expenses is each partner
+// responsible for," which doesn't generalize past two people without a
+// bigger redesign (see docs/04-feature-expenses.md).
+export async function updateSplitPercents(householdId, userIdA, percentA, userIdB, percentB) {
+  const { error: errA } = await supabase
+    .from('household_members')
+    .update({ split_percent: percentA })
+    .eq('household_id', householdId)
+    .eq('user_id', userIdA);
+  if (errA) throw errA;
+  const { error: errB } = await supabase
+    .from('household_members')
+    .update({ split_percent: percentB })
+    .eq('household_id', householdId)
+    .eq('user_id', userIdB);
+  if (errB) throw errB;
 }
 
 export function renderHouseholdScreen(container, onReady) {

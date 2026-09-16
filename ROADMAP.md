@@ -82,8 +82,11 @@ schema.
 
 ## Phase 3 — Money features worth having
 
-- [ ] "Who owes who" balance between partners (expense splitting, not just
-      logging), with a settle-up action
+- [x] "Who owes who" balance between partners, with a configurable split
+      (not just 50/50 — each member has a `split_percent`, editable from
+      the ⚙️ account sheet) and a "Settle up" action that logs a
+      balancing payment. See
+      [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md).
 - [ ] Multi-currency support (per-entry currency + household default)
 - [ ] CSV export of expenses and goal transactions for taxes/records
 - [ ] Simple charts: spend by category, spend over time

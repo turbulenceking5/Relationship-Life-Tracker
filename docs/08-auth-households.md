@@ -71,6 +71,16 @@ two-person household sharing a code once by text/in person is more than
 enough. Email invites are a reasonable Phase 1+ addition if this app ever
 grows past household-of-two use.
 
+### Expense split
+Each `household_members` row has a `split_percent` (default 50), editable
+from the ⚙️ account sheet's "Expense split" section — two number inputs
+that auto-complement (typing 35 for one member sets the other to 65).
+Only shown/editable once a household has exactly two members, since the
+"who owes who" balance it drives (see
+[`04-feature-expenses.md`](04-feature-expenses.md)) is a two-person
+concept. `updateSplitPercents()` in `household.js` writes both members'
+rows in one call so they can't drift out of summing to 100.
+
 ## Permissions model
 Deliberately flat for v1: every member of a household has full read/write
 access to all of that household's data. There's no "read-only" or
