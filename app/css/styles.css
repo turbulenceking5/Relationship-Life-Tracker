@@ -123,6 +123,32 @@ main {
 
 .tabbar button .tab-icon { font-size: 1.2rem; }
 
+.segmented {
+  display: flex;
+  gap: 4px;
+  background: var(--surface-2);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 16px;
+}
+
+.segmented button {
+  flex: 1;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 8px 4px;
+  border-radius: 9px;
+}
+
+.segmented button.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
 .tabbar button.active { color: var(--accent); font-weight: 600; }
 
 .card {
@@ -211,8 +237,31 @@ dialog::backdrop { background: rgba(0,0,0,0.45); }
 }
 
 .sheet h2 {
-  margin: 0 0 14px;
+  margin: 0;
   font-size: 1.1rem;
+}
+
+.sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  gap: 10px;
+}
+
+.sheet-close {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .field {

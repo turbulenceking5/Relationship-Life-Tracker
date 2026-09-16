@@ -1,4 +1,4 @@
-import { h, mount, openSheet, closeSheet } from './dom.js';
+import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
 import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
 import { formatDate, dueStatus, todayStr } from './format.js';
 
@@ -34,7 +34,7 @@ export async function render(container, ctx) {
     ]);
   }
 
-  const dialog = h('dialog', {}, []);
+  const { dialog, body } = makeSheet('Add replacement item');
   const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
   const nameInput = h('input', { type: 'text', required: true, placeholder: 'e.g. Tap water filter' });
   const categoryInput = h('input', { type: 'text', placeholder: 'e.g. kitchen' });
@@ -66,7 +66,6 @@ export async function render(container, ctx) {
       }
     },
   }, [
-    h('h2', {}, 'Add replacement item'),
     h('div', { class: 'field' }, [h('label', {}, 'Name'), nameInput]),
     h('div', { class: 'field' }, [h('label', {}, 'Category'), categoryInput]),
     h('div', { class: 'field' }, [h('label', {}, 'Last replaced'), lastReplacedInput]),
@@ -74,7 +73,7 @@ export async function render(container, ctx) {
     errorEl,
     h('button', { class: 'btn primary', type: 'submit' }, 'Save item'),
   ]);
-  mount(dialog, h('div', { class: 'sheet' }, form));
+  mount(body, form);
 
   mount(container, [
     rows.length ? h('div', {}, rows.map(card)) : h('div', { class: 'empty-state' }, 'No replacement items tracked yet — add the tap filter, smoke alarm batteries, anything on a cycle.'),

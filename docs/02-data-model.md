@@ -181,6 +181,7 @@ period; "mark as received" inserts the next period's row automatically.
 | `due_date` | date | required |
 | `amount` | numeric(12,2) | |
 | `currency` | text | default `AUD` |
+| `interval_days` | integer | default 14 (fortnightly); carried forward to the auto-generated next period |
 | `paid` | boolean | default false |
 | `paid_date` | date | set when marked received |
 | `notes` | text | optional |

@@ -15,10 +15,17 @@ status. Check items off as they land.
 
 ## Shipped outside the original phases
 
-- [x] **Goals tab**: investment property rent tracking (rolling monthly
-      ledger) + wedding fund (savings goal, spend log, countdown) — added
-      after real usage surfaced these as needed. See
+- [x] **Goals tab**: investment property rent tracking (rolling ledger,
+      fortnightly by default) + wedding fund (savings goal, spend log,
+      countdown) — added after real usage surfaced these as needed. See
       [`docs/12-feature-goals.md`](docs/12-feature-goals.md).
+- [x] **Money tab**: Expenses, Replacements, and Repayments condensed into
+      one tab with a segmented sub-nav, to stop the tab bar growing
+      unbounded as more trackers get added.
+- [x] **Dialog close fix**: every add-item sheet across the app now has a
+      visible ✕ close button and dismisses on tap-outside — previously a
+      `<dialog>` had no way to be closed on iOS short of submitting the
+      form, which is what the reported "cogwheel won't close" bug was.
 
 ## Phase 0 — Foundations ✅ (this session)
 

@@ -1,14 +1,20 @@
-import { h, mount, openSheet, closeSheet } from './dom.js';
+import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
 import { fetchRows, insertRow, updateRow, deleteRow, upsertRow } from './crud.js';
 import { formatDate, formatMoney, dueStatus, daysUntil, todayStr } from './format.js';
 import { supabase } from './supabaseClient.js';
 
 const RENT_TABLE = 'rent_payments';
 const WEDDING_TXN_TABLE = 'wedding_transactions';
+const RENT_INTERVAL_PRESETS = [
+  { label: 'Weekly', days: 7 },
+  { label: 'Fortnightly', days: 14 },
+  { label: 'Monthly', days: 30 },
+  { label: 'Custom', days: null },
+];
 
-function addMonths(dateStr, months) {
+function addDays(dateStr, days) {
   const d = new Date(dateStr + 'T00:00:00');
-  d.setMonth(d.getMonth() + months);
+  d.setDate(d.getDate() + days);
   return d.toISOString().slice(0, 10);
 }
 
@@ -52,7 +58,7 @@ async function renderRentSection(section, ctx) {
       h('div', { class: 'card-row' }, [
         h('div', {}, [
           h('h3', {}, row.property_label || 'Rent'),
-          h('div', { class: 'meta' }, `Due ${formatDate(row.due_date)}`),
+          h('div', { class: 'meta' }, `Due ${formatDate(row.due_date)} · every ${row.interval_days}d`),
         ]),
         h('div', { style: 'text-align:right' }, [
           h('div', { class: 'amount owed_to_us' }, formatMoney(row.amount, row.currency)),
@@ -67,9 +73,10 @@ async function renderRentSection(section, ctx) {
             await insertRow(RENT_TABLE, {
               household_id: ctx.household.id,
               property_label: row.property_label,
-              due_date: addMonths(row.due_date, 1),
+              due_date: addDays(row.due_date, row.interval_days),
               amount: row.amount,
               currency: row.currency,
+              interval_days: row.interval_days,
               created_by: ctx.user.id,
             });
             renderRentSection(section, ctx);
@@ -80,15 +87,20 @@ async function renderRentSection(section, ctx) {
     ]);
   }
 
-  const dialog = h('dialog', {}, []);
+  const { dialog, body } = makeSheet('Add rent period');
   const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
   const labelInput = h('input', { type: 'text', placeholder: 'e.g. 12 Smith St' });
   const dueDateInput = h('input', { type: 'date', required: true, value: todayStr() });
   const amountInput = h('input', { type: 'number', step: '0.01', min: '0', required: true, placeholder: '0.00' });
+  const customIntervalInput = h('input', { type: 'number', min: '1', placeholder: 'Days', style: 'display:none' });
+  const intervalSelect = h('select', {
+    onchange: () => { customIntervalInput.style.display = intervalSelect.value === 'custom' ? 'block' : 'none'; },
+  }, RENT_INTERVAL_PRESETS.map((p) => h('option', { value: p.days === null ? 'custom' : String(p.days), selected: p.days === 14 }, p.label)));
   const form = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       errorEl.style.display = 'none';
+      const intervalDays = intervalSelect.value === 'custom' ? parseInt(customIntervalInput.value, 10) : parseInt(intervalSelect.value, 10);
       try {
         await insertRow(RENT_TABLE, {
           household_id: ctx.household.id,
@@ -96,6 +108,7 @@ async function renderRentSection(section, ctx) {
           due_date: dueDateInput.value,
           amount: parseFloat(amountInput.value),
           currency: ctx.household.default_currency || 'AUD',
+          interval_days: intervalDays,
           created_by: ctx.user.id,
         });
         closeSheet(dialog);
@@ -106,16 +119,16 @@ async function renderRentSection(section, ctx) {
       }
     },
   }, [
-    h('h2', {}, 'Add rent period'),
     h('div', { class: 'field' }, [h('label', {}, 'Property (optional)'), labelInput]),
     h('div', { class: 'field-row' }, [
       h('div', { class: 'field' }, [h('label', {}, 'Due date'), dueDateInput]),
       h('div', { class: 'field' }, [h('label', {}, 'Amount'), amountInput]),
     ]),
+    h('div', { class: 'field' }, [h('label', {}, 'How often?'), intervalSelect, customIntervalInput]),
     errorEl,
     h('button', { class: 'btn primary', type: 'submit' }, 'Save'),
   ]);
-  mount(dialog, h('div', { class: 'sheet' }, form));
+  mount(body, form);
 
   mount(section, [
     h('button', { class: 'btn secondary small', style: 'margin-bottom:10px', onclick: () => openSheet(dialog) }, '+ Add rent period'),
@@ -186,7 +199,7 @@ async function renderWeddingSection(section, ctx, editingGoal = false) {
     return h('div', { class: 'card' }, form);
   }
 
-  const dialog = h('dialog', {}, []);
+  const { dialog, body } = makeSheet('Add wedding transaction');
   const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
   const typeSelect = h('select', {}, [
     h('option', { value: 'saved' }, 'Saved toward the fund'),
@@ -218,7 +231,6 @@ async function renderWeddingSection(section, ctx, editingGoal = false) {
       }
     },
   }, [
-    h('h2', {}, 'Add wedding transaction'),
     h('div', { class: 'field' }, [h('label', {}, 'Type'), typeSelect]),
     h('div', { class: 'field' }, [h('label', {}, 'Title'), titleInput]),
     h('div', { class: 'field-row' }, [
@@ -229,7 +241,7 @@ async function renderWeddingSection(section, ctx, editingGoal = false) {
     errorEl,
     h('button', { class: 'btn primary', type: 'submit' }, 'Save'),
   ]);
-  mount(dialog, h('div', { class: 'sheet' }, form));
+  mount(body, form);
 
   function txnCard(t) {
     return h('div', { class: 'card' }, [

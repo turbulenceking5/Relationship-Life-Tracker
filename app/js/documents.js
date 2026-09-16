@@ -1,4 +1,4 @@
-import { h, mount, openSheet, closeSheet } from './dom.js';
+import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
 import { fetchRows, insertRow, deleteRow } from './crud.js';
 import { formatDate } from './format.js';
 import { supabase } from './supabaseClient.js';
@@ -37,7 +37,7 @@ export async function render(container, ctx) {
     ]);
   }
 
-  const dialog = h('dialog', {}, []);
+  const { dialog, body } = makeSheet('Add document');
   const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
   const titleInput = h('input', { type: 'text', required: true, placeholder: 'e.g. Boiler warranty' });
   const categorySelect = h('select', {}, CATEGORIES.map((c) => h('option', { value: c }, c)));
@@ -77,7 +77,6 @@ export async function render(container, ctx) {
       }
     },
   }, [
-    h('h2', {}, 'Add document'),
     h('div', { class: 'field' }, [h('label', {}, 'Title'), titleInput]),
     h('div', { class: 'field-row' }, [
       h('div', { class: 'field' }, [h('label', {}, 'Category'), categorySelect]),
@@ -87,7 +86,7 @@ export async function render(container, ctx) {
     errorEl,
     submitBtn,
   ]);
-  mount(dialog, h('div', { class: 'sheet' }, form));
+  mount(body, form);
 
   mount(container, [
     rows.length ? h('div', {}, rows.map(card)) : h('div', { class: 'empty-state' }, 'No documents yet — warranties, contracts, receipts all live here, privately.'),

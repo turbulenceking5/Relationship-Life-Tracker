@@ -8,17 +8,21 @@ the tab bar from growing indefinitely as more one-off trackers get added.
 
 ## Investment property rent
 
-**Purpose**: know at a glance whether this month's rent has come in yet,
+**Purpose**: know at a glance whether this period's rent has come in yet,
 without maintaining a spreadsheet.
 
 - Each row is one rent period: property label (optional — useful once
-  there's more than one property), due date, amount, paid/unpaid.
+  there's more than one property), due date, amount, cadence, paid/unpaid.
+- Cadence (`interval_days`) defaults to **fortnightly** (14 days) — the
+  common case for Australian rentals — with weekly, monthly, and custom
+  presets also available, mirroring the interval picker already used for
+  [replacement items](05-feature-replacements.md).
 - **"Mark as received"** does two things in one action: marks the current
-  period paid (with today's date), and inserts *next* month's row
-  automatically (same property/amount, due date +1 month). This is what
-  makes it a rolling ledger instead of a one-off reminder — there's always
-  exactly one upcoming unpaid period waiting, without re-entering it every
-  month.
+  period paid (with today's date), and inserts the *next* period's row
+  automatically (same property/amount/cadence, due date + `interval_days`).
+  This is what makes it a rolling ledger instead of a one-off reminder —
+  there's always exactly one upcoming unpaid period waiting, without
+  re-entering it every time.
 - Unpaid periods use the same due/overdue color coding as replacements
   and repayments, and surface on the home dashboard's "What's due" when
   due soon or overdue.

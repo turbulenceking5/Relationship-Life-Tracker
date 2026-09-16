@@ -1,4 +1,4 @@
-import { h, mount, openSheet, closeSheet } from './dom.js';
+import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
 import { fetchRows, insertRow, deleteRow } from './crud.js';
 import { formatDate, formatMoney, todayStr } from './format.js';
 import { getHouseholdMembers } from './household.js';
@@ -29,7 +29,7 @@ export async function render(container, ctx) {
     ]);
   }
 
-  const dialog = h('dialog', {}, []);
+  const { dialog, body } = makeSheet('Add expense');
   const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
   const titleInput = h('input', { type: 'text', required: true, placeholder: 'e.g. Weekly shop' });
   const amountInput = h('input', { type: 'number', step: '0.01', min: '0', required: true, placeholder: '0.00' });
@@ -63,7 +63,6 @@ export async function render(container, ctx) {
       }
     },
   }, [
-    h('h2', {}, 'Add expense'),
     h('div', { class: 'field' }, [h('label', {}, 'Title'), titleInput]),
     h('div', { class: 'field-row' }, [
       h('div', { class: 'field' }, [h('label', {}, 'Amount'), amountInput]),
@@ -78,7 +77,7 @@ export async function render(container, ctx) {
     errorEl,
     h('button', { class: 'btn primary', type: 'submit' }, 'Save expense'),
   ]);
-  mount(dialog, h('div', { class: 'sheet' }, form));
+  mount(body, form);
 
   mount(container, [
     h('div', { class: 'total-banner' }, [

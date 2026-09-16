@@ -1,4 +1,4 @@
-import { h, mount, openSheet, closeSheet } from './dom.js';
+import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
 import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
 import { formatDate, formatMoney, dueStatus, todayStr } from './format.js';
 
@@ -35,7 +35,7 @@ export async function render(container, ctx) {
     ]);
   }
 
-  const dialog = h('dialog', {}, []);
+  const { dialog, body } = makeSheet('Add repayment');
   const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
   const titleInput = h('input', { type: 'text', required: true, placeholder: 'e.g. Car loan' });
   const directionSelect = h('select', {}, [
@@ -76,7 +76,6 @@ export async function render(container, ctx) {
       }
     },
   }, [
-    h('h2', {}, 'Add repayment'),
     h('div', { class: 'field' }, [h('label', {}, 'Title'), titleInput]),
     h('div', { class: 'field-row' }, [
       h('div', { class: 'field' }, [h('label', {}, 'Direction'), directionSelect]),
@@ -94,7 +93,7 @@ export async function render(container, ctx) {
     errorEl,
     h('button', { class: 'btn primary', type: 'submit' }, 'Save repayment'),
   ]);
-  mount(dialog, h('div', { class: 'sheet' }, form));
+  mount(body, form);
 
   const list = [];
   list.push(h('div', { class: 'section-title' }, 'Active'));

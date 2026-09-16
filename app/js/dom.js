@@ -36,3 +36,21 @@ export function closeSheet(dialogEl) {
   if (typeof dialogEl.close === 'function') dialogEl.close();
   else dialogEl.removeAttribute('open');
 }
+
+// A <dialog> sheet with a visible close (X) button and tap-outside-to-
+// dismiss built in. Without this, a <dialog> has no way to be dismissed
+// on iOS short of submitting the form — no Escape key, and tapping the
+// backdrop does nothing unless wired up explicitly.
+export function makeSheet(title) {
+  const dialog = h('dialog', {});
+  dialog.addEventListener('click', (e) => {
+    if (e.target === dialog) closeSheet(dialog);
+  });
+  const body = h('div', { class: 'sheet-body' });
+  const header = h('div', { class: 'sheet-header' }, [
+    h('h2', {}, title),
+    h('button', { type: 'button', class: 'sheet-close', 'aria-label': 'Close', onclick: () => closeSheet(dialog) }, '✕'),
+  ]);
+  mount(dialog, h('div', { class: 'sheet' }, [header, body]));
+  return { dialog, body };
+}

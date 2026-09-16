@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient.js';
-import { h, mount } from './dom.js';
+import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
 import { renderAuthScreen } from './auth.js';
 import { renderHouseholdScreen, getMyHousehold, renderInviteInfo } from './household.js';
 import { isStandalone, isPushSupported, getSubscriptionStatus, enablePush, disablePush } from './notifications.js';
@@ -9,9 +9,7 @@ const appEl = document.getElementById('app');
 const TABS = [
   { key: 'home', label: 'Home', icon: '🏠', mod: () => import('./home.js') },
   { key: 'events', label: 'Events', icon: '📅', mod: () => import('./events.js') },
-  { key: 'expenses', label: 'Expenses', icon: '💷', mod: () => import('./expenses.js') },
-  { key: 'replacements', label: 'Replace', icon: '🔧', mod: () => import('./replacements.js') },
-  { key: 'repayments', label: 'Repay', icon: '🤝', mod: () => import('./repayments.js') },
+  { key: 'money', label: 'Money', icon: '💰', mod: () => import('./money.js') },
   { key: 'goals', label: 'Goals', icon: '🎯', mod: () => import('./goals.js') },
   { key: 'documents', label: 'Docs', icon: '📄', mod: () => import('./documents.js') },
 ];
@@ -78,7 +76,16 @@ async function renderMainApp() {
   main.appendChild(loading);
   try {
     if (tab.key === 'home') {
-      await mod.render(main, ctx, (key) => { currentTab = key; renderMainApp(); });
+      await mod.render(main, ctx, async (key) => {
+        if (key === 'expenses' || key === 'replacements' || key === 'repayments') {
+          const moneyMod = await import('./money.js');
+          moneyMod.setActiveSub(key);
+          currentTab = 'money';
+        } else {
+          currentTab = key;
+        }
+        renderMainApp();
+      });
     } else {
       await mod.render(main, ctx);
     }
@@ -89,11 +96,10 @@ async function renderMainApp() {
 }
 
 function showAccountSheet() {
-  const dialog = h('dialog', {}, []);
+  const { dialog, body } = makeSheet('Account & household');
   const notificationsSection = h('div', { class: 'meta' }, 'Checking notification status…');
 
-  mount(dialog, h('div', { class: 'sheet' }, [
-    h('h2', {}, 'Account & household'),
+  mount(body, [
     h('p', { class: 'meta' }, ctx.user.email),
     renderInviteInfo(ctx.household),
     h('div', { class: 'section-title' }, 'Notifications'),
@@ -101,12 +107,12 @@ function showAccountSheet() {
     h('button', {
       class: 'btn secondary',
       style: 'margin-top:16px',
-      onclick: async () => { dialog.remove(); await supabase.auth.signOut(); },
+      onclick: async () => { closeSheet(dialog); await supabase.auth.signOut(); },
     }, 'Sign out'),
-  ]));
+  ]);
   document.body.appendChild(dialog);
   dialog.addEventListener('close', () => dialog.remove());
-  if (typeof dialog.showModal === 'function') dialog.showModal();
+  openSheet(dialog);
 
   renderNotificationsSection(notificationsSection);
 }

@@ -1,4 +1,4 @@
-import { h, mount, openSheet, closeSheet } from './dom.js';
+import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
 import { fetchRows, insertRow, deleteRow } from './crud.js';
 import { formatDate, todayStr } from './format.js';
 
@@ -24,7 +24,7 @@ export async function render(container, ctx) {
     ]);
   }
 
-  const dialog = h('dialog', {}, []);
+  const { dialog, body } = makeSheet('Add event');
   const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
   const titleInput = h('input', { type: 'text', required: true, placeholder: 'e.g. Sam’s birthday' });
   const dateInput = h('input', { type: 'date', required: true, value: today });
@@ -52,7 +52,6 @@ export async function render(container, ctx) {
       }
     },
   }, [
-    h('h2', {}, 'Add event'),
     h('div', { class: 'field' }, [h('label', {}, 'Title'), titleInput]),
     h('div', { class: 'field-row' }, [
       h('div', { class: 'field' }, [h('label', {}, 'Date'), dateInput]),
@@ -62,7 +61,7 @@ export async function render(container, ctx) {
     errorEl,
     h('button', { class: 'btn primary', type: 'submit' }, 'Save event'),
   ]);
-  mount(dialog, h('div', { class: 'sheet' }, form));
+  mount(body, form);
 
   const list = [
     h('div', { class: 'section-title' }, 'Upcoming'),
