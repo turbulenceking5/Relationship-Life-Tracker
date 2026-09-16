@@ -16,6 +16,19 @@ big purchases, ID scans for reference.
   since swapping a file (and generating its Storage path) is a different
   operation to updating a text field.
 - Delete a document (removes both the DB row and the Storage object).
+- Link a document to a goal (shipped, see below) via `related_type` +
+  `related_id`.
+
+## Linking to a goal (shipped)
+Uploading from within a goal (see
+[`12-feature-goals.md`](12-feature-goals.md)) sets `related_type = 'goal'`
+and `related_id = <goal id>` on the same `documents` row an ordinary
+upload creates — there's no separate table for "goal documents." The
+upload sheet itself (`openUploadDocumentSheet()` in `documents.js`) is
+shared between the top-level Docs tab and each goal, so both call sites
+stay in sync automatically. A linked document still shows in the
+top-level Docs tab, tagged "linked to `<goal title>`", so nothing
+disappears by being attached somewhere else.
 
 ## Phase 1
 - Filter by category; search by title/notes.
@@ -26,9 +39,8 @@ big purchases, ID scans for reference.
 
 ## Phase 4
 - Thumbnail previews for images/PDFs in the list.
-- Link a document to a specific replacement item / repayment / expense /
-  event via `related_type` + `related_id` (columns already exist in the
-  schema, unused until this ships).
+- Link a document to an expense or event too, the same way goals work
+  now (`related_type`/`related_id` already support any string).
 - Bulk export/download as a zip for personal backup.
 
 ## Data

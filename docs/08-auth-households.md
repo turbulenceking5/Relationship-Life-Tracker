@@ -23,9 +23,9 @@ dashboard-only setting — see `09-setup-supabase.md`).
 
 ## Households
 A **household** is the sharing boundary. Every feature row (`events`,
-`expenses`, `replacement_items`, `documents`, `rent_payments`,
-`custom_goals`, `goal_transactions`) belongs to exactly one household,
-and a user can see/edit a row only if they're a member of that household.
+`expenses`, `settlements`, `documents`, `rent_payments`, `custom_goals`,
+`goal_transactions`, `goal_tasks`) belongs to exactly one household, and
+a user can see/edit a row only if they're a member of that household.
 
 ### Who can actually see what you add
 

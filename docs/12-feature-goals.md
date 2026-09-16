@@ -28,28 +28,46 @@ target and running ledger.
   `spent` (money actually spent against the goal), each with a title,
   amount, date, and optional notes — each editable and deletable
   individually.
+- **Tasks**: a plain checklist within the goal ("book venue," "get
+  quotes"), independent of the money side — a goal can track both a
+  savings/spend ledger and a to-do list toward the same target. Each
+  task is a title and a checkbox; checking it off just flips `is_done`,
+  it doesn't get deleted or archived, so the finished list stays visible
+  (struck through) for context.
+- **Documents**: upload a file (or the same upload flow as the Docs tab)
+  scoped to this goal via the `documents` table's `related_type`/
+  `related_id` columns. A document added from within a goal also shows
+  up in the top-level Docs tab, tagged "linked to `<goal title>`" — it's
+  the same table and the same file, just filtered two different ways.
 - **Edit goal** lets you rename a goal or change its target
   amount/date, and delete the goal entirely (which cascades to its
-  transactions).
+  transactions and tasks — but not its linked documents, which stay in
+  the Docs tab, just no longer tagged as linked to anything).
 - A goal with a target date surfaces on the home dashboard's "Coming up"
   with a day countdown.
 
 ## Data
 
 Tables: `custom_goals` (one row per goal — title, target_amount,
-target_date, currency) and `goal_transactions` (saved/spent entries
-against a goal). See [`02-data-model.md`](02-data-model.md) for columns.
-Both follow the same household-scoped RLS pattern as every other table.
+target_date, currency), `goal_transactions` (saved/spent entries against
+a goal), and `goal_tasks` (checklist items, `is_done` boolean). Documents
+use the existing `documents` table via `related_type = 'goal'` and
+`related_id = <goal id>` rather than a goal-specific table. See
+[`02-data-model.md`](02-data-model.md) for columns. All follow the same
+household-scoped RLS pattern as every other table.
 
-These replaced the earlier single-purpose `wedding_fund` /
-`wedding_transactions` tables — existing wedding fund data was migrated
-into `custom_goals`/`goal_transactions` as a goal titled "Wedding Fund"
-rather than lost.
+`custom_goals`/`goal_transactions` replaced the earlier single-purpose
+`wedding_fund`/`wedding_transactions` tables — existing wedding fund data
+was migrated in as a goal titled "Wedding Fund" rather than lost.
 
 ## Possible follow-ups (not built)
 
 - Push notifications for an approaching goal target date, reusing the
   existing `notify-due-items` edge function (see
   [`11-push-notifications.md`](11-push-notifications.md)) — not wired up
-  yet.
-- Reordering goals, or pinning one open by default regardless of count.
+  yet (it currently has no active trigger table at all).
+- Reordering goals or tasks, or pinning a goal open by default regardless
+  of count.
+- Deleting a goal could optionally offer to also delete (not just
+  unlink) its documents — currently they're left in place deliberately,
+  since a document might matter even after the goal it was for is gone.

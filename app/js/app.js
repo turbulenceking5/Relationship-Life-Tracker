@@ -77,7 +77,7 @@ async function renderMainApp() {
   try {
     if (tab.key === 'home') {
       await mod.render(main, ctx, async (key) => {
-        if (key === 'expenses' || key === 'replacements' || key === 'rent') {
+        if (key === 'expenses' || key === 'rent') {
           const moneyMod = await import('./money.js');
           moneyMod.setActiveSub(key);
           currentTab = 'money';
@@ -226,7 +226,7 @@ async function renderNotificationsSection(container) {
       },
     }, label);
     mount(container, [
-      h('p', { class: 'meta' }, 'Get a push notification when a replacement item becomes due.'),
+      h('p', { class: 'meta' }, "Get a push notification for due dates. Nothing's wired up to trigger one right now."),
       btn,
       errorEl,
     ]);

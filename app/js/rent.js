@@ -76,7 +76,7 @@ export async function render(container, ctx) {
     return h('div', { class: 'card' }, [
       h('div', { class: 'card-row' }, [
         h('div', {}, [
-          h('h3', {}, row.property_label || 'Rent'),
+          h('h3', {}, row.property_label || 'BrackenRidge Rent'),
           h('div', { class: 'meta' }, `Due ${formatDate(row.due_date)} · every ${row.interval_days}d`),
         ]),
         h('div', { style: 'text-align:right' }, [
@@ -109,7 +109,7 @@ export async function render(container, ctx) {
 
   const { dialog, body } = makeSheet('Add rent period');
   const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
-  const labelInput = h('input', { type: 'text', placeholder: 'e.g. 12 Smith St' });
+  const labelInput = h('input', { type: 'text', placeholder: 'e.g. BrackenRidge' });
   const dueDateInput = h('input', { type: 'date', required: true, value: todayStr() });
   const amountInput = h('input', { type: 'number', step: '0.01', min: '0', required: true, placeholder: '0.00' });
   const customIntervalInput = h('input', { type: 'number', min: '1', placeholder: 'Days', style: 'display:none' });

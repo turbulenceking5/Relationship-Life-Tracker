@@ -1,36 +1,41 @@
-# Feature: Money tab (Expenses / Replacements / Rent)
+# Feature: Money tab (Expenses / BrackenRidge Rent)
 
 Expenses, Replacement Reminders, and (originally) Repayments were
 condensed into one **Money** tab with a segmented sub-nav after the tab
 bar grew to 7 entries (once Goals shipped) and started feeling cluttered
 on a phone-width screen. Repayments was later removed entirely (not
 relocated — see [`06-feature-repayments.md`](06-feature-repayments.md)),
-and investment property rent tracking moved here from the Goals tab, so
-the current sub-nav is Expenses / Replace / Rent.
+investment property rent tracking moved here from the Goals tab, and
+Replacement Reminders was later removed too (not relocated — see
+[`05-feature-replacements.md`](05-feature-replacements.md)), so the
+current sub-nav is just Expenses and BrackenRidge Rent.
 
 ## How it works
 
 `app/js/money.js` is a thin router, not a feature module in its own
 right:
 
-- It renders a `.segmented` control (Expenses / Replace / Rent) above a
-  content area.
+- It renders a `.segmented` control (Expenses / BrackenRidge Rent) above
+  a content area.
 - Each segment delegates straight to its own feature module —
-  `expenses.js`, `replacements.js`, `rent.js` — calling its
-  `render(container, ctx)` exactly as the top-level tab router in
-  `app.js` used to.
+  `expenses.js`, `rent.js` — calling its `render(container, ctx)` exactly
+  as the top-level tab router in `app.js` used to.
 - `activeSub` is module-level state (same pattern as `currentTab` in
   `app.js`), so it's remembered for as long as the page stays loaded, but
   always starts back on "Expenses" after a full reload.
+- The segment label is a literal string — "BrackenRidge Rent" rather than
+  a generic "Rent" — since this household tracks a single specific
+  property. If a second property is ever added, this label (and the
+  per-row `property_label` fallback text in `rent.js`/`home.js`) should
+  go back to something generic.
 
 Nothing about the underlying modules is money.js-specific — they're
 unaware they're not top-level tabs. This is deliberate: it keeps the
 condensation reversible (splitting them back into separate tabs later is
 just an `app.js` TABS-array change) and means their own docs
-([`04-feature-expenses.md`](04-feature-expenses.md),
-[`05-feature-replacements.md`](05-feature-replacements.md)) still
-describe their behavior accurately. `rent.js` was extracted from the old
-Goals tab into a standalone module with the same shape.
+([`04-feature-expenses.md`](04-feature-expenses.md)) still describe
+their behavior accurately. `rent.js` was extracted from the old Goals tab
+into a standalone module with the same shape.
 
 ## Home dashboard links
 
@@ -41,7 +46,7 @@ Expenses). This works via `money.js` exporting `setActiveSub(key)`, which
 `money` tab:
 
 ```js
-if (key === 'expenses' || key === 'replacements' || key === 'rent') {
+if (key === 'expenses' || key === 'rent') {
   const moneyMod = await import('./money.js');
   moneyMod.setActiveSub(key);
   currentTab = 'money';

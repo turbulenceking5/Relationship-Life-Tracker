@@ -1,15 +1,25 @@
-# Push notifications (Phase 2, shipped)
+# Push notifications (Phase 2, shipped — currently has no active trigger)
 
-Due-date reminders for replacement items, delivered as a real push
-notification — not just something you'd see if you happened to open the
-app.
+Due-date reminders delivered as a real push notification — not just
+something you'd see if you happened to open the app. The plumbing
+(subscribe/unsubscribe, the daily cron, the edge function, showing the
+notification) is all shipped and working; what's currently missing is
+anything for it to scan. It originally watched `replacement_items`, then
+also `repayments` — both features have since been removed entirely (see
+[`05-feature-replacements.md`](05-feature-replacements.md) and
+[`06-feature-repayments.md`](06-feature-repayments.md)), so the function
+runs daily and sends nothing. Re-wiring it to a still-live due-date
+source (`rent_payments.due_date`, `custom_goals.target_date`) is a
+possible follow-up noted in [`12-feature-goals.md`](12-feature-goals.md)
+and [`13-feature-money-tab.md`](13-feature-money-tab.md) — it isn't done
+yet.
 
 ## Why this exists
 
-A replacement tracker that requires you to remember to open it defeats
-its own purpose (see [`10-suggestions.md`](10-suggestions.md), #2).
-iOS 16.4+ supports Web Push for home-screen-installed PWAs, so this is
-achievable without a native app.
+A tracker that requires you to remember to open it defeats its own
+purpose (see [`10-suggestions.md`](10-suggestions.md), #2). iOS 16.4+
+supports Web Push for home-screen-installed PWAs, so this is achievable
+without a native app.
 
 ## How it works
 
@@ -21,11 +31,12 @@ Edge Function: notify-due-items
    │  1. Reads its own VAPID keys + the shared secret from Vault
    │     (via the SECURITY DEFINER function get_edge_secrets(), which
    │     only service_role may call)
-   │  2. Finds replacement_items due today or overdue that haven't been
-   │     notified about yet today
+   │  2. Currently: no due-date source is queried, so this list is
+   │     always empty — see the note at the top of this doc.
    │  3. Looks up push_subscriptions for each affected household
    │  4. Sends a Web Push message to each subscription (npm:web-push)
-   │  5. Marks last_notified_date and drops dead subscriptions (410/404)
+   │  5. Marks last_notified_date (on whatever table is wired up) and
+   │     drops dead subscriptions (410/404)
    ▼
 Service worker (app/service-worker.js)
    │  'push' event → shows a native notification
@@ -111,10 +122,9 @@ generating your own keys:
   verified (see the function's own logs / the `sent`/`failed` counts it
   returns); the last mile (does it actually pop up on the lock screen) can
   only be confirmed by installing the app on a phone and trying it.
-- Only replacement items trigger notifications, matching the roadmap's
-  Phase 2 scope — events don't (see
-  [`03-feature-events.md`](03-feature-events.md), listed as a possible
-  later addition once there's a home dashboard to centralize "coming up"
-  logic).
+- Nothing currently triggers a notification (see the note at the top) —
+  events don't either (see [`03-feature-events.md`](03-feature-events.md),
+  listed as a possible later addition once there's a home dashboard to
+  centralize "coming up" logic).
 - No user-facing digest/quiet-hours settings yet (roadmap Phase 2 also
   lists a digest option as a nice-to-have, not yet built).

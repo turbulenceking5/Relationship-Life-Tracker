@@ -1,8 +1,9 @@
 // Scheduled by pg_cron (see supabase/migrations/0004_schedule_notifications.sql)
-// once a day. Finds replacement items that are due today or overdue, sends
-// a web push notification to every member of the relevant household, and
-// records last_notified_date so the same item doesn't notify twice on the
-// same day.
+// once a day. Currently has no active trigger table to scan (Replacements
+// and Repayments — the two features that used to feed this — have both
+// been removed); it still runs daily and sends nothing. See
+// docs/11-push-notifications.md for how to wire a new due-date source
+// (rent_payments, custom_goals.target_date) back into it.
 //
 // Auth: this function does NOT use Supabase JWT verification (it's
 // deployed with verify_jwt = false) because its only caller is the
@@ -30,23 +31,9 @@ Deno.serve(async (req: Request) => {
 
   webpush.setVapidDetails(secrets.vapid_subject, secrets.vapid_public_key, secrets.vapid_private_key);
 
-  const today = new Date().toISOString().slice(0, 10);
   const notifications: { household_id: string; title: string; body: string }[] = [];
 
-  const { data: dueReplacements } = await admin
-    .from("replacement_items")
-    .select("id, household_id, name, next_due_date, last_notified_date")
-    .lte("next_due_date", today);
-
-  for (const item of dueReplacements ?? []) {
-    if (item.last_notified_date === today) continue;
-    notifications.push({
-      household_id: item.household_id,
-      title: "Replacement due",
-      body: `${item.name} is due for replacement.`,
-    });
-    await admin.from("replacement_items").update({ last_notified_date: today }).eq("id", item.id);
-  }
+  // No due-date source is currently wired up — see the file header comment.
 
   let sent = 0;
   let failed = 0;

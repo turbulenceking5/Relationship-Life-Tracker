@@ -17,10 +17,10 @@ auth.users (Supabase-managed)
  households ──1:N── events                            │
      │        ──1:N── expenses ─────────── paid_by ───┤
      │        ──1:N── settlements ── from_user/to_user ┘
-     │        ──1:N── replacement_items
      │        ──1:N── rent_payments
      │        ──1:N── custom_goals ──1:N── goal_transactions
-     │        ──1:N── documents
+     │                             ──1:N── goal_tasks
+     │        ──1:N── documents ── related_type/related_id ──▶ (goal, optionally)
      │
      └──1:N── household_members (join table to auth.users)
 ```
@@ -112,28 +112,6 @@ the running "who owes who" balance.
 | `created_by` | uuid → auth.users | |
 | `created_at` | timestamptz | |
 
-### `replacement_items`
-The "tap filter" use case — physical things replaced on a cadence.
-
-| column | type | notes |
-|---|---|---|
-| `id` | uuid PK | |
-| `household_id` | uuid → households | |
-| `name` | text | e.g. "Tap water filter" |
-| `category` | text | e.g. `kitchen`, `safety`, `car` |
-| `last_replaced_date` | date | default today |
-| `interval_days` | integer | required, e.g. 90 |
-| `next_due_date` | date | **generated column** = `last_replaced_date + interval_days` |
-| `last_notified_date` | date | set by the push-notification job, see below |
-| `notes` | text | optional |
-| `created_by` | uuid → auth.users | |
-| `created_at` / `updated_at` | timestamptz | |
-
-`next_due_date` is computed by Postgres automatically — the app only ever
-writes `last_replaced_date` and `interval_days`. `last_notified_date` is
-written only by the `notify-due-items` edge function
-([`11-push-notifications.md`](11-push-notifications.md)), never by the app.
-
 ### `documents`
 Metadata row; the actual file lives in Supabase Storage under the
 `documents` bucket at `documents/{household_id}/{uuid}-{filename}`.
@@ -147,16 +125,17 @@ Metadata row; the actual file lives in Supabase Storage under the
 | `file_path` | text | Storage object path |
 | `file_name` | text | original filename |
 | `mime_type` | text | |
-| `related_type` | text | optional: `replacement_item` \| `expense` \| `event` \| `goal` |
+| `related_type` | text | optional: `goal` (only value currently wired up; `expense` \| `event` reserved for later) |
 | `related_id` | uuid | optional FK-by-convention to the row above |
 | `expiry_date` | date | optional, for things like insurance |
 | `notes` | text | optional |
 | `uploaded_by` | uuid → auth.users | |
 | `created_at` | timestamptz | |
 
-`related_type`/`related_id` are a loose polymorphic reference (Phase 4
-feature — "attach this warranty to this replacement item"). It's nullable
-and unused until that UI ships, so it costs nothing to have now.
+`related_type`/`related_id` are a loose polymorphic reference — see
+[`07-feature-documents.md`](07-feature-documents.md) for the shipped
+goal-linking use of it, and [`12-feature-goals.md`](12-feature-goals.md)
+for how a goal surfaces its linked documents.
 
 ### `push_subscriptions`
 One row per browser/device Web Push subscription. See
@@ -218,6 +197,21 @@ goal (any number per household — a wedding fund, a holiday fund, etc.).
 | `amount` | numeric(12,2) | |
 | `transaction_date` | date | default today |
 | `notes` | text | optional |
+| `created_by` | uuid → auth.users | |
+| `created_at` | timestamptz | |
+
+### `goal_tasks`
+See [`12-feature-goals.md`](12-feature-goals.md). A plain checklist item
+within a goal — independent of `goal_transactions`, since a goal can
+track a to-do list and a money ledger at the same time.
+
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `goal_id` | uuid → custom_goals, on delete cascade | |
+| `household_id` | uuid → households | |
+| `title` | text | required |
+| `is_done` | boolean | default false |
 | `created_by` | uuid → auth.users | |
 | `created_at` | timestamptz | |
 

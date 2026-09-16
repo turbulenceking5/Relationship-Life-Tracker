@@ -1,10 +1,9 @@
 # Relationship Life Tracker
 
-A shared app for two partners to track life events, expenses, replacement
-reminders (tap filters, smoke alarm batteries, anything on a cycle),
-investment property rent, savings/spending goals, and reference documents
-(warranties, contracts, receipts) — all in one place, kept in sync between
-both of you.
+A shared app for two partners to track life events, expenses (with a
+configurable "who owes who" balance), investment property rent, and
+savings/spending goals — each with its own tasks and linked documents —
+all in one place, kept in sync between both of you.
 
 It's a **Progressive Web App**: install it on your iPhone straight from
 Safari (Share → Add to Home Screen), no App Store needed. Data is shared

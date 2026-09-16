@@ -1,8 +1,12 @@
-# Feature: Replacement Reminders
+# Feature: Replacement Reminders (REMOVED)
 
-> Now one of three sections in the "Money" tab, not its own top-level
-> tab — see [`13-feature-money-tab.md`](13-feature-money-tab.md). Nothing
-> about this feature's own behavior changed.
+> This feature was removed entirely (not relocated) — see
+> [`13-feature-money-tab.md`](13-feature-money-tab.md), whose Money tab
+> now has just Expenses and BrackenRidge Rent. The `replacement_items`
+> table and the `app/js/replacements.js` module are both gone (no data
+> existed in it — 0 rows — so it was a clean drop). The rest of this file
+> is kept for historical record-keeping only; nothing below reflects the
+> current app.
 
 ## Purpose
 The "did we change the tap filter yet?" problem. Track physical things

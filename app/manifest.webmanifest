@@ -1,7 +1,7 @@
 {
   "name": "Relationship Life Tracker",
   "short_name": "Life Tracker",
-  "description": "Track shared events, expenses, replacement reminders, goals and documents with your partner.",
+  "description": "Track shared events, expenses, rent, and goals with tasks and documents with your partner.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

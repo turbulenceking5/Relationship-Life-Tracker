@@ -12,9 +12,8 @@ function gradientClass(seed) {
 }
 
 export async function render(container, ctx, navigate) {
-  const [events, replacements, rentPayments, goals] = await Promise.all([
+  const [events, rentPayments, goals] = await Promise.all([
     fetchRows('events', ctx.household.id, 'event_date', true),
-    fetchRows('replacement_items', ctx.household.id, 'next_due_date', true),
     fetchRows('rent_payments', ctx.household.id, 'due_date', true),
     fetchRows('custom_goals', ctx.household.id, 'target_date', true),
   ]);
@@ -25,7 +24,6 @@ export async function render(container, ctx, navigate) {
     .filter((e) => e._next >= today)
     .sort((a, b) => (a._next < b._next ? -1 : 1))
     .slice(0, 3);
-  const dueReplacements = replacements.filter((r) => dueStatus(r.next_due_date).cls !== 'ok').slice(0, 5);
   const dueRent = rentPayments.filter((r) => !r.paid && dueStatus(r.due_date).cls !== 'ok').slice(0, 5);
   const goalsWithDates = goals.filter((g) => g.target_date);
 
@@ -42,13 +40,9 @@ export async function render(container, ctx, navigate) {
   }
 
   const dueItems = [
-    ...dueReplacements.map((r) => {
-      const s = dueStatus(r.next_due_date);
-      return row('🔧', r.name, `Replacement · ${formatDate(r.next_due_date)}`, h('span', { class: `pill ${s.cls}` }, s.label), () => navigate('replacements'));
-    }),
     ...dueRent.map((r) => {
       const s = dueStatus(r.due_date);
-      return row('🏠', r.property_label || 'Rent', `Rent due · ${formatMoney(r.amount, r.currency)}`, h('span', { class: `pill ${s.cls}` }, s.label), () => navigate('rent'));
+      return row('🏠', r.property_label || 'BrackenRidge Rent', `Rent due · ${formatMoney(r.amount, r.currency)}`, h('span', { class: `pill ${s.cls}` }, s.label), () => navigate('rent'));
     }),
   ];
 

@@ -2,8 +2,7 @@ import { h, mount } from './dom.js';
 
 const SUB_TABS = [
   { key: 'expenses', label: 'Expenses', mod: () => import('./expenses.js') },
-  { key: 'replacements', label: 'Replace', mod: () => import('./replacements.js') },
-  { key: 'rent', label: 'Rent', mod: () => import('./rent.js') },
+  { key: 'rent', label: 'BrackenRidge Rent', mod: () => import('./rent.js') },
 ];
 
 let activeSub = 'expenses';

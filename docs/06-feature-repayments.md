@@ -1,11 +1,10 @@
 # Feature: Repayments (REMOVED)
 
 > This feature was removed entirely (not relocated) — see
-> [`13-feature-money-tab.md`](13-feature-money-tab.md), whose Money tab
-> now has Expenses / Replace / Rent instead. The `repayments` table and
-> the `app/js/repayments.js` module are both gone. The rest of this file
-> is kept for historical record-keeping only; nothing below reflects the
-> current app.
+> [`13-feature-money-tab.md`](13-feature-money-tab.md) for what the Money
+> tab has instead. The `repayments` table and the `app/js/repayments.js`
+> module are both gone. The rest of this file is kept for historical
+> record-keeping only; nothing below reflects the current app.
 
 ## Purpose
 Track money owed — by you or to you — separately from day-to-day
