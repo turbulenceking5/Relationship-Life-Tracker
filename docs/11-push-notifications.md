@@ -1,13 +1,13 @@
 # Push notifications (Phase 2, shipped)
 
-Due-date reminders for replacement items and active repayments, delivered
-as a real push notification — not just something you'd see if you happened
-to open the app.
+Due-date reminders for replacement items, delivered as a real push
+notification — not just something you'd see if you happened to open the
+app.
 
 ## Why this exists
 
-A replacement/repayment tracker that requires you to remember to open it
-defeats its own purpose (see [`10-suggestions.md`](10-suggestions.md), #2).
+A replacement tracker that requires you to remember to open it defeats
+its own purpose (see [`10-suggestions.md`](10-suggestions.md), #2).
 iOS 16.4+ supports Web Push for home-screen-installed PWAs, so this is
 achievable without a native app.
 
@@ -21,8 +21,8 @@ Edge Function: notify-due-items
    │  1. Reads its own VAPID keys + the shared secret from Vault
    │     (via the SECURITY DEFINER function get_edge_secrets(), which
    │     only service_role may call)
-   │  2. Finds replacement_items / active repayments due today or overdue
-   │     that haven't been notified about yet today
+   │  2. Finds replacement_items due today or overdue that haven't been
+   │     notified about yet today
    │  3. Looks up push_subscriptions for each affected household
    │  4. Sends a Web Push message to each subscription (npm:web-push)
    │  5. Marks last_notified_date and drops dead subscriptions (410/404)
@@ -111,8 +111,8 @@ generating your own keys:
   verified (see the function's own logs / the `sent`/`failed` counts it
   returns); the last mile (does it actually pop up on the lock screen) can
   only be confirmed by installing the app on a phone and trying it.
-- Only replacement items and repayments trigger notifications, matching
-  the roadmap's Phase 2 scope — events don't (see
+- Only replacement items trigger notifications, matching the roadmap's
+  Phase 2 scope — events don't (see
   [`03-feature-events.md`](03-feature-events.md), listed as a possible
   later addition once there's a home dashboard to centralize "coming up"
   logic).

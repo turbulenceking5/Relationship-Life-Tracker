@@ -11,8 +11,8 @@ to show without extra signup steps.
 
 ## Households
 A **household** is the sharing boundary. Every feature row (`events`,
-`expenses`, `replacement_items`, `repayments`, `documents`, `rent_payments`,
-`wedding_fund`, `wedding_transactions`) belongs to exactly one household,
+`expenses`, `replacement_items`, `documents`, `rent_payments`,
+`custom_goals`, `goal_transactions`) belongs to exactly one household,
 and a user can see/edit a row only if they're a member of that household.
 
 ### Who can actually see what you add

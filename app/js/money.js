@@ -3,7 +3,7 @@ import { h, mount } from './dom.js';
 const SUB_TABS = [
   { key: 'expenses', label: 'Expenses', mod: () => import('./expenses.js') },
   { key: 'replacements', label: 'Replace', mod: () => import('./replacements.js') },
-  { key: 'repayments', label: 'Repay', mod: () => import('./repayments.js') },
+  { key: 'rent', label: 'Rent', mod: () => import('./rent.js') },
 ];
 
 let activeSub = 'expenses';

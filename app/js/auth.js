@@ -78,7 +78,7 @@ export function renderAuthScreen(container) {
 
     mount(container, h('div', { class: 'auth-screen' }, [
       h('h1', {}, 'Life Tracker'),
-      h('p', { class: 'lead' }, 'Shared events, expenses, replacement reminders, repayments and documents — for you and your partner.'),
+      h('p', { class: 'lead' }, 'Shared events, expenses, replacement reminders, goals and documents — for you and your partner.'),
       noticeEl,
       form,
       switchBtn,

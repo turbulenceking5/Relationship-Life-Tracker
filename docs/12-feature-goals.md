@@ -1,67 +1,54 @@
-# Feature: Goals (rent tracking + wedding fund)
+# Feature: Goals
 
-Added after the MVP shipped, in response to two specific asks that didn't
-fit neatly into the existing feature areas: tracking rent income from an
-investment property, and tracking savings/spend toward a wedding. Both
-live together under one "Goals" tab rather than as two more tabs, to keep
-the tab bar from growing indefinitely as more one-off trackers get added.
+> Rent tracking moved to the "Money" tab (see
+> [`13-feature-money-tab.md`](13-feature-money-tab.md)) and Repayments was
+> removed entirely. This tab was reworked from a single hardcoded "wedding
+> fund" tracker into a generic system: create any number of named goals,
+> each its own collapsible section.
 
-## Investment property rent
+## Purpose
 
-**Purpose**: know at a glance whether this period's rent has come in yet,
-without maintaining a spreadsheet.
+A place for open-ended savings/spending goals that don't fit the
+day-to-day Expenses tab — a wedding fund, a holiday fund, a house
+deposit, whatever either partner wants to track separately with its own
+target and running ledger.
 
-- Each row is one rent period: property label (optional — useful once
-  there's more than one property), due date, amount, cadence, paid/unpaid.
-- Cadence (`interval_days`) defaults to **fortnightly** (14 days) — the
-  common case for Australian rentals — with weekly, monthly, and custom
-  presets also available, mirroring the interval picker already used for
-  [replacement items](05-feature-replacements.md).
-- **"Mark as received"** does two things in one action: marks the current
-  period paid (with today's date), and inserts the *next* period's row
-  automatically (same property/amount/cadence, due date + `interval_days`).
-  This is what makes it a rolling ledger instead of a one-off reminder —
-  there's always exactly one upcoming unpaid period waiting, without
-  re-entering it every time.
-- Unpaid periods use the same due/overdue color coding as replacements
-  and repayments, and surface on the home dashboard's "What's due" when
-  due soon or overdue.
-
-## Wedding fund
-
-**Purpose**: a savings goal (target amount + date) plus a running log of
-money saved toward it and money spent on it — not the same thing as the
-household's day-to-day Expenses tab, since wedding costs are earmarked
-against a specific goal rather than general spending.
-
-- One goal per household: wedding date + target amount. Editable any time
-  via "Edit goal".
+- **+ Add goal** creates a new goal: a title, and an optional target
+  amount and target date (either or both can be left blank — a goal
+  doesn't need a number or a date to be worth tracking).
+- Each goal renders as its own collapsible `<details>` section, titled
+  with the goal's name. When there's exactly one goal it starts expanded;
+  with more than one, they start collapsed so the tab stays scannable as
+  goals accumulate.
+- Inside a goal: target amount (if set), saved so far, spent so far, and
+  remaining-to-save (`target − saved`, floored at zero — spending doesn't
+  reduce what's already been saved). If a target date is set, a countdown
+  banner shows above the summary.
 - Transactions are typed `saved` (money set aside toward the target) or
-  `spent` (money actually spent on the wedding). The summary card shows
-  target, saved so far, spent so far, and remaining-to-save
-  (`target − saved`, floored at zero) — spent isn't subtracted from
-  saved, since money can be spent from what's already been saved without
-  changing how much more there is left to save toward the target.
-- The wedding date shows a day countdown, and surfaces on the home
-  dashboard's "Coming up" once a date is set.
+  `spent` (money actually spent against the goal), each with a title,
+  amount, date, and optional notes.
+- **Edit goal** lets you rename a goal or change its target
+  amount/date, and delete the goal entirely (which cascades to its
+  transactions).
+- A goal with a target date surfaces on the home dashboard's "Coming up"
+  with a day countdown.
 
 ## Data
 
-New tables: `rent_payments`, `wedding_fund` (one settings row per
-household), `wedding_transactions`. See
-[`02-data-model.md`](02-data-model.md) for columns. All follow the same
-household-scoped RLS pattern as every other table.
+Tables: `custom_goals` (one row per goal — title, target_amount,
+target_date, currency) and `goal_transactions` (saved/spent entries
+against a goal). See [`02-data-model.md`](02-data-model.md) for columns.
+Both follow the same household-scoped RLS pattern as every other table.
+
+These replaced the earlier single-purpose `wedding_fund` /
+`wedding_transactions` tables — existing wedding fund data was migrated
+into `custom_goals`/`goal_transactions` as a goal titled "Wedding Fund"
+rather than lost.
 
 ## Possible follow-ups (not built)
 
-- Multiple named properties with per-property rent history (schema
-  already supports it loosely via the free-text `property_label`; a
-  dedicated `properties` table would be the next step if this grows
-  past one property).
-- Push notifications for overdue rent, reusing the existing
-  `notify-due-items` edge function (see
+- Push notifications for an approaching goal target date, reusing the
+  existing `notify-due-items` edge function (see
   [`11-push-notifications.md`](11-push-notifications.md)) — not wired up
-  yet, since that function currently only scans `replacement_items` and
-  `repayments`.
-- A "snooze"/partial-payment concept for rent, mirroring the ideas
-  already listed for repayments in [`06-feature-repayments.md`](06-feature-repayments.md).
+  yet.
+- Reordering goals, or pinning one open by default regardless of count.

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'life-tracker-v5';
+const CACHE_NAME = 'life-tracker-v6';
 const APP_SHELL = [
   './',
   'index.html',
@@ -19,7 +19,7 @@ const APP_SHELL = [
   'js/money.js',
   'js/expenses.js',
   'js/replacements.js',
-  'js/repayments.js',
+  'js/rent.js',
   'js/goals.js',
   'js/documents.js',
   'js/home.js',

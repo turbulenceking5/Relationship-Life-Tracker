@@ -17,7 +17,8 @@ auth.users (Supabase-managed)
  households ──1:N── events                            │
      │        ──1:N── expenses ─────────── paid_by ───┘
      │        ──1:N── replacement_items
-     │        ──1:N── repayments
+     │        ──1:N── rent_payments
+     │        ──1:N── custom_goals ──1:N── goal_transactions
      │        ──1:N── documents
      │
      └──1:N── household_members (join table to auth.users)
@@ -112,26 +113,6 @@ writes `last_replaced_date` and `interval_days`. `last_notified_date` is
 written only by the `notify-due-items` edge function
 ([`11-push-notifications.md`](11-push-notifications.md)), never by the app.
 
-### `repayments`
-| column | type | notes |
-|---|---|---|
-| `id` | uuid PK | |
-| `household_id` | uuid → households | |
-| `title` | text | e.g. "Car loan", "Owed to Mum" |
-| `direction` | text | `owed_by_us` \| `owed_to_us` |
-| `counterparty` | text | who the money is between |
-| `total_amount` | numeric(12,2) | |
-| `remaining_amount` | numeric(12,2) | |
-| `currency` | text | default `AUD` |
-| `due_date` | date | optional |
-| `recurring` | boolean | default false |
-| `frequency` | text | e.g. `monthly`, only if recurring |
-| `status` | text | `active` \| `paid` \| `overdue` \| `cancelled` |
-| `notes` | text | optional |
-| `last_notified_date` | date | set by the push-notification job |
-| `created_by` | uuid → auth.users | |
-| `created_at` / `updated_at` | timestamptz | |
-
 ### `documents`
 Metadata row; the actual file lives in Supabase Storage under the
 `documents` bucket at `documents/{household_id}/{uuid}-{filename}`.
@@ -145,7 +126,7 @@ Metadata row; the actual file lives in Supabase Storage under the
 | `file_path` | text | Storage object path |
 | `file_name` | text | original filename |
 | `mime_type` | text | |
-| `related_type` | text | optional: `replacement_item` \| `repayment` \| `expense` \| `event` |
+| `related_type` | text | optional: `replacement_item` \| `expense` \| `event` \| `goal` |
 | `related_id` | uuid | optional FK-by-convention to the row above |
 | `expiry_date` | date | optional, for things like insurance |
 | `notes` | text | optional |
@@ -171,8 +152,9 @@ push-notification design.
 | `created_at` | timestamptz | |
 
 ### `rent_payments`
-See [`12-feature-goals.md`](12-feature-goals.md). One row per rent
-period; "mark as received" inserts the next period's row automatically.
+See [`13-feature-money-tab.md`](13-feature-money-tab.md) (surfaced via the
+Money tab's Rent segment). One row per rent period; "mark as received"
+inserts the next period's row automatically.
 
 | column | type | notes |
 |---|---|---|
@@ -189,21 +171,26 @@ period; "mark as received" inserts the next period's row automatically.
 | `created_by` | uuid → auth.users | |
 | `created_at` / `updated_at` | timestamptz | |
 
-### `wedding_fund`
-One row per household (PK is `household_id` itself, not a separate `id`).
+### `custom_goals`
+See [`12-feature-goals.md`](12-feature-goals.md). One row per user-created
+goal (any number per household — a wedding fund, a holiday fund, etc.).
 
-| column | type | notes |
-|---|---|---|
-| `household_id` | uuid PK, → households | |
-| `wedding_date` | date | optional |
-| `target_amount` | numeric(12,2) | optional |
-| `currency` | text | default `AUD` |
-| `updated_at` | timestamptz | |
-
-### `wedding_transactions`
 | column | type | notes |
 |---|---|---|
 | `id` | uuid PK | |
+| `household_id` | uuid → households | |
+| `title` | text | required, e.g. "Wedding Fund" |
+| `target_amount` | numeric(12,2) | optional |
+| `target_date` | date | optional |
+| `currency` | text | default `AUD` |
+| `created_by` | uuid → auth.users | |
+| `created_at` / `updated_at` | timestamptz | |
+
+### `goal_transactions`
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `goal_id` | uuid → custom_goals, on delete cascade | |
 | `household_id` | uuid → households | |
 | `type` | text | `saved` \| `spent` |
 | `title` | text | required |

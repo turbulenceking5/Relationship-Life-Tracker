@@ -10,8 +10,10 @@ that's easy to lose track of:
 - **Replacements** — physical things that need swapping on a schedule
   (fridge water filter, tap filter, smoke alarm batteries, air filters)
   with a "next due" date computed from the last time it was done.
-- **Repayments** — money owed by you or to you (loans, informal IOUs,
-  instalment plans) with due dates and status.
+- **Rent** — tracking rent income from an investment property as a
+  rolling ledger of due/paid periods.
+- **Goals** — open-ended savings/spending trackers (a wedding fund, a
+  holiday fund, etc.), each with its own target and transaction log.
 - **Documents** — PDFs/photos of warranties, contracts, receipts, kept for
   future reference and optionally linked to the item they're about.
 
@@ -40,14 +42,14 @@ backend is configured.
 | [`03-feature-events.md`](03-feature-events.md) | Events feature spec |
 | [`04-feature-expenses.md`](04-feature-expenses.md) | Expenses feature spec (now a section of the Money tab) |
 | [`05-feature-replacements.md`](05-feature-replacements.md) | Replacement reminders spec (now a section of the Money tab) |
-| [`06-feature-repayments.md`](06-feature-repayments.md) | Repayments/loans spec (now a section of the Money tab) |
+| [`06-feature-repayments.md`](06-feature-repayments.md) | Repayments/loans spec (REMOVED — kept for history) |
 | [`07-feature-documents.md`](07-feature-documents.md) | Document storage spec |
 | [`08-auth-households.md`](08-auth-households.md) | Accounts, households, invite codes, permissions |
 | [`09-setup-supabase.md`](09-setup-supabase.md) | Backend setup, running the app locally |
 | [`10-suggestions.md`](10-suggestions.md) | Ideas to make the app better, with rationale |
 | [`11-push-notifications.md`](11-push-notifications.md) | How due-date push notifications work |
-| [`12-feature-goals.md`](12-feature-goals.md) | Rent tracking + wedding fund (the "Goals" tab) |
-| [`13-feature-money-tab.md`](13-feature-money-tab.md) | Why/how Expenses, Replacements and Repayments were condensed into one "Money" tab |
+| [`12-feature-goals.md`](12-feature-goals.md) | User-created savings/spending goals (the "Goals" tab) |
+| [`13-feature-money-tab.md`](13-feature-money-tab.md) | Why/how Expenses, Replacements and Rent are condensed into one "Money" tab |
 | [`14-ui-patterns.md`](14-ui-patterns.md) | UI conventions to follow when adding a new screen or form |
 | [`15-development-testing.md`](15-development-testing.md) | How to test changes locally without touching real data |
 

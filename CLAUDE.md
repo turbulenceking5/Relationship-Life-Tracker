@@ -1,9 +1,9 @@
 # Relationship Life Tracker
 
 A shared PWA for two partners to track life events, expenses, replacement
-reminders, repayments, an investment property's rent, a wedding fund, and
-reference documents. No build step — plain HTML/CSS/JS, deployed to
-GitHub Pages, backed by a dedicated Supabase project.
+reminders, an investment property's rent, user-created savings/spending
+goals, and reference documents. No build step — plain HTML/CSS/JS,
+deployed to GitHub Pages, backed by a dedicated Supabase project.
 
 **Start here**: [`ROADMAP.md`](ROADMAP.md) for status/phases, then
 [`docs/00-overview.md`](docs/00-overview.md) for the full docs index.
