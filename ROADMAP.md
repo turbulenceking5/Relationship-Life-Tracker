@@ -29,9 +29,10 @@ schema.
 
 ## Phase 1 — Make it genuinely usable day-to-day
 
-- [ ] Home dashboard: "due this week" feed merging replacements +
-      repayments + upcoming events in one glance
-- [ ] Edit/delete flows for every record type (MVP ships create + list;
+- [x] Home dashboard: "what's due" feed merging replacements + repayments
+      due/overdue, plus upcoming events, in one glance
+- [ ] Edit/delete flows for every record type (MVP ships create, list, and
+      delete for everything, plus mark-replaced/mark-paid; full field
       editing is the next priority)
 - [ ] Search and category filters across expenses/documents
 - [ ] Sort/group expenses by month, category, who paid
@@ -40,10 +41,11 @@ schema.
 
 ## Phase 2 — Reminders that actually reach you
 
-- [ ] Web Push notifications (iOS 16.4+ supports this for home-screen PWAs)
-      for replacement due dates and repayment due dates
-- [ ] Overdue escalation (a repayment or replacement that's late gets
-      surfaced more insistently, not just listed)
+- [x] Web Push notifications (iOS 16.4+ supports this for home-screen PWAs)
+      for replacement due dates and repayment due dates — see
+      [`docs/11-push-notifications.md`](docs/11-push-notifications.md)
+- [x] Overdue escalation — a daily repeat notification for as long as an
+      item stays overdue (simple form of escalation; no separate tiers yet)
 - [ ] Recurring expenses (rent, subscriptions) that auto-log each period
 - [ ] Document expiry alerts (insurance, warranties, contracts)
 - [ ] Digest option: a daily/weekly summary instead of per-item pings

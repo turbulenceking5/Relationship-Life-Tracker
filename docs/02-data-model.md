@@ -93,12 +93,15 @@ The "tap filter" use case — physical things replaced on a cadence.
 | `last_replaced_date` | date | default today |
 | `interval_days` | integer | required, e.g. 90 |
 | `next_due_date` | date | **generated column** = `last_replaced_date + interval_days` |
+| `last_notified_date` | date | set by the push-notification job, see below |
 | `notes` | text | optional |
 | `created_by` | uuid → auth.users | |
 | `created_at` / `updated_at` | timestamptz | |
 
 `next_due_date` is computed by Postgres automatically — the app only ever
-writes `last_replaced_date` and `interval_days`.
+writes `last_replaced_date` and `interval_days`. `last_notified_date` is
+written only by the `notify-due-items` edge function
+([`11-push-notifications.md`](11-push-notifications.md)), never by the app.
 
 ### `repayments`
 | column | type | notes |
@@ -116,6 +119,7 @@ writes `last_replaced_date` and `interval_days`.
 | `frequency` | text | e.g. `monthly`, only if recurring |
 | `status` | text | `active` \| `paid` \| `overdue` \| `cancelled` |
 | `notes` | text | optional |
+| `last_notified_date` | date | set by the push-notification job |
 | `created_by` | uuid → auth.users | |
 | `created_at` / `updated_at` | timestamptz | |
 
@@ -142,6 +146,20 @@ Metadata row; the actual file lives in Supabase Storage under the
 `related_type`/`related_id` are a loose polymorphic reference (Phase 4
 feature — "attach this warranty to this replacement item"). It's nullable
 and unused until that UI ships, so it costs nothing to have now.
+
+### `push_subscriptions`
+One row per browser/device Web Push subscription. See
+[`11-push-notifications.md`](11-push-notifications.md) for the full
+push-notification design.
+
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `household_id` | uuid → households | denormalized for a single-query lookup of "who to notify" |
+| `user_id` | uuid → auth.users | |
+| `endpoint` | text, unique | the push service URL the browser gave us |
+| `p256dh` / `auth_key` | text | the subscription's encryption keys |
+| `created_at` | timestamptz | |
 
 ## Row Level Security summary
 

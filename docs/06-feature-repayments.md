@@ -21,8 +21,9 @@ from family or each other.
 - Partial payment: reduce `remaining_amount` by an amount rather than only
   "fully paid."
 
-## Phase 2
-- Due-date and overdue-escalation push notifications.
+## Phase 2 (shipped)
+- [x] Due-date and overdue-escalation push notifications. See
+  [`11-push-notifications.md`](11-push-notifications.md).
 
 ## Phase 3
 - Proper instalment schedules (a repayment made of N scheduled payments,

@@ -24,10 +24,10 @@ boiler service.
   30 days," "every 6 months," "every year") alongside a custom days input.
 - Group by category (kitchen / safety / car / other).
 
-## Phase 2
-- Push notification when an item becomes due, and an escalating one if it
-  goes overdue by more than N days.
-- Optional "snooze" (push due date back by N days without marking as
+## Phase 2 (shipped)
+- [x] Push notification when an item becomes due, repeating daily while it
+  stays overdue. See [`11-push-notifications.md`](11-push-notifications.md).
+- [ ] Optional "snooze" (push due date back by N days without marking as
   replaced) for things that can wait.
 
 ## Phase 4
@@ -41,5 +41,4 @@ keeps "mark as replaced" a one-field update with no client-side date math.
 
 ## UI notes
 - The whole point of this feature is a fast glance answering "what's
-  overdue." Put it near the top of the home dashboard once that exists
-  (Phase 1).
+  overdue." It surfaces in the home dashboard's "What's due" section.

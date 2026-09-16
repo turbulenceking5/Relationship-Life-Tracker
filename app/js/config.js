@@ -4,3 +4,8 @@
 // access, not this key. See docs/09-setup-supabase.md.
 export const SUPABASE_URL = 'https://crwsnztcnoyzviurkvbd.supabase.co';
 export const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_nTb2Mprx3HtQo63vqezDQQ_ePu9i7VC';
+
+// VAPID public key for Web Push (see docs/11-push-notifications.md). Public
+// keys are meant to be shared with the browser — only the matching private
+// key (kept in Supabase Vault, never shipped here) can sign push messages.
+export const VAPID_PUBLIC_KEY = 'BL2m2SQvD5IIaI60UbnxCipQU6rGZp6pVox4XrZ8jgEwZLblNZk6NfnVpa38zVaVPNnIx_aebN6GLMMkDT6dTDw';

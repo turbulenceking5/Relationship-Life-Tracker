@@ -2,6 +2,7 @@ import { supabase } from './supabaseClient.js';
 import { h, mount } from './dom.js';
 import { renderAuthScreen } from './auth.js';
 import { renderHouseholdScreen, getMyHousehold, renderInviteInfo } from './household.js';
+import { isStandalone, isPushSupported, getSubscriptionStatus, enablePush, disablePush } from './notifications.js';
 
 const appEl = document.getElementById('app');
 
@@ -88,10 +89,14 @@ async function renderMainApp() {
 
 function showAccountSheet() {
   const dialog = h('dialog', {}, []);
+  const notificationsSection = h('div', { class: 'meta' }, 'Checking notification status…');
+
   mount(dialog, h('div', { class: 'sheet' }, [
     h('h2', {}, 'Account & household'),
     h('p', { class: 'meta' }, ctx.user.email),
     renderInviteInfo(ctx.household),
+    h('div', { class: 'section-title' }, 'Notifications'),
+    notificationsSection,
     h('button', {
       class: 'btn secondary',
       style: 'margin-top:16px',
@@ -101,6 +106,60 @@ function showAccountSheet() {
   document.body.appendChild(dialog);
   dialog.addEventListener('close', () => dialog.remove());
   if (typeof dialog.showModal === 'function') dialog.showModal();
+
+  renderNotificationsSection(notificationsSection);
+}
+
+async function renderNotificationsSection(container) {
+  if (!isPushSupported()) {
+    mount(container, h('p', { class: 'meta' }, "Push notifications aren't supported in this browser."));
+    return;
+  }
+  if (!isStandalone()) {
+    mount(container, h('p', { class: 'meta' }, 'Install this app to your Home Screen (Share → Add to Home Screen) to enable due-date reminders.'));
+    return;
+  }
+
+  let status;
+  try {
+    status = await getSubscriptionStatus(ctx);
+  } catch (err) {
+    mount(container, h('p', { class: 'error-msg' }, `Could not check notification status: ${err.message}`));
+    return;
+  }
+
+  const draw = (currentStatus) => {
+    const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
+    const label = currentStatus === 'enabled' ? 'Turn off due-date reminders' : 'Turn on due-date reminders';
+    const btn = h('button', {
+      class: 'btn secondary',
+      onclick: async () => {
+        errorEl.style.display = 'none';
+        btn.disabled = true;
+        btn.textContent = 'Please wait…';
+        try {
+          if (currentStatus === 'enabled') {
+            await disablePush(ctx);
+            draw('disabled');
+          } else {
+            await enablePush(ctx);
+            draw('enabled');
+          }
+        } catch (err) {
+          errorEl.textContent = err.message;
+          errorEl.style.display = 'block';
+          btn.disabled = false;
+          btn.textContent = label;
+        }
+      },
+    }, label);
+    mount(container, [
+      h('p', { class: 'meta' }, 'Get a push notification when a replacement item or repayment becomes due.'),
+      btn,
+      errorEl,
+    ]);
+  };
+  draw(status);
 }
 
 supabase.auth.onAuthStateChange((event, session) => {

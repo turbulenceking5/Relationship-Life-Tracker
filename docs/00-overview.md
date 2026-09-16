@@ -45,6 +45,7 @@ backend is configured.
 | [`08-auth-households.md`](08-auth-households.md) | Accounts, households, invite codes, permissions |
 | [`09-setup-supabase.md`](09-setup-supabase.md) | Backend setup, running the app locally |
 | [`10-suggestions.md`](10-suggestions.md) | Ideas to make the app better, with rationale |
+| [`11-push-notifications.md`](11-push-notifications.md) | How due-date push notifications work |
 
 The top-level [`ROADMAP.md`](../ROADMAP.md) tracks phases and status across
 all of the above.
