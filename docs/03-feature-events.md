@@ -10,10 +10,19 @@ isn't an expense or a replacement.
 - Add an event: title, optional description, category, date.
 - Delete an event.
 
+## Recurring events (shipped)
+A `recurring` checkbox marks an event as yearly (auto-checked when
+category is `birthday` or `anniversary`, but always editable). `event_date`
+stays the original/historical date — a birthday keeps its real birth year
+rather than being rewritten — and the app computes each recurring event's
+next occurrence at render time (`nextOccurrence()` in `format.js`) to
+decide whether it's upcoming and what to sort by. Without this, an event
+stored with a real historical year (birth year, wedding year) would
+permanently sit in "Past" once that literal date went by. See
+[`02-data-model.md`](02-data-model.md).
+
 ## Phase 1
-- Edit an event.
-- Recurring events (yearly for birthdays/anniversaries) without needing to
-  re-add every year.
+- Edit an event (currently: delete and re-add to change anything).
 - Category filter chips (birthday / anniversary / appointment / other).
 
 ## Phase 2+

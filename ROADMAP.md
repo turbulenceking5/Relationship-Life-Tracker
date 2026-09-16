@@ -26,6 +26,10 @@ status. Check items off as they land.
       visible ✕ close button and dismisses on tap-outside — previously a
       `<dialog>` had no way to be closed on iOS short of submitting the
       form, which is what the reported "cogwheel won't close" bug was.
+- [x] **Recurring (yearly) events**: birthdays/anniversaries stored with
+      their real historical date now correctly show as upcoming every
+      year instead of sliding permanently into "Past". See
+      [`docs/03-feature-events.md`](docs/03-feature-events.md).
 
 ## Phase 0 — Foundations ✅ (this session)
 

@@ -1,6 +1,6 @@
 import { h, mount } from './dom.js';
 import { fetchRows } from './crud.js';
-import { formatDate, formatMoney, dueStatus, daysUntil, todayStr } from './format.js';
+import { formatDate, formatMoney, dueStatus, daysUntil, todayStr, nextOccurrence } from './format.js';
 import { supabase } from './supabaseClient.js';
 
 export async function render(container, ctx, navigate) {
@@ -13,7 +13,11 @@ export async function render(container, ctx, navigate) {
   ]);
 
   const today = todayStr();
-  const soonEvents = events.filter((e) => e.event_date >= today).slice(0, 3);
+  const soonEvents = events
+    .map((e) => ({ ...e, _next: nextOccurrence(e.event_date, e.recurring) }))
+    .filter((e) => e._next >= today)
+    .sort((a, b) => (a._next < b._next ? -1 : 1))
+    .slice(0, 3);
   const dueReplacements = replacements.filter((r) => dueStatus(r.next_due_date).cls !== 'ok').slice(0, 5);
   const dueRepayments = repayments.filter((r) => r.status === 'active' && r.due_date && dueStatus(r.due_date).cls !== 'ok').slice(0, 5);
   const dueRent = rentPayments.filter((r) => !r.paid && dueStatus(r.due_date).cls !== 'ok').slice(0, 5);
@@ -43,7 +47,7 @@ export async function render(container, ctx, navigate) {
   ];
 
   const comingUp = [
-    ...soonEvents.map((e) => row(e.title, formatDate(e.event_date), h('span', { class: 'pill' }, e.category || ''), () => navigate('events'))),
+    ...soonEvents.map((e) => row(e.title, e.recurring ? `${formatDate(e._next)} · yearly` : formatDate(e._next), h('span', { class: 'pill' }, e.category || ''), () => navigate('events'))),
   ];
   if (weddingFund && weddingFund.wedding_date) {
     const days = daysUntil(weddingFund.wedding_date);

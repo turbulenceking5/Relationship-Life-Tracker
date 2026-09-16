@@ -30,6 +30,24 @@ export function daysUntil(dateStr) {
   return Math.round((target - today) / 86400000);
 }
 
+// For a recurring (yearly) event, returns this year's — or if that's
+// already gone by, next year's — occurrence of the same month/day. For a
+// non-recurring event, just returns the date unchanged. Used so a
+// birthday stored with its real historical year keeps showing up as
+// "upcoming" every year instead of sliding into "past" once its literal
+// stored date has gone by.
+export function nextOccurrence(dateStr, recurring) {
+  if (!dateStr || !recurring) return dateStr;
+  const today = todayStr();
+  const [, month, day] = dateStr.split('-');
+  const thisYear = today.slice(0, 4);
+  let candidate = `${thisYear}-${month}-${day}`;
+  if (candidate < today) {
+    candidate = `${Number(thisYear) + 1}-${month}-${day}`;
+  }
+  return candidate;
+}
+
 export function dueStatus(dateStr) {
   const days = daysUntil(dateStr);
   if (days === null) return { label: '', cls: '' };

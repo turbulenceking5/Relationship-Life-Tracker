@@ -70,7 +70,8 @@ embed failed with "Could not find a relationship."
 | `title` | text | required |
 | `description` | text | optional |
 | `category` | text | e.g. `birthday`, `anniversary`, `appointment` |
-| `event_date` | date | required |
+| `event_date` | date | required — kept as the original/historical date even for recurring events |
+| `recurring` | boolean | default false; yearly if true — see [`03-feature-events.md`](03-feature-events.md) |
 | `created_by` | uuid → auth.users | |
 | `created_at` / `updated_at` | timestamptz | |
 

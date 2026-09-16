@@ -1,22 +1,27 @@
 import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
 import { fetchRows, insertRow, deleteRow } from './crud.js';
-import { formatDate, todayStr } from './format.js';
+import { formatDate, todayStr, nextOccurrence } from './format.js';
 
 const TABLE = 'events';
 const CATEGORIES = ['birthday', 'anniversary', 'appointment', 'other'];
+const DEFAULT_RECURRING_CATEGORIES = ['birthday', 'anniversary'];
 
 export async function render(container, ctx) {
   const rows = await fetchRows(TABLE, ctx.household.id, 'event_date', true);
   const today = todayStr();
-  const upcoming = rows.filter((r) => r.event_date >= today);
-  const past = rows.filter((r) => r.event_date < today).reverse();
+  const withNext = rows.map((r) => ({ ...r, _next: nextOccurrence(r.event_date, r.recurring) }));
+  const upcoming = withNext.filter((r) => r._next >= today).sort((a, b) => (a._next < b._next ? -1 : 1));
+  const past = withNext.filter((r) => r._next < today).sort((a, b) => (a._next < b._next ? 1 : -1));
 
   function card(row) {
+    const dateLabel = row.recurring
+      ? `Next: ${formatDate(row._next)} · repeats yearly`
+      : formatDate(row.event_date);
     return h('div', { class: 'card' }, [
       h('div', { class: 'card-row' }, [
         h('div', {}, [
           h('h3', {}, row.title),
-          h('div', { class: 'meta' }, `${formatDate(row.event_date)}${row.category ? ' · ' + row.category : ''}`),
+          h('div', { class: 'meta' }, `${dateLabel}${row.category ? ' · ' + row.category : ''}`),
           row.description ? h('div', { class: 'meta', style: 'margin-top:4px' }, row.description) : null,
         ]),
         h('button', { class: 'btn danger-text small', onclick: async () => { await deleteRow(TABLE, row.id); render(container, ctx); } }, 'Delete'),
@@ -28,7 +33,10 @@ export async function render(container, ctx) {
   const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
   const titleInput = h('input', { type: 'text', required: true, placeholder: 'e.g. Sam’s birthday' });
   const dateInput = h('input', { type: 'date', required: true, value: today });
-  const categorySelect = h('select', {}, CATEGORIES.map((c) => h('option', { value: c }, c)));
+  const recurringInput = h('input', { type: 'checkbox' });
+  const categorySelect = h('select', {
+    onchange: () => { recurringInput.checked = DEFAULT_RECURRING_CATEGORIES.includes(categorySelect.value); },
+  }, CATEGORIES.map((c) => h('option', { value: c }, c)));
   const descInput = h('textarea', { rows: '2', placeholder: 'Optional notes' });
 
   const form = h('form', {
@@ -41,6 +49,7 @@ export async function render(container, ctx) {
           title: titleInput.value.trim(),
           event_date: dateInput.value,
           category: categorySelect.value,
+          recurring: recurringInput.checked,
           description: descInput.value.trim() || null,
           created_by: ctx.user.id,
         });
@@ -56,6 +65,9 @@ export async function render(container, ctx) {
     h('div', { class: 'field-row' }, [
       h('div', { class: 'field' }, [h('label', {}, 'Date'), dateInput]),
       h('div', { class: 'field' }, [h('label', {}, 'Category'), categorySelect]),
+    ]),
+    h('div', { class: 'field' }, [
+      h('label', {}, [recurringInput, ' Repeats every year (e.g. birthdays, anniversaries)']),
     ]),
     h('div', { class: 'field' }, [h('label', {}, 'Description'), descInput]),
     errorEl,
