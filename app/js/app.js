@@ -3,6 +3,7 @@ import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
 import { renderAuthScreen } from './auth.js';
 import { renderHouseholdScreen, getMyHousehold, renderInviteInfo, getHouseholdMembers, updateSplitPercents } from './household.js';
 import { isStandalone, isPushSupported, getSubscriptionStatus, enablePush, disablePush } from './notifications.js';
+import { getTheme, setTheme } from './theme.js';
 
 const appEl = document.getElementById('app');
 
@@ -103,6 +104,8 @@ function showAccountSheet() {
   mount(body, [
     h('p', { class: 'meta' }, ctx.user.email),
     renderInviteInfo(ctx.household),
+    h('div', { class: 'section-title' }, 'Theme'),
+    renderThemeToggle(),
     h('div', { class: 'section-title' }, 'Expense split'),
     splitSection,
     h('div', { class: 'section-title' }, 'Notifications'),
@@ -119,6 +122,27 @@ function showAccountSheet() {
 
   renderNotificationsSection(notificationsSection);
   renderSplitSection(splitSection);
+}
+
+function renderThemeToggle() {
+  const options = [
+    { key: 'auto', label: 'Auto' },
+    { key: 'light', label: 'Light' },
+    { key: 'dark', label: 'Dark' },
+  ];
+  const container = h('div', { class: 'segmented' });
+
+  function draw() {
+    const current = getTheme();
+    mount(container, options.map((o) => h('button', {
+      type: 'button',
+      class: o.key === current ? 'active' : '',
+      onclick: () => { setTheme(o.key); draw(); },
+    }, o.label)));
+  }
+  draw();
+
+  return container;
 }
 
 async function renderSplitSection(container) {

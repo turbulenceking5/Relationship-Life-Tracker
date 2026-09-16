@@ -6,7 +6,18 @@
   <title>Life Tracker</title>
   <meta name="description" content="Track shared events, expenses, rent, and goals with tasks and documents with your partner." />
   <meta name="theme-color" content="#b3654a" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#17140f" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#090c11" media="(prefers-color-scheme: dark)" />
+  <script>
+    // Applies a forced light/dark theme before first paint, so there's no
+    // flash of the wrong theme while app.js (an ES module, which runs
+    // after this) loads. Leaves the attribute unset for 'auto' (the
+    // default), letting the CSS media query follow the OS setting as
+    // before. See app/js/theme.js for the settings-sheet toggle.
+    try {
+      var t = localStorage.getItem('theme');
+      if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {}
+  </script>
 
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icons/icon-192.png" />

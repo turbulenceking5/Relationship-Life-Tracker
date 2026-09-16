@@ -55,6 +55,14 @@ status. Check items off as they land.
       [`docs/12-feature-goals.md`](docs/12-feature-goals.md) and the
       color-by-person pattern in
       [`docs/14-ui-patterns.md`](docs/14-ui-patterns.md).
+- [x] **In-app theme toggle**: Theme: Auto/Light/Dark in the ⚙️ account
+      sheet, on top of the existing OS-driven dark mode — "Auto" (default)
+      behaves exactly as before, "Light"/"Dark" force it via
+      `<html data-theme="...">` regardless of the device's own setting,
+      persisted in `localStorage` and applied pre-paint (no flash) via a
+      small inline script in each HTML file. See `app/js/theme.js` and
+      the "Theming" section in
+      [`docs/14-ui-patterns.md`](docs/14-ui-patterns.md).
 - [x] **Dialog close fix**: every add-item sheet across the app now has a
       visible ✕ close button and dismisses on tap-outside — previously a
       `<dialog>` had no way to be closed on iOS short of submitting the

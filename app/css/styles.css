@@ -28,8 +28,15 @@
   --series-8: #e34948;
 }
 
+/* Dark theme — applies when the OS is set to dark (and the in-app theme
+   toggle hasn't overridden it to light), OR when the in-app toggle has
+   forced dark regardless of the OS setting. Two triggers, so every rule
+   below appears twice: once inside the OS media query (guarded by
+   :not([data-theme="light"]) so an explicit light override wins), once
+   unconditionally under [data-theme="dark"] for the forced case. Keep
+   both copies in sync — see app/js/theme.js for the toggle itself. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #090c11;
     --surface: #121821;
     --surface-2: #1a212c;
@@ -50,57 +57,128 @@
     --series-7: #9085e9;
     --series-8: #e66767;
   }
+}
 
-  /* Glow theme: neon-on-black look, dark mode only — the light theme is
-     untouched. Cards, pills and tab icons get a soft accent-colored glow
-     instead of the flat light-mode surfaces. */
-  .card, .goal-section {
+:root[data-theme="dark"] {
+  --bg: #090c11;
+  --surface: #121821;
+  --surface-2: #1a212c;
+  --text: #edf2f7;
+  --text-muted: #8993a5;
+  --border: #242e3a;
+  --accent: #22d3ee;
+  --accent-2: #34d399;
+  --danger: #f87171;
+  --warning: #fbbf24;
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+}
+
+/* Glow theme: neon-on-black look, dark mode only — the light theme is
+   untouched. Cards, pills and tab icons get a soft accent-colored glow
+   instead of the flat light-mode surfaces. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .card, :root:not([data-theme="light"]) .goal-section {
     border-color: color-mix(in srgb, var(--accent-2) 35%, var(--border));
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-2) 10%, transparent),
       0 0 18px -8px color-mix(in srgb, var(--accent-2) 70%, transparent);
   }
 
-  .pill.overdue { box-shadow: 0 0 10px -3px var(--danger); }
-  .pill.due-soon { box-shadow: 0 0 10px -3px var(--warning); }
-  .pill.ok { box-shadow: 0 0 10px -3px var(--accent-2); }
+  :root:not([data-theme="light"]) .pill.overdue { box-shadow: 0 0 10px -3px var(--danger); }
+  :root:not([data-theme="light"]) .pill.due-soon { box-shadow: 0 0 10px -3px var(--warning); }
+  :root:not([data-theme="light"]) .pill.ok { box-shadow: 0 0 10px -3px var(--accent-2); }
 
-  .pill.upcoming {
+  :root:not([data-theme="light"]) .pill.upcoming {
     background: color-mix(in srgb, var(--accent-2) 20%, transparent);
     color: var(--accent-2);
     box-shadow: 0 0 10px -3px var(--accent-2);
   }
 
-  .pill.grad-a { background: linear-gradient(135deg, #a855f7, #ec4899); color: #fff; }
-  .pill.grad-b { background: linear-gradient(135deg, #3b82f6, #f97316); color: #fff; }
-  .pill.grad-c { background: linear-gradient(135deg, #06b6d4, #6366f1); color: #fff; }
-  .pill.grad-d { background: linear-gradient(135deg, #f43f5e, #f59e0b); color: #fff; }
-  .pill.grad-e { background: linear-gradient(135deg, #22c55e, #14b8a6); color: #fff; }
+  :root:not([data-theme="light"]) .pill.grad-a { background: linear-gradient(135deg, #a855f7, #ec4899); color: #fff; }
+  :root:not([data-theme="light"]) .pill.grad-b { background: linear-gradient(135deg, #3b82f6, #f97316); color: #fff; }
+  :root:not([data-theme="light"]) .pill.grad-c { background: linear-gradient(135deg, #06b6d4, #6366f1); color: #fff; }
+  :root:not([data-theme="light"]) .pill.grad-d { background: linear-gradient(135deg, #f43f5e, #f59e0b); color: #fff; }
+  :root:not([data-theme="light"]) .pill.grad-e { background: linear-gradient(135deg, #22c55e, #14b8a6); color: #fff; }
 
-  .card-icon {
+  :root:not([data-theme="light"]) .card-icon {
     border: 1px solid var(--border);
     box-shadow: 0 0 12px -4px color-mix(in srgb, var(--accent-2) 60%, transparent);
   }
 
-  .glow-check {
+  :root:not([data-theme="light"]) .glow-check {
     box-shadow: 0 0 0 1px var(--accent-2), 0 0 24px 2px color-mix(in srgb, var(--accent-2) 55%, transparent);
   }
 
-  .icon-btn { border: 1px solid var(--border); }
+  :root:not([data-theme="light"]) .icon-btn { border: 1px solid var(--border); }
 
-  .tabbar button .tab-icon {
+  :root:not([data-theme="light"]) .tabbar button .tab-icon {
     border: 1px solid var(--border);
     background: var(--surface);
   }
 
-  .tabbar button.active .tab-icon {
+  :root:not([data-theme="light"]) .tabbar button.active .tab-icon {
     border-color: var(--accent-2);
     color: var(--accent-2);
     box-shadow: 0 0 0 1px var(--accent-2), 0 0 16px -2px var(--accent-2);
   }
 
-  .btn.primary { box-shadow: 0 0 16px -3px color-mix(in srgb, var(--accent) 70%, transparent); }
-  .fab { box-shadow: 0 0 20px -2px color-mix(in srgb, var(--accent) 70%, transparent), 0 6px 16px rgba(0, 0, 0, 0.4); }
+  :root:not([data-theme="light"]) .btn.primary { box-shadow: 0 0 16px -3px color-mix(in srgb, var(--accent) 70%, transparent); }
+  :root:not([data-theme="light"]) .fab { box-shadow: 0 0 20px -2px color-mix(in srgb, var(--accent) 70%, transparent), 0 6px 16px rgba(0, 0, 0, 0.4); }
 }
+
+:root[data-theme="dark"] .card, :root[data-theme="dark"] .goal-section {
+  border-color: color-mix(in srgb, var(--accent-2) 35%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-2) 10%, transparent),
+    0 0 18px -8px color-mix(in srgb, var(--accent-2) 70%, transparent);
+}
+
+:root[data-theme="dark"] .pill.overdue { box-shadow: 0 0 10px -3px var(--danger); }
+:root[data-theme="dark"] .pill.due-soon { box-shadow: 0 0 10px -3px var(--warning); }
+:root[data-theme="dark"] .pill.ok { box-shadow: 0 0 10px -3px var(--accent-2); }
+
+:root[data-theme="dark"] .pill.upcoming {
+  background: color-mix(in srgb, var(--accent-2) 20%, transparent);
+  color: var(--accent-2);
+  box-shadow: 0 0 10px -3px var(--accent-2);
+}
+
+:root[data-theme="dark"] .pill.grad-a { background: linear-gradient(135deg, #a855f7, #ec4899); color: #fff; }
+:root[data-theme="dark"] .pill.grad-b { background: linear-gradient(135deg, #3b82f6, #f97316); color: #fff; }
+:root[data-theme="dark"] .pill.grad-c { background: linear-gradient(135deg, #06b6d4, #6366f1); color: #fff; }
+:root[data-theme="dark"] .pill.grad-d { background: linear-gradient(135deg, #f43f5e, #f59e0b); color: #fff; }
+:root[data-theme="dark"] .pill.grad-e { background: linear-gradient(135deg, #22c55e, #14b8a6); color: #fff; }
+
+:root[data-theme="dark"] .card-icon {
+  border: 1px solid var(--border);
+  box-shadow: 0 0 12px -4px color-mix(in srgb, var(--accent-2) 60%, transparent);
+}
+
+:root[data-theme="dark"] .glow-check {
+  box-shadow: 0 0 0 1px var(--accent-2), 0 0 24px 2px color-mix(in srgb, var(--accent-2) 55%, transparent);
+}
+
+:root[data-theme="dark"] .icon-btn { border: 1px solid var(--border); }
+
+:root[data-theme="dark"] .tabbar button .tab-icon {
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+:root[data-theme="dark"] .tabbar button.active .tab-icon {
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+  box-shadow: 0 0 0 1px var(--accent-2), 0 0 16px -2px var(--accent-2);
+}
+
+:root[data-theme="dark"] .btn.primary { box-shadow: 0 0 16px -3px color-mix(in srgb, var(--accent) 70%, transparent); }
+:root[data-theme="dark"] .fab { box-shadow: 0 0 20px -2px color-mix(in srgb, var(--accent) 70%, transparent), 0 6px 16px rgba(0, 0, 0, 0.4); }
 
 * { box-sizing: border-box; }
 

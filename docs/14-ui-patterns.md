@@ -70,6 +70,29 @@ Always format through `formatMoney(amount, currency)` from `format.js`
 it needs to work for whatever currency a given row/household uses, not
 just the household default.
 
+## Theming: OS-driven by default, overridable in-app
+
+Light/dark is normally `@media (prefers-color-scheme: dark)` — no app
+code involved. `app/js/theme.js` adds an **optional** override on top
+(Theme: Auto/Light/Dark in the ⚙️ account sheet), stored in
+`localStorage['theme']` and applied as `<html data-theme="light|dark">`.
+
+Because of this, **every dark-mode CSS rule needs two copies**, not one:
+one inside `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { ... } }`
+(the OS-driven case, skipped if explicitly forced to light) and one
+under the unconditional `:root[data-theme="dark"] { ... }` (the forced
+case, which must work even when the OS itself is light). Adding a new
+dark-mode rule to `styles.css` means adding it in both places — see the
+"Dark theme" and "Glow theme" comments there for the existing pattern to
+copy. Forgetting the second copy means the rule silently only ever
+applies when the OS itself is dark, breaking the forced-dark case.
+
+The theme is applied twice on purpose: once by an inline `<script>` in
+each HTML file's `<head>` (synchronous, before first paint, so there's
+no flash of the wrong theme while `app.js` — an ES module — is still
+loading), and once by `theme.js`'s `setTheme()` when the toggle is used
+mid-session. Both read/write the same `localStorage` key.
+
 ## Color-by-person (categorical series)
 
 When a UI needs to distinguish *who* did something by color — not a
