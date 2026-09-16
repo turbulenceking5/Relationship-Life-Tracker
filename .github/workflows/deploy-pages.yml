@@ -17,9 +17,12 @@ concurrency:
 
 jobs:
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    # No `environment: github-pages` block here on purpose: GitHub
+    # auto-creates that environment with a deployment-branch rule limited
+    # to the default branch the first time Pages is enabled, which would
+    # block deploys from any other branch. Omitting it removes that gate;
+    # pages:write + id-token:write permissions above are all deploy-pages
+    # actually needs to publish.
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
