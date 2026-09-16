@@ -42,7 +42,7 @@ this" instead of a raw UUID.
 | `id` | uuid PK | |
 | `name` | text | e.g. "Alex & Sam" |
 | `invite_code` | text unique | short code shared out-of-band to join |
-| `default_currency` | text | e.g. `GBP`, prefills new entries |
+| `default_currency` | text | e.g. `AUD`, prefills new entries |
 | `created_by` | uuid → auth.users | |
 | `created_at` | timestamptz | |
 
@@ -73,7 +73,7 @@ this" instead of a raw UUID.
 | `household_id` | uuid → households | |
 | `title` | text | required |
 | `amount` | numeric(12,2) | required |
-| `currency` | text | default `GBP` |
+| `currency` | text | default `AUD` |
 | `category` | text | e.g. `groceries`, `bills`, `rent` |
 | `paid_by` | uuid → auth.users | who paid |
 | `expense_date` | date | required |
@@ -113,7 +113,7 @@ written only by the `notify-due-items` edge function
 | `counterparty` | text | who the money is between |
 | `total_amount` | numeric(12,2) | |
 | `remaining_amount` | numeric(12,2) | |
-| `currency` | text | default `GBP` |
+| `currency` | text | default `AUD` |
 | `due_date` | date | optional |
 | `recurring` | boolean | default false |
 | `frequency` | text | e.g. `monthly`, only if recurring |

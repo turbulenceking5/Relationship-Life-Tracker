@@ -1,4 +1,4 @@
-export function formatMoney(amount, currency = 'GBP') {
+export function formatMoney(amount, currency = 'AUD') {
   try {
     return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount);
   } catch {
@@ -13,7 +13,14 @@ export function formatDate(dateStr) {
 }
 
 export function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  // Local calendar date, not UTC — toISOString() would return the wrong
+  // date for anyone east of UTC (e.g. Australia/Brisbane, UTC+10) for part
+  // of the day.
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export function daysUntil(dateStr) {

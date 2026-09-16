@@ -33,7 +33,7 @@ export async function render(container, ctx) {
   const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
   const titleInput = h('input', { type: 'text', required: true, placeholder: 'e.g. Weekly shop' });
   const amountInput = h('input', { type: 'number', step: '0.01', min: '0', required: true, placeholder: '0.00' });
-  const currencyInput = h('input', { type: 'text', value: ctx.household.default_currency || 'GBP', maxlength: '3', style: 'text-transform:uppercase' });
+  const currencyInput = h('input', { type: 'text', value: ctx.household.default_currency || 'AUD', maxlength: '3', style: 'text-transform:uppercase' });
   const categorySelect = h('select', {}, CATEGORIES.map((c) => h('option', { value: c }, c)));
   const paidBySelect = h('select', {}, members.map((m) => h('option', { value: m.user_id, selected: m.user_id === ctx.user.id }, m.display_name)));
   const dateInput = h('input', { type: 'date', required: true, value: todayStr() });
@@ -48,7 +48,7 @@ export async function render(container, ctx) {
           household_id: ctx.household.id,
           title: titleInput.value.trim(),
           amount: parseFloat(amountInput.value),
-          currency: (currencyInput.value || 'GBP').toUpperCase(),
+          currency: (currencyInput.value || 'AUD').toUpperCase(),
           category: categorySelect.value,
           paid_by: paidBySelect.value,
           expense_date: dateInput.value,
@@ -83,7 +83,7 @@ export async function render(container, ctx) {
   mount(container, [
     h('div', { class: 'total-banner' }, [
       h('span', {}, 'Total logged'),
-      h('span', { class: 'value' }, formatMoney(total, ctx.household.default_currency || 'GBP')),
+      h('span', { class: 'value' }, formatMoney(total, ctx.household.default_currency || 'AUD')),
     ]),
     rows.length ? h('div', {}, rows.map(card)) : h('div', { class: 'empty-state' }, 'No expenses logged yet.'),
     h('button', { class: 'fab', onclick: () => openSheet(dialog) }, '+'),

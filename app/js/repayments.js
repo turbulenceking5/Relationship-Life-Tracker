@@ -44,7 +44,7 @@ export async function render(container, ctx) {
   ]);
   const counterpartyInput = h('input', { type: 'text', placeholder: 'e.g. Mum, the bank' });
   const totalInput = h('input', { type: 'number', step: '0.01', min: '0', required: true, placeholder: '0.00' });
-  const currencyInput = h('input', { type: 'text', value: ctx.household.default_currency || 'GBP', maxlength: '3', style: 'text-transform:uppercase' });
+  const currencyInput = h('input', { type: 'text', value: ctx.household.default_currency || 'AUD', maxlength: '3', style: 'text-transform:uppercase' });
   const dueDateInput = h('input', { type: 'date', value: todayStr() });
   const recurringInput = h('input', { type: 'checkbox' });
   const notesInput = h('textarea', { rows: '2', placeholder: 'Optional notes' });
@@ -62,7 +62,7 @@ export async function render(container, ctx) {
           counterparty: counterpartyInput.value.trim() || null,
           total_amount: total,
           remaining_amount: total,
-          currency: (currencyInput.value || 'GBP').toUpperCase(),
+          currency: (currencyInput.value || 'AUD').toUpperCase(),
           due_date: dueDateInput.value || null,
           recurring: recurringInput.checked,
           notes: notesInput.value.trim() || null,

@@ -14,7 +14,7 @@ achievable without a native app.
 ## How it works
 
 ```
-pg_cron (daily, 08:00 UTC)
+pg_cron (daily, 22:00 UTC = 08:00 Australia/Brisbane)
    │  net.http_post, with a shared secret header pulled from Vault
    ▼
 Edge Function: notify-due-items
@@ -37,7 +37,7 @@ Service worker (app/service-worker.js)
 | Piece | Where |
 |---|---|
 | `push_subscriptions` table, `last_notified_date` columns, `get_edge_secrets()` | `supabase/migrations/0003_push_notifications.sql` |
-| Daily cron schedule | `supabase/migrations/0004_schedule_notifications.sql` |
+| Daily cron schedule | `supabase/migrations/0004_schedule_notifications.sql`, retimed to Brisbane in `0005_localize_australia.sql` |
 | The actual send/scan logic | `supabase/functions/notify-due-items/index.ts` |
 | Subscribe/unsubscribe from the browser | `app/js/notifications.js` |
 | Notification permission UI | Account sheet in `app/js/app.js` |
@@ -64,11 +64,18 @@ rather than Supabase JWT verification, because its only caller is
 
 ## Notification behavior
 
-- Checked once a day (08:00 UTC). An item due today or overdue triggers a
-  notification; `last_notified_date` prevents sending more than once per
-  calendar day for the same item, but an item that's still overdue
-  tomorrow notifies again — a simple daily "escalation" while overdue,
-  matching the Phase 2 roadmap item.
+- Checked once a day, at 08:00 Australia/Brisbane time (22:00 UTC —
+  Queensland has no daylight saving, so this offset is fixed year-round;
+  see `0005_localize_australia.sql`). An item due today or overdue
+  triggers a notification; `last_notified_date` prevents sending more than
+  once per calendar day for the same item, but an item that's still
+  overdue tomorrow notifies again — a simple daily "escalation" while
+  overdue, matching the Phase 2 roadmap item.
+- "Due today" is evaluated against each device's own local calendar date
+  (see `todayStr()` in `app/js/format.js`), so it lines up with what the
+  person looking at their phone would call "today" — this matters because
+  a naive UTC-based date is wrong for part of the day anywhere east of
+  UTC, Brisbane included.
 - Notifications are sent per household, to every subscribed device of
   every member.
 - A subscription that the push service reports as gone (HTTP 404/410,
