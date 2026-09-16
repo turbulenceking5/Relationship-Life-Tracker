@@ -38,15 +38,19 @@ backend is configured.
 | [`01-architecture.md`](01-architecture.md) | Why PWA + Supabase, how the pieces fit together |
 | [`02-data-model.md`](02-data-model.md) | Database schema, tables, relationships |
 | [`03-feature-events.md`](03-feature-events.md) | Events feature spec |
-| [`04-feature-expenses.md`](04-feature-expenses.md) | Expenses feature spec |
-| [`05-feature-replacements.md`](05-feature-replacements.md) | Replacement reminders spec |
-| [`06-feature-repayments.md`](06-feature-repayments.md) | Repayments/loans spec |
+| [`04-feature-expenses.md`](04-feature-expenses.md) | Expenses feature spec (now a section of the Money tab) |
+| [`05-feature-replacements.md`](05-feature-replacements.md) | Replacement reminders spec (now a section of the Money tab) |
+| [`06-feature-repayments.md`](06-feature-repayments.md) | Repayments/loans spec (now a section of the Money tab) |
 | [`07-feature-documents.md`](07-feature-documents.md) | Document storage spec |
 | [`08-auth-households.md`](08-auth-households.md) | Accounts, households, invite codes, permissions |
 | [`09-setup-supabase.md`](09-setup-supabase.md) | Backend setup, running the app locally |
 | [`10-suggestions.md`](10-suggestions.md) | Ideas to make the app better, with rationale |
 | [`11-push-notifications.md`](11-push-notifications.md) | How due-date push notifications work |
 | [`12-feature-goals.md`](12-feature-goals.md) | Rent tracking + wedding fund (the "Goals" tab) |
+| [`13-feature-money-tab.md`](13-feature-money-tab.md) | Why/how Expenses, Replacements and Repayments were condensed into one "Money" tab |
+| [`14-ui-patterns.md`](14-ui-patterns.md) | UI conventions to follow when adding a new screen or form |
+| [`15-development-testing.md`](15-development-testing.md) | How to test changes locally without touching real data |
 
 The top-level [`ROADMAP.md`](../ROADMAP.md) tracks phases and status across
-all of the above.
+all of the above. [`../CLAUDE.md`](../CLAUDE.md) is the short version for
+picking this repo back up in a fresh session.

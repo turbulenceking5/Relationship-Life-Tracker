@@ -1,5 +1,9 @@
 # Feature: Expenses
 
+> Now one of three sections in the "Money" tab, not its own top-level
+> tab — see [`13-feature-money-tab.md`](13-feature-money-tab.md). Nothing
+> about this feature's own behavior changed.
+
 ## Purpose
 Shared log of spending — what was bought, how much, who paid, and when —
 so both partners have one shared record instead of separate banking apps

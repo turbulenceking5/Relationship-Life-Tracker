@@ -1,0 +1,71 @@
+# UI patterns
+
+Conventions used consistently across `app/js/*.js` — read this before
+adding a new screen or form so it matches the rest of the app rather than
+inventing a new pattern.
+
+## Add-item sheets: always use `makeSheet()`
+
+Every "add a thing" form (events, expenses, replacement items,
+repayments, documents, rent periods, wedding transactions, plus the
+account/settings sheet) is a native `<dialog>` built via `makeSheet()` in
+`app/js/dom.js`:
+
+```js
+const { dialog, body } = makeSheet('Add expense');
+// ...build a <form> as usual...
+mount(body, form);
+// later: openSheet(dialog) to show it, closeSheet(dialog) to hide it
+```
+
+**Never build a `<dialog>` by hand** (`h('dialog', {}, ...)`). A bare
+`<dialog>` opened with `showModal()` has no way to be dismissed on iOS
+short of submitting the form — no Escape key, tapping the backdrop does
+nothing unless wired up explicitly. This was a real shipped bug (the
+"cogwheel won't close" report) before `makeSheet()` existed. It bakes in:
+
+- A visible ✕ close button in a `.sheet-header` row next to the title.
+- Tap-outside-to-dismiss (a click listener that checks `e.target ===
+  dialog`, since clicks on the sheet's own content bubble with a
+  different target).
+
+If a sheet needs to be appended outside its tab's normal container (the
+account sheet is appended to `document.body` since it's opened from the
+top bar, not from within a tab's content area), that's fine —
+`makeSheet()` doesn't assume where its `dialog` ends up mounted, only
+that `openSheet()`/`closeSheet()` are used to show/hide it.
+
+## Section screens: `render(container, ctx)`
+
+Every feature module exports an async `render(container, ctx)` that:
+
+1. Fetches its own data (via `fetchRows`/`insertRow`/etc. from `crud.js`,
+   or a direct `supabase.from(...)` call for a shape `crud.js` doesn't
+   cover, like a single settings row).
+2. Clears and rebuilds `container`'s contents from scratch (via `mount()`
+   from `dom.js`, which clears before appending).
+3. Re-calls itself (`render(container, ctx)`) after any mutation (add,
+   delete, mark-as-paid, etc.) instead of trying to patch the DOM
+   in place. This keeps every module simple at the cost of re-fetching
+   more than strictly necessary — a deliberate simplicity-over-cleverness
+   trade for an app this size.
+
+`app.js` and `money.js` are the two exceptions that route between
+multiple such modules rather than being one themselves.
+
+## Card + pill conventions
+
+- A list item is a `.card` containing a `.card-row` (title/meta on the
+  left, amount/status on the right).
+- A due-date-ish status uses `dueStatus()` from `format.js`, rendered as
+  `<span class="pill {cls}">`, where `cls` is one of `ok` / `due-soon` /
+  `overdue` (see `styles.css` for the color mapping).
+- Destructive actions ("Delete") use `.btn.danger-text.small`; secondary
+  actions ("Mark as paid", "Mark as received") use `.btn.secondary.small`.
+
+## Money amounts
+
+Always format through `formatMoney(amount, currency)` from `format.js`
+(uses `Intl.NumberFormat`), never string-concatenate a currency symbol —
+it needs to work for whatever currency a given row/household uses, not
+just the household default.

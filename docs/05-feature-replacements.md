@@ -1,5 +1,9 @@
 # Feature: Replacement Reminders
 
+> Now one of three sections in the "Money" tab, not its own top-level
+> tab — see [`13-feature-money-tab.md`](13-feature-money-tab.md). Nothing
+> about this feature's own behavior changed.
+
 ## Purpose
 The "did we change the tap filter yet?" problem. Track physical things
 that need periodic replacing, and know at a glance what's due or overdue.

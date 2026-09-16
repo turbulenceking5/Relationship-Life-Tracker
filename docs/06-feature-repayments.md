@@ -1,5 +1,9 @@
 # Feature: Repayments
 
+> Now one of three sections in the "Money" tab, not its own top-level
+> tab — see [`13-feature-money-tab.md`](13-feature-money-tab.md). Nothing
+> about this feature's own behavior changed.
+
 ## Purpose
 Track money owed — by you or to you — separately from day-to-day
 expenses: loans, informal IOUs, instalment plans, money lent to/borrowed

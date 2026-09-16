@@ -11,9 +11,29 @@ to show without extra signup steps.
 
 ## Households
 A **household** is the sharing boundary. Every feature row (`events`,
-`expenses`, `replacement_items`, `repayments`, `documents`) belongs to
-exactly one household, and a user can see/edit a row only if they're a
-member of that household.
+`expenses`, `replacement_items`, `repayments`, `documents`, `rent_payments`,
+`wedding_fund`, `wedding_transactions`) belongs to exactly one household,
+and a user can see/edit a row only if they're a member of that household.
+
+### Who can actually see what you add
+
+Nobody outside your household — this is enforced by the database itself
+(Postgres Row Level Security), not just by the app's UI, so it holds even
+if someone queries the API directly rather than going through the app.
+Concretely:
+
+- Adding an event/expense/document/etc. makes it visible only to the
+  other member(s) of *your* household.
+- Anyone else who opens the app link and signs up creates their own,
+  separate, empty household — they don't land in yours, and they can't
+  see or guess their way into it.
+- The only way another person joins *your* household is by entering the
+  invite code shown in the ⚙️ account sheet, which only your household's
+  own members can see. There's no way to join by guessing a household ID.
+
+So in practice: this app being "shared" means shared with whoever you've
+handed that invite code to — not shared with every user of the deployed
+app.
 
 ### Creating a household
 First-time users create a household (e.g. "Alex & Sam") via the
