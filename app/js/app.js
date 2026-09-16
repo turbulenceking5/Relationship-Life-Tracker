@@ -12,6 +12,7 @@ const TABS = [
   { key: 'expenses', label: 'Expenses', icon: '💷', mod: () => import('./expenses.js') },
   { key: 'replacements', label: 'Replace', icon: '🔧', mod: () => import('./replacements.js') },
   { key: 'repayments', label: 'Repay', icon: '🤝', mod: () => import('./repayments.js') },
+  { key: 'goals', label: 'Goals', icon: '🎯', mod: () => import('./goals.js') },
   { key: 'documents', label: 'Docs', icon: '📄', mod: () => import('./documents.js') },
 ];
 

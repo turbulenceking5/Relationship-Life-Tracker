@@ -46,6 +46,7 @@ backend is configured.
 | [`09-setup-supabase.md`](09-setup-supabase.md) | Backend setup, running the app locally |
 | [`10-suggestions.md`](10-suggestions.md) | Ideas to make the app better, with rationale |
 | [`11-push-notifications.md`](11-push-notifications.md) | How due-date push notifications work |
+| [`12-feature-goals.md`](12-feature-goals.md) | Rent tracking + wedding fund (the "Goals" tab) |
 
 The top-level [`ROADMAP.md`](../ROADMAP.md) tracks phases and status across
 all of the above.

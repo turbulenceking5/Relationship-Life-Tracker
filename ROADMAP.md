@@ -13,6 +13,13 @@ for why.
 Detailed docs live in [`docs/`](docs/) — this file is the map of phases and
 status. Check items off as they land.
 
+## Shipped outside the original phases
+
+- [x] **Goals tab**: investment property rent tracking (rolling monthly
+      ledger) + wedding fund (savings goal, spend log, countdown) — added
+      after real usage surfaced these as needed. See
+      [`docs/12-feature-goals.md`](docs/12-feature-goals.md).
+
 ## Phase 0 — Foundations ✅ (this session)
 
 - [x] Roadmap + docs split into sub-parts

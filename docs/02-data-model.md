@@ -54,6 +54,14 @@ this" instead of a raw UUID.
 | `role` | text | `owner` \| `member` |
 | `joined_at` | timestamptz | |
 
+`user_id` also carries a second foreign key to `profiles.id` (in addition
+to `auth.users.id`), added in `0006_fix_household_members_profiles_relationship.sql`.
+Both point at the same underlying row, but PostgREST needs a direct FK
+within the exposed `public` schema to embed `profiles` inside a
+`household_members` query (used by `getHouseholdMembers()` to show "paid
+by" names) — `auth.users` isn't exposed at all, so without this the
+embed failed with "Could not find a relationship."
+
 ### `events`
 | column | type | notes |
 |---|---|---|
@@ -159,6 +167,48 @@ push-notification design.
 | `user_id` | uuid → auth.users | |
 | `endpoint` | text, unique | the push service URL the browser gave us |
 | `p256dh` / `auth_key` | text | the subscription's encryption keys |
+| `created_at` | timestamptz | |
+
+### `rent_payments`
+See [`12-feature-goals.md`](12-feature-goals.md). One row per rent
+period; "mark as received" inserts the next period's row automatically.
+
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `household_id` | uuid → households | |
+| `property_label` | text | optional, e.g. "12 Smith St" |
+| `due_date` | date | required |
+| `amount` | numeric(12,2) | |
+| `currency` | text | default `AUD` |
+| `paid` | boolean | default false |
+| `paid_date` | date | set when marked received |
+| `notes` | text | optional |
+| `created_by` | uuid → auth.users | |
+| `created_at` / `updated_at` | timestamptz | |
+
+### `wedding_fund`
+One row per household (PK is `household_id` itself, not a separate `id`).
+
+| column | type | notes |
+|---|---|---|
+| `household_id` | uuid PK, → households | |
+| `wedding_date` | date | optional |
+| `target_amount` | numeric(12,2) | optional |
+| `currency` | text | default `AUD` |
+| `updated_at` | timestamptz | |
+
+### `wedding_transactions`
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `household_id` | uuid → households | |
+| `type` | text | `saved` \| `spent` |
+| `title` | text | required |
+| `amount` | numeric(12,2) | |
+| `transaction_date` | date | default today |
+| `notes` | text | optional |
+| `created_by` | uuid → auth.users | |
 | `created_at` | timestamptz | |
 
 ## Row Level Security summary
