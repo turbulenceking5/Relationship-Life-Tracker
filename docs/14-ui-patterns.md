@@ -69,3 +69,22 @@ Always format through `formatMoney(amount, currency)` from `format.js`
 (uses `Intl.NumberFormat`), never string-concatenate a currency symbol —
 it needs to work for whatever currency a given row/household uses, not
 just the household default.
+
+## Color-by-person (categorical series)
+
+When a UI needs to distinguish *who* did something by color — not a
+due-date status, which uses the `ok`/`due-soon`/`overdue` pill classes
+above — use the `--series-1` through `--series-8` custom properties in
+`styles.css` (light and dark values both defined), never `--accent`/
+`--accent-2` for this: those two aren't a validated color-blind-safe
+pair (confirmed by running this app against the data-viz skill's
+palette validator — they fail the CVD-separation and normal-vision
+floor checks in both themes). `--series-1`/`--series-2` are the first
+two slots of a fixed, validated 8-color categorical order.
+
+Assign slots by sorting contributors on a **stable key** (e.g.
+`user_id`), never by fetch order or how recently they acted — the same
+person should keep the same color across renders. See
+`contributionBreakdown()` in `app/js/goals.js` for the pattern (a
+stacked bar + always-visible legend naming each person, their amount,
+and their share — identity is never color-alone).

@@ -2,6 +2,7 @@ import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
 import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
 import { formatDate, formatMoney, daysUntil, todayStr } from './format.js';
 import { viewDocument, removeDocument, openEditDocumentSheet, openUploadDocumentSheet } from './documents.js';
+import { getHouseholdMembers } from './household.js';
 
 const GOALS_TABLE = 'custom_goals';
 const TXN_TABLE = 'goal_transactions';
@@ -17,7 +18,10 @@ function goalCountdown(dateStr) {
 }
 
 export async function render(container, ctx) {
-  const goals = await fetchRows(GOALS_TABLE, ctx.household.id, 'created_at', false);
+  const [goals, members] = await Promise.all([
+    fetchRows(GOALS_TABLE, ctx.household.id, 'created_at', false),
+    getHouseholdMembers(ctx.household.id),
+  ]);
 
   const { dialog: addGoalDialog, body: addGoalBody } = makeSheet('Add goal');
   const addErrorEl = h('div', { class: 'error-msg', style: 'display:none' });
@@ -68,11 +72,46 @@ export async function render(container, ctx) {
 
   for (const goal of goals) {
     const body = container.querySelector(`#goal-body-${goal.id}`);
-    if (body) renderGoalBody(body, ctx, goal, false, () => render(container, ctx));
+    if (body) renderGoalBody(body, ctx, goal, members, false, () => render(container, ctx));
   }
 }
 
-async function renderGoalBody(section, ctx, goal, editing = false, onDeleted) {
+// Fixed hue order (see --series-1..8 in styles.css) — a contributor keeps
+// the same color across renders regardless of fetch order, by sorting on
+// their stable user_id rather than e.g. transaction recency.
+function contributionBreakdown(transactions, members, currency) {
+  const savedTx = transactions.filter((t) => t.type === 'saved' && Number(t.amount) > 0);
+  if (!savedTx.length) return null;
+
+  const totalsByUser = new Map();
+  for (const t of savedTx) {
+    totalsByUser.set(t.created_by, (totalsByUser.get(t.created_by) || 0) + Number(t.amount));
+  }
+
+  const sortedMembers = [...members].sort((a, b) => (a.user_id < b.user_id ? -1 : 1));
+  const knownIds = new Set(sortedMembers.map((m) => m.user_id));
+  const contributors = sortedMembers.map((m) => ({ user_id: m.user_id, display_name: m.display_name, amount: totalsByUser.get(m.user_id) || 0 }));
+  for (const userId of totalsByUser.keys()) {
+    if (!knownIds.has(userId)) contributors.push({ user_id: userId, display_name: 'Former member', amount: totalsByUser.get(userId) });
+  }
+
+  const nonZero = contributors.filter((c) => c.amount > 0).map((c, i) => ({ ...c, colorIndex: i % 8 }));
+  const total = nonZero.reduce((sum, c) => sum + c.amount, 0);
+  if (total <= 0) return null;
+
+  return h('div', {}, [
+    h('div', { class: 'contribution-bar' }, nonZero.map((c) => h('div', {
+      class: 'segment',
+      style: `width:${(c.amount / total) * 100}%;background:var(--series-${c.colorIndex + 1})`,
+    }))),
+    h('div', { class: 'contribution-legend' }, nonZero.map((c) => h('div', { class: 'item' }, [
+      h('span', { class: 'swatch', style: `background:var(--series-${c.colorIndex + 1})` }),
+      h('span', {}, `${c.display_name} · ${formatMoney(c.amount, currency)} (${Math.round((c.amount / total) * 100)}%)`),
+    ]))),
+  ]);
+}
+
+async function renderGoalBody(section, ctx, goal, members, editing = false, onDeleted) {
   const [transactions, tasks, documents] = await Promise.all([
     fetchRows(TXN_TABLE, ctx.household.id, 'transaction_date', false).then((rows) => rows.filter((r) => r.goal_id === goal.id)),
     fetchRows(TASKS_TABLE, ctx.household.id, 'created_at', true).then((rows) => rows.filter((r) => r.goal_id === goal.id)),
@@ -105,7 +144,7 @@ async function renderGoalBody(section, ctx, goal, editing = false, onDeleted) {
             target_date: editDateInput.value || null,
             target_amount: editTargetInput.value ? parseFloat(editTargetInput.value) : null,
           });
-          renderGoalBody(section, ctx, goal, false, onDeleted);
+          renderGoalBody(section, ctx, goal, members, false, onDeleted);
         } catch (err) {
           errorEl.textContent = err.message;
           errorEl.style.display = 'block';
@@ -120,7 +159,7 @@ async function renderGoalBody(section, ctx, goal, editing = false, onDeleted) {
       errorEl,
       h('div', { class: 'actions-row' }, [
         h('button', { class: 'btn primary small', type: 'submit' }, 'Save'),
-        h('button', { class: 'btn secondary small', type: 'button', onclick: () => renderGoalBody(section, ctx, goal, false, onDeleted) }, 'Cancel'),
+        h('button', { class: 'btn secondary small', type: 'button', onclick: () => renderGoalBody(section, ctx, goal, members, false, onDeleted) }, 'Cancel'),
       ]),
       h('button', {
         class: 'btn danger-text small',
@@ -162,7 +201,7 @@ async function renderGoalBody(section, ctx, goal, editing = false, onDeleted) {
             notes: editNotesInput.value.trim() || null,
           });
           closeSheet(editDialog);
-          renderGoalBody(section, ctx, goal, editing, onDeleted);
+          renderGoalBody(section, ctx, goal, members, editing, onDeleted);
         } catch (err) {
           errorEl.textContent = err.message;
           errorEl.style.display = 'block';
@@ -209,7 +248,7 @@ async function renderGoalBody(section, ctx, goal, editing = false, onDeleted) {
           created_by: ctx.user.id,
         });
         closeSheet(dialog);
-        renderGoalBody(section, ctx, goal, editing, onDeleted);
+        renderGoalBody(section, ctx, goal, members, editing, onDeleted);
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
@@ -242,7 +281,7 @@ async function renderGoalBody(section, ctx, goal, editing = false, onDeleted) {
       ]),
       h('div', { class: 'actions-row' }, [
         h('button', { class: 'btn secondary small', onclick: () => openEditTxnSheet(t) }, 'Edit'),
-        h('button', { class: 'btn danger-text small', onclick: async () => { await deleteRow(TXN_TABLE, t.id); renderGoalBody(section, ctx, goal, editing, onDeleted); } }, 'Delete'),
+        h('button', { class: 'btn danger-text small', onclick: async () => { await deleteRow(TXN_TABLE, t.id); renderGoalBody(section, ctx, goal, members, editing, onDeleted); } }, 'Delete'),
       ]),
     ]);
   }
@@ -262,7 +301,7 @@ async function renderGoalBody(section, ctx, goal, editing = false, onDeleted) {
           created_by: ctx.user.id,
         });
         closeSheet(taskDialog);
-        renderGoalBody(section, ctx, goal, editing, onDeleted);
+        renderGoalBody(section, ctx, goal, members, editing, onDeleted);
       } catch (err) {
         taskErrorEl.textContent = err.message;
         taskErrorEl.style.display = 'block';
@@ -281,7 +320,7 @@ async function renderGoalBody(section, ctx, goal, editing = false, onDeleted) {
       checked: t.is_done,
       onchange: async () => {
         await updateRow(TASKS_TABLE, t.id, { is_done: checkbox.checked });
-        renderGoalBody(section, ctx, goal, editing, onDeleted);
+        renderGoalBody(section, ctx, goal, members, editing, onDeleted);
       },
     });
     return h('div', { class: 'card' }, [
@@ -290,7 +329,7 @@ async function renderGoalBody(section, ctx, goal, editing = false, onDeleted) {
           checkbox,
           h('span', { style: t.is_done ? 'text-decoration:line-through;color:var(--text-muted)' : '' }, t.title),
         ]),
-        h('button', { class: 'btn danger-text small', onclick: async () => { await deleteRow(TASKS_TABLE, t.id); renderGoalBody(section, ctx, goal, editing, onDeleted); } }, 'Delete'),
+        h('button', { class: 'btn danger-text small', onclick: async () => { await deleteRow(TASKS_TABLE, t.id); renderGoalBody(section, ctx, goal, members, editing, onDeleted); } }, 'Delete'),
       ]),
     ]);
   }
@@ -305,8 +344,8 @@ async function renderGoalBody(section, ctx, goal, editing = false, onDeleted) {
       ]),
       h('div', { class: 'actions-row' }, [
         h('button', { class: 'btn secondary small', onclick: () => viewDocument(d) }, 'View'),
-        h('button', { class: 'btn secondary small', onclick: () => openEditDocumentSheet(d, () => renderGoalBody(section, ctx, goal, editing, onDeleted)) }, 'Edit'),
-        h('button', { class: 'btn danger-text small', onclick: async () => { await removeDocument(d); renderGoalBody(section, ctx, goal, editing, onDeleted); } }, 'Delete'),
+        h('button', { class: 'btn secondary small', onclick: () => openEditDocumentSheet(d, () => renderGoalBody(section, ctx, goal, members, editing, onDeleted)) }, 'Edit'),
+        h('button', { class: 'btn danger-text small', onclick: async () => { await removeDocument(d); renderGoalBody(section, ctx, goal, members, editing, onDeleted); } }, 'Delete'),
       ]),
     ]);
   }
@@ -328,10 +367,11 @@ async function renderGoalBody(section, ctx, goal, editing = false, onDeleted) {
       h('div', { class: 'card-row', style: 'margin-top:6px' }, [h('span', {}, 'Spent so far'), h('span', { class: 'amount negative' }, formatMoney(spent, currency))]),
       remaining !== null ? h('div', { class: 'card-row', style: 'margin-top:6px' }, [h('span', {}, 'Remaining to save'), h('span', { class: 'amount' }, formatMoney(remaining, currency))]) : null,
     ]));
-    content.push(h('button', { class: 'btn text', onclick: () => renderGoalBody(section, ctx, goal, true, onDeleted) }, 'Edit goal'));
+    content.push(h('button', { class: 'btn text', onclick: () => renderGoalBody(section, ctx, goal, members, true, onDeleted) }, 'Edit goal'));
   }
 
   content.push(h('div', { class: 'section-title' }, 'Transactions'));
+  content.push(contributionBreakdown(transactions, members, currency));
   content.push(h('button', { class: 'btn secondary small', style: 'margin-bottom:10px', onclick: () => openSheet(dialog) }, '+ Add transaction'));
   content.push(transactions.length ? h('div', {}, transactions.map(txnCard)) : h('div', { class: 'empty-state' }, 'No transactions logged yet.'));
   content.push(dialog);
@@ -349,7 +389,7 @@ async function renderGoalBody(section, ctx, goal, editing = false, onDeleted) {
       sheetTitle: `Add document — ${goal.title}`,
       relatedType: 'goal',
       relatedId: goal.id,
-      onSaved: () => renderGoalBody(section, ctx, goal, editing, onDeleted),
+      onSaved: () => renderGoalBody(section, ctx, goal, members, editing, onDeleted),
     }),
   }, '+ Add document'));
   content.push(documents.length ? h('div', {}, documents.map(documentCard)) : h('div', { class: 'empty-state' }, 'No documents linked yet.'));

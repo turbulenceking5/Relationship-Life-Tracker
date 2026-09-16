@@ -28,6 +28,16 @@ target and running ledger.
   `spent` (money actually spent against the goal), each with a title,
   amount, date, and optional notes — each editable and deletable
   individually.
+- **Contribution bar**: above the transaction list, a stacked bar
+  breaks down total `saved` amount by who logged it (`created_by`),
+  with a legend naming each contributor, their amount, and their
+  percentage share. Only appears once there's at least one `saved`
+  transaction; a household member with $0 saved doesn't get an empty
+  segment. Colors are assigned from a fixed, CVD-safe categorical order
+  (`--series-1`...`--series-8` in `styles.css`) keyed to each member's
+  stable `user_id` — not fetch or transaction order — so a given person
+  keeps the same color across renders. See `contributionBreakdown()` in
+  `app/js/goals.js`.
 - **Tasks**: a plain checklist within the goal ("book venue," "get
   quotes"), independent of the money side — a goal can track both a
   savings/spend ledger and a to-do list toward the same target. Each

@@ -45,6 +45,16 @@ status. Check items off as they land.
       ledger, and can have documents uploaded/linked to it directly (same
       `documents` table as the Docs tab, tagged via `related_type`/
       `related_id`). See [`docs/12-feature-goals.md`](docs/12-feature-goals.md).
+- [x] **Goal contribution bar**: a stacked bar above each goal's
+      transaction list shows how much each household member has
+      contributed (by `created_by` on `saved` transactions), with a
+      legend naming each person, amount and share. Colors come from a
+      new validated categorical palette (`--series-1`...`--series-8` in
+      `styles.css`) rather than the app's `--accent`/`--accent-2` pair,
+      which failed color-blind-safety validation for this use. See
+      [`docs/12-feature-goals.md`](docs/12-feature-goals.md) and the
+      color-by-person pattern in
+      [`docs/14-ui-patterns.md`](docs/14-ui-patterns.md).
 - [x] **Dialog close fix**: every add-item sheet across the app now has a
       visible ✕ close button and dismisses on tap-outside — previously a
       `<dialog>` had no way to be closed on iOS short of submitting the

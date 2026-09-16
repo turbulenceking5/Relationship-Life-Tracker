@@ -12,6 +12,20 @@
   --radius: 14px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* Categorical series colors for "who contributed what" breakdowns
+     (e.g. the goals contribution bar) — a fixed hue order, validated for
+     CVD-safety and contrast against both the light and dark card surface
+     via the data-viz skill's palette validator. Never cycle or reassign
+     these per-chart; a person always gets the same slot. */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -26,6 +40,15 @@
     --accent-2: #34d399;
     --danger: #f87171;
     --warning: #fbbf24;
+
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
   }
 
   /* Glow theme: neon-on-black look, dark mode only — the light theme is
@@ -470,6 +493,41 @@ dialog::backdrop { background: rgba(0,0,0,0.45); }
 }
 
 .total-banner .value { font-size: 1.3rem; font-weight: 700; }
+
+.contribution-bar {
+  display: flex;
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface-2);
+  margin-bottom: 10px;
+}
+
+.contribution-bar .segment + .segment {
+  margin-left: 2px;
+}
+
+.contribution-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-bottom: 14px;
+}
+
+.contribution-legend .item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.contribution-legend .swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
 
 .goal-section {
   background: var(--surface);
