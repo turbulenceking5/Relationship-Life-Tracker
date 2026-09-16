@@ -33,7 +33,7 @@ export async function render(container, ctx) {
   const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
   const titleInput = h('input', { type: 'text', required: true, placeholder: 'e.g. Sam’s birthday' });
   const dateInput = h('input', { type: 'date', required: true, value: today });
-  const recurringInput = h('input', { type: 'checkbox' });
+  const recurringInput = h('input', { type: 'checkbox', checked: DEFAULT_RECURRING_CATEGORIES.includes(CATEGORIES[0]) });
   const categorySelect = h('select', {
     onchange: () => { recurringInput.checked = DEFAULT_RECURRING_CATEGORIES.includes(categorySelect.value); },
   }, CATEGORIES.map((c) => h('option', { value: c }, c)));
