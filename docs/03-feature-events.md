@@ -8,6 +8,7 @@ isn't an expense or a replacement.
 ## MVP (Phase 0, shipped)
 - List upcoming events, soonest first, with past events collapsed below.
 - Add an event: title, optional description, category, date.
+- Edit an event (title, date, category, recurring, description).
 - Delete an event.
 
 ## Recurring events (shipped)
@@ -22,7 +23,6 @@ permanently sit in "Past" once that literal date went by. See
 [`02-data-model.md`](02-data-model.md).
 
 ## Phase 1
-- Edit an event (currently: delete and re-add to change anything).
 - Category filter chips (birthday / anniversary / appointment / other).
 
 ## Phase 2+

@@ -14,11 +14,11 @@ and guesswork.
   paid/date.
 - Add an expense: title, amount, currency (defaults to household
   default), category, who paid, date, notes.
+- Edit an expense (any field except who created it).
 - Delete an expense.
 - Running total of all logged expenses shown at the top of the list.
 
 ## Phase 1
-- Edit an expense.
 - Filter by category and by date range (this month / last month / custom).
 - Monthly total and per-category breakdown.
 - Smart defaults on the add form: last-used category, today's date

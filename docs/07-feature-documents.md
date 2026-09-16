@@ -11,6 +11,10 @@ big purchases, ID scans for reference.
   notes and expiry date.
 - Download/view a document (signed, time-limited URL from private
   Storage).
+- Edit a document's title, category, and expiry date. The uploaded file
+  itself isn't replaceable in place — delete and re-upload for that,
+  since swapping a file (and generating its Storage path) is a different
+  operation to updating a text field.
 - Delete a document (removes both the DB row and the Storage object).
 
 ## Phase 1

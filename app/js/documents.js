@@ -1,11 +1,52 @@
 import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
-import { fetchRows, insertRow, deleteRow } from './crud.js';
+import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
 import { formatDate } from './format.js';
 import { supabase } from './supabaseClient.js';
 
 const TABLE = 'documents';
 const BUCKET = 'documents';
 const CATEGORIES = ['warranty', 'contract', 'receipt', 'id', 'other'];
+
+function openEditSheet(row, container, ctx) {
+  const { dialog, body } = makeSheet('Edit document');
+  document.body.appendChild(dialog);
+  dialog.addEventListener('close', () => dialog.remove());
+
+  const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
+  const titleInput = h('input', { type: 'text', required: true, value: row.title });
+  const categorySelect = h('select', {}, CATEGORIES.map((c) => h('option', { value: c, selected: c === row.category }, c)));
+  const expiryInput = h('input', { type: 'date', value: row.expiry_date || '' });
+
+  const form = h('form', {
+    onsubmit: async (e) => {
+      e.preventDefault();
+      errorEl.style.display = 'none';
+      try {
+        await updateRow(TABLE, row.id, {
+          title: titleInput.value.trim(),
+          category: categorySelect.value,
+          expiry_date: expiryInput.value || null,
+        });
+        closeSheet(dialog);
+        render(container, ctx);
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+      }
+    },
+  }, [
+    h('div', { class: 'field' }, [h('label', {}, 'Title'), titleInput]),
+    h('div', { class: 'field-row' }, [
+      h('div', { class: 'field' }, [h('label', {}, 'Category'), categorySelect]),
+      h('div', { class: 'field' }, [h('label', {}, 'Expiry date (optional)'), expiryInput]),
+    ]),
+    h('p', { class: 'meta' }, 'To replace the file itself, delete this and upload a new one.'),
+    errorEl,
+    h('button', { class: 'btn primary', type: 'submit' }, 'Save changes'),
+  ]);
+  mount(body, form);
+  openSheet(dialog);
+}
 
 export async function render(container, ctx) {
   const rows = await fetchRows(TABLE, ctx.household.id, 'created_at', false);
@@ -32,6 +73,7 @@ export async function render(container, ctx) {
       ]),
       h('div', { class: 'actions-row' }, [
         h('button', { class: 'btn secondary small', onclick: () => openDoc(row) }, 'View'),
+        h('button', { class: 'btn secondary small', onclick: () => openEditSheet(row, container, ctx) }, 'Edit'),
         h('button', { class: 'btn danger-text small', onclick: () => removeDoc(row) }, 'Delete'),
       ]),
     ]);

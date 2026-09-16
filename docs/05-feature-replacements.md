@@ -20,12 +20,13 @@ boiler service.
 - "Mark as replaced today" action — sets `last_replaced_date` to today,
   which recomputes `next_due_date` automatically (it's a generated
   column, see [`02-data-model.md`](02-data-model.md)).
+- Edit an item (rename, change category/last-replaced date/interval).
 - Delete an item.
+- Common interval presets in the add and edit forms (e.g. "every 3
+  months," "every 30 days," "every 6 months," "every year") alongside a
+  custom days input.
 
 ## Phase 1
-- Edit an item (rename, change interval).
-- Common interval presets in the add form (e.g. "every 3 months," "every
-  30 days," "every 6 months," "every year") alongside a custom days input.
 - Group by category (kitchen / safety / car / other).
 
 ## Phase 2 (shipped)

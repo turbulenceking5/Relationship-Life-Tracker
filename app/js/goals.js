@@ -128,6 +128,54 @@ async function renderGoalBody(section, ctx, goal, editing = false, onDeleted) {
     return h('div', { class: 'card' }, form);
   }
 
+  function openEditTxnSheet(t) {
+    const { dialog: editDialog, body: editBody } = makeSheet(`Edit transaction — ${goal.title}`);
+    document.body.appendChild(editDialog);
+    editDialog.addEventListener('close', () => editDialog.remove());
+
+    const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
+    const editTypeSelect = h('select', {}, [
+      h('option', { value: 'saved', selected: t.type === 'saved' }, 'Saved toward the goal'),
+      h('option', { value: 'spent', selected: t.type === 'spent' }, 'Spent on the goal'),
+    ]);
+    const editTitleInput = h('input', { type: 'text', required: true, value: t.title });
+    const editAmountInput = h('input', { type: 'number', step: '0.01', min: '0', required: true, value: t.amount });
+    const editDateInput = h('input', { type: 'date', required: true, value: t.transaction_date });
+    const editNotesInput = h('textarea', { rows: '2', placeholder: 'Optional notes' }, t.notes || '');
+    const editForm = h('form', {
+      onsubmit: async (e) => {
+        e.preventDefault();
+        errorEl.style.display = 'none';
+        try {
+          await updateRow(TXN_TABLE, t.id, {
+            type: editTypeSelect.value,
+            title: editTitleInput.value.trim(),
+            amount: parseFloat(editAmountInput.value),
+            transaction_date: editDateInput.value,
+            notes: editNotesInput.value.trim() || null,
+          });
+          closeSheet(editDialog);
+          renderGoalBody(section, ctx, goal, editing, onDeleted);
+        } catch (err) {
+          errorEl.textContent = err.message;
+          errorEl.style.display = 'block';
+        }
+      },
+    }, [
+      h('div', { class: 'field' }, [h('label', {}, 'Type'), editTypeSelect]),
+      h('div', { class: 'field' }, [h('label', {}, 'Title'), editTitleInput]),
+      h('div', { class: 'field-row' }, [
+        h('div', { class: 'field' }, [h('label', {}, 'Amount'), editAmountInput]),
+        h('div', { class: 'field' }, [h('label', {}, 'Date'), editDateInput]),
+      ]),
+      h('div', { class: 'field' }, [h('label', {}, 'Notes'), editNotesInput]),
+      errorEl,
+      h('button', { class: 'btn primary', type: 'submit' }, 'Save changes'),
+    ]);
+    mount(editBody, editForm);
+    openSheet(editDialog);
+  }
+
   const { dialog, body } = makeSheet(`Add transaction — ${goal.title}`);
   const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
   const typeSelect = h('select', {}, [
@@ -186,6 +234,7 @@ async function renderGoalBody(section, ctx, goal, editing = false, onDeleted) {
         ]),
       ]),
       h('div', { class: 'actions-row' }, [
+        h('button', { class: 'btn secondary small', onclick: () => openEditTxnSheet(t) }, 'Edit'),
         h('button', { class: 'btn danger-text small', onclick: async () => { await deleteRow(TXN_TABLE, t.id); renderGoalBody(section, ctx, goal, editing, onDeleted); } }, 'Delete'),
       ]),
     ]);

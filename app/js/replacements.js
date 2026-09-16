@@ -11,6 +11,52 @@ const PRESETS = [
   { label: 'Custom', days: null },
 ];
 
+function openEditSheet(row, container, ctx) {
+  const { dialog, body } = makeSheet('Edit replacement item');
+  document.body.appendChild(dialog);
+  dialog.addEventListener('close', () => dialog.remove());
+
+  const isPreset = PRESETS.some((p) => p.days === row.interval_days);
+  const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
+  const nameInput = h('input', { type: 'text', required: true, value: row.name });
+  const categoryInput = h('input', { type: 'text', value: row.category || '' });
+  const lastReplacedInput = h('input', { type: 'date', required: true, value: row.last_replaced_date });
+  const customDaysInput = h('input', { type: 'number', min: '1', placeholder: 'Days', value: row.interval_days, style: isPreset ? 'display:none' : 'display:block' });
+  const presetSelect = h('select', {
+    onchange: () => { customDaysInput.style.display = presetSelect.value === 'custom' ? 'block' : 'none'; },
+  }, PRESETS.map((p) => h('option', { value: p.days === null ? 'custom' : String(p.days), selected: isPreset ? p.days === row.interval_days : p.days === null }, p.label)));
+
+  const form = h('form', {
+    onsubmit: async (e) => {
+      e.preventDefault();
+      errorEl.style.display = 'none';
+      const intervalDays = presetSelect.value === 'custom' ? parseInt(customDaysInput.value, 10) : parseInt(presetSelect.value, 10);
+      try {
+        await updateRow(TABLE, row.id, {
+          name: nameInput.value.trim(),
+          category: categoryInput.value.trim() || null,
+          last_replaced_date: lastReplacedInput.value,
+          interval_days: intervalDays,
+        });
+        closeSheet(dialog);
+        render(container, ctx);
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+      }
+    },
+  }, [
+    h('div', { class: 'field' }, [h('label', {}, 'Name'), nameInput]),
+    h('div', { class: 'field' }, [h('label', {}, 'Category'), categoryInput]),
+    h('div', { class: 'field' }, [h('label', {}, 'Last replaced'), lastReplacedInput]),
+    h('div', { class: 'field' }, [h('label', {}, 'Replace how often?'), presetSelect, customDaysInput]),
+    errorEl,
+    h('button', { class: 'btn primary', type: 'submit' }, 'Save changes'),
+  ]);
+  mount(body, form);
+  openSheet(dialog);
+}
+
 export async function render(container, ctx) {
   const rows = await fetchRows(TABLE, ctx.household.id, 'next_due_date', true);
 
@@ -29,6 +75,7 @@ export async function render(container, ctx) {
           class: 'btn secondary small',
           onclick: async () => { await updateRow(TABLE, row.id, { last_replaced_date: todayStr() }); render(container, ctx); },
         }, 'Mark replaced today'),
+        h('button', { class: 'btn secondary small', onclick: () => openEditSheet(row, container, ctx) }, 'Edit'),
         h('button', { class: 'btn danger-text small', onclick: async () => { await deleteRow(TABLE, row.id); render(container, ctx); } }, 'Delete'),
       ]),
     ]);

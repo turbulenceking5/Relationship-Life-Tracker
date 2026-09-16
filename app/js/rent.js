@@ -16,6 +16,54 @@ function addDays(dateStr, days) {
   return d.toISOString().slice(0, 10);
 }
 
+function openEditSheet(row, container, ctx) {
+  const { dialog, body } = makeSheet('Edit rent period');
+  document.body.appendChild(dialog);
+  dialog.addEventListener('close', () => dialog.remove());
+
+  const isPreset = RENT_INTERVAL_PRESETS.some((p) => p.days === row.interval_days);
+  const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
+  const labelInput = h('input', { type: 'text', value: row.property_label || '' });
+  const dueDateInput = h('input', { type: 'date', required: true, value: row.due_date });
+  const amountInput = h('input', { type: 'number', step: '0.01', min: '0', required: true, value: row.amount });
+  const customIntervalInput = h('input', { type: 'number', min: '1', placeholder: 'Days', value: row.interval_days, style: isPreset ? 'display:none' : 'display:block' });
+  const intervalSelect = h('select', {
+    onchange: () => { customIntervalInput.style.display = intervalSelect.value === 'custom' ? 'block' : 'none'; },
+  }, RENT_INTERVAL_PRESETS.map((p) => h('option', { value: p.days === null ? 'custom' : String(p.days), selected: isPreset ? p.days === row.interval_days : p.days === null }, p.label)));
+
+  const form = h('form', {
+    onsubmit: async (e) => {
+      e.preventDefault();
+      errorEl.style.display = 'none';
+      const intervalDays = intervalSelect.value === 'custom' ? parseInt(customIntervalInput.value, 10) : parseInt(intervalSelect.value, 10);
+      try {
+        await updateRow(RENT_TABLE, row.id, {
+          property_label: labelInput.value.trim() || null,
+          due_date: dueDateInput.value,
+          amount: parseFloat(amountInput.value),
+          interval_days: intervalDays,
+        });
+        closeSheet(dialog);
+        render(container, ctx);
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+      }
+    },
+  }, [
+    h('div', { class: 'field' }, [h('label', {}, 'Property (optional)'), labelInput]),
+    h('div', { class: 'field-row' }, [
+      h('div', { class: 'field' }, [h('label', {}, 'Due date'), dueDateInput]),
+      h('div', { class: 'field' }, [h('label', {}, 'Amount'), amountInput]),
+    ]),
+    h('div', { class: 'field' }, [h('label', {}, 'How often?'), intervalSelect, customIntervalInput]),
+    errorEl,
+    h('button', { class: 'btn primary', type: 'submit' }, 'Save changes'),
+  ]);
+  mount(body, form);
+  openSheet(dialog);
+}
+
 export async function render(container, ctx) {
   const rows = await fetchRows(RENT_TABLE, ctx.household.id, 'due_date', true);
   const unpaid = rows.filter((r) => !r.paid);
@@ -53,6 +101,7 @@ export async function render(container, ctx) {
             render(container, ctx);
           },
         }, 'Mark as received'),
+        h('button', { class: 'btn secondary small', onclick: () => openEditSheet(row, container, ctx) }, 'Edit'),
         h('button', { class: 'btn danger-text small', onclick: async () => { await deleteRow(RENT_TABLE, row.id); render(container, ctx); } }, 'Delete'),
       ]),
     ]);

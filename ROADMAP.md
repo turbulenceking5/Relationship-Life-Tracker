@@ -58,9 +58,11 @@ schema.
 
 - [x] Home dashboard: "what's due" feed merging replacements + rent
       due/overdue, plus upcoming events and goal target dates, in one glance
-- [ ] Edit/delete flows for every record type (MVP ships create, list, and
-      delete for everything, plus mark-replaced/mark-paid; full field
-      editing is the next priority)
+- [x] Edit flows for every record type: events, expenses, replacement
+      items, rent periods, documents (title/category/expiry — not the
+      uploaded file itself), goals, and individual goal transactions.
+      Each edit sheet mirrors its add form, pre-filled, and mutates via
+      `updateRow` instead of `insertRow`.
 - [ ] Search and category filters across expenses/documents
 - [ ] Sort/group expenses by month, category, who paid
 - [ ] Basic monthly spend total + per-category breakdown

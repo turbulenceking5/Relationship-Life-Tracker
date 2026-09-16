@@ -26,7 +26,8 @@ target and running ledger.
   banner shows above the summary.
 - Transactions are typed `saved` (money set aside toward the target) or
   `spent` (money actually spent against the goal), each with a title,
-  amount, date, and optional notes.
+  amount, date, and optional notes — each editable and deletable
+  individually.
 - **Edit goal** lets you rename a goal or change its target
   amount/date, and delete the goal entirely (which cascades to its
   transactions).

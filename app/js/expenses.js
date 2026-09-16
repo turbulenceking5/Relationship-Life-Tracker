@@ -1,10 +1,64 @@
 import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
-import { fetchRows, insertRow, deleteRow } from './crud.js';
+import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
 import { formatDate, formatMoney, todayStr } from './format.js';
 import { getHouseholdMembers } from './household.js';
 
 const TABLE = 'expenses';
 const CATEGORIES = ['groceries', 'bills', 'rent', 'transport', 'household', 'leisure', 'other'];
+
+function openEditSheet(row, members, container, ctx) {
+  const { dialog, body } = makeSheet('Edit expense');
+  document.body.appendChild(dialog);
+  dialog.addEventListener('close', () => dialog.remove());
+
+  const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
+  const titleInput = h('input', { type: 'text', required: true, value: row.title });
+  const amountInput = h('input', { type: 'number', step: '0.01', min: '0', required: true, value: row.amount });
+  const currencyInput = h('input', { type: 'text', value: row.currency, maxlength: '3', style: 'text-transform:uppercase' });
+  const categorySelect = h('select', {}, CATEGORIES.map((c) => h('option', { value: c, selected: c === row.category }, c)));
+  const paidBySelect = h('select', {}, members.map((m) => h('option', { value: m.user_id, selected: m.user_id === row.paid_by }, m.display_name)));
+  const dateInput = h('input', { type: 'date', required: true, value: row.expense_date });
+  const notesInput = h('textarea', { rows: '2', placeholder: 'Optional notes' }, row.notes || '');
+
+  const form = h('form', {
+    onsubmit: async (e) => {
+      e.preventDefault();
+      errorEl.style.display = 'none';
+      try {
+        await updateRow(TABLE, row.id, {
+          title: titleInput.value.trim(),
+          amount: parseFloat(amountInput.value),
+          currency: (currencyInput.value || 'AUD').toUpperCase(),
+          category: categorySelect.value,
+          paid_by: paidBySelect.value,
+          expense_date: dateInput.value,
+          notes: notesInput.value.trim() || null,
+        });
+        closeSheet(dialog);
+        render(container, ctx);
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+      }
+    },
+  }, [
+    h('div', { class: 'field' }, [h('label', {}, 'Title'), titleInput]),
+    h('div', { class: 'field-row' }, [
+      h('div', { class: 'field' }, [h('label', {}, 'Amount'), amountInput]),
+      h('div', { class: 'field' }, [h('label', {}, 'Currency'), currencyInput]),
+    ]),
+    h('div', { class: 'field-row' }, [
+      h('div', { class: 'field' }, [h('label', {}, 'Category'), categorySelect]),
+      h('div', { class: 'field' }, [h('label', {}, 'Paid by'), paidBySelect]),
+    ]),
+    h('div', { class: 'field' }, [h('label', {}, 'Date'), dateInput]),
+    h('div', { class: 'field' }, [h('label', {}, 'Notes'), notesInput]),
+    errorEl,
+    h('button', { class: 'btn primary', type: 'submit' }, 'Save changes'),
+  ]);
+  mount(body, form);
+  openSheet(dialog);
+}
 
 export async function render(container, ctx) {
   const [rows, members] = await Promise.all([
@@ -23,8 +77,11 @@ export async function render(container, ctx) {
         ]),
         h('div', { style: 'text-align:right' }, [
           h('div', { class: 'amount' }, formatMoney(row.amount, row.currency)),
-          h('button', { class: 'btn danger-text small', onclick: async () => { await deleteRow(TABLE, row.id); render(container, ctx); } }, 'Delete'),
         ]),
+      ]),
+      h('div', { class: 'actions-row' }, [
+        h('button', { class: 'btn secondary small', onclick: () => openEditSheet(row, members, container, ctx) }, 'Edit'),
+        h('button', { class: 'btn danger-text small', onclick: async () => { await deleteRow(TABLE, row.id); render(container, ctx); } }, 'Delete'),
       ]),
     ]);
   }
