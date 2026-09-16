@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient.js';
 import { h, mount } from './dom.js';
+import { SITE_URL } from './config.js';
 
 export function renderAuthScreen(container) {
   let mode = 'sign_in'; // or 'sign_up'
@@ -30,7 +31,10 @@ export function renderAuthScreen(container) {
             const { data, error } = await supabase.auth.signUp({
               email: emailInput.value.trim(),
               password: passwordInput.value,
-              options: { data: displayName ? { display_name: displayName } : undefined },
+              options: {
+                data: displayName ? { display_name: displayName } : undefined,
+                emailRedirectTo: `${SITE_URL}/confirmed.html`,
+              },
             });
             if (error) throw error;
             if (!data.session) {

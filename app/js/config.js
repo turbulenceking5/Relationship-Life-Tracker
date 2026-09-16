@@ -5,6 +5,11 @@
 export const SUPABASE_URL = 'https://crwsnztcnoyzviurkvbd.supabase.co';
 export const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_nTb2Mprx3HtQo63vqezDQQ_ePu9i7VC';
 
+// Where the app is actually hosted — used to build absolute redirect URLs
+// (e.g. where Supabase sends people after they click an email
+// confirmation link). Update this if you deploy elsewhere.
+export const SITE_URL = 'https://turbulenceking5.github.io/Relationship-Life-Tracker';
+
 // VAPID public key for Web Push (see docs/11-push-notifications.md). Public
 // keys are meant to be shared with the browser — only the matching private
 // key (kept in Supabase Vault, never shipped here) can sign push messages.

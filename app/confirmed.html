@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+  <title>Email confirmed — Life Tracker</title>
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#b3654a" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#17140f" media="(prefers-color-scheme: dark)" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="auth-screen" id="content">
+    <h1>Checking…</h1>
+    <p class="lead">One moment.</p>
+  </div>
+
+  <script src="js/vendor/supabase.js"></script>
+  <script type="module">
+    import { supabase } from './js/supabaseClient.js';
+
+    const content = document.getElementById('content');
+
+    function render(title, message, showButton) {
+      content.innerHTML = '';
+      const h1 = document.createElement('h1');
+      h1.textContent = title;
+      const p = document.createElement('p');
+      p.className = 'lead';
+      p.textContent = message;
+      content.appendChild(h1);
+      content.appendChild(p);
+      if (showButton) {
+        const a = document.createElement('a');
+        a.href = 'index.html';
+        a.className = 'btn primary';
+        a.style.display = 'block';
+        a.style.textAlign = 'center';
+        a.style.textDecoration = 'none';
+        a.style.boxSizing = 'border-box';
+        a.textContent = 'Open Life Tracker';
+        content.appendChild(a);
+      }
+    }
+
+    // supabase-js processes the confirmation tokens in the URL and
+    // establishes a session automatically on client creation (this is the
+    // same origin/localStorage as index.html, so that session carries
+    // straight over once you tap through).
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        render('You’re confirmed! ❤️', 'Your email is verified and you’re signed in. Tap below to open the app.', true);
+      } else {
+        render('Link expired or already used', 'No active session was found from this link. Head back to the app and log in with your email and password instead.', true);
+      }
+    });
+  </script>
+</body>
+</html>
