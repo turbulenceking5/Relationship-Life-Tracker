@@ -1,8 +1,9 @@
-const CACHE_NAME = 'life-tracker-v6';
+const CACHE_NAME = 'life-tracker-v7';
 const APP_SHELL = [
   './',
   'index.html',
   'confirmed.html',
+  'reset-password.html',
   'manifest.webmanifest',
   'css/styles.css',
   'js/app.js',

@@ -9,6 +9,18 @@ A `profiles` row is auto-created for every new user (via an
 `on auth.users insert` trigger) so the rest of the app has a display name
 to show without extra signup steps.
 
+**Forgot password**: "Forgot your password?" on the login screen calls
+`supabase.auth.resetPasswordForEmail()`, which emails a link to
+`reset-password.html`. Supabase processes the recovery token in that
+link's URL automatically (same client/localStorage as the rest of the
+app) and establishes a session, so the page just needs to collect a new
+password and call `supabase.auth.updateUser({ password })` — no custom
+token handling. This mirrors the existing sign-up email-confirmation
+flow in `confirmed.html`. The redirect URL
+(`{SITE_URL}/reset-password.html`) must be present in the Supabase
+project's Auth → URL Configuration → Redirect URLs allowlist (a
+dashboard-only setting — see `09-setup-supabase.md`).
+
 ## Households
 A **household** is the sharing boundary. Every feature row (`events`,
 `expenses`, `replacement_items`, `documents`, `rent_payments`,

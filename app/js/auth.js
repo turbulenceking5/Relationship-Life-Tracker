@@ -3,10 +3,15 @@ import { h, mount } from './dom.js';
 import { SITE_URL } from './config.js';
 
 export function renderAuthScreen(container) {
-  let mode = 'sign_in'; // or 'sign_up'
+  let mode = 'sign_in'; // 'sign_in' | 'sign_up' | 'reset_request'
   let notice = null;
 
   function draw() {
+    if (mode === 'reset_request') {
+      drawResetRequest();
+      return;
+    }
+
     const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
     const noticeEl = notice ? h('div', { class: 'success-msg' }, notice) : null;
     const emailInput = h('input', { type: 'email', autocomplete: 'email', required: true, placeholder: 'you@example.com' });
@@ -76,12 +81,67 @@ export function renderAuthScreen(container) {
       onclick: () => { mode = mode === 'sign_up' ? 'sign_in' : 'sign_up'; notice = null; draw(); },
     }, mode === 'sign_up' ? 'Already have an account? Log in' : "New here? Create an account");
 
+    const forgotBtn = mode === 'sign_in'
+      ? h('button', {
+          class: 'link-btn',
+          type: 'button',
+          onclick: () => { mode = 'reset_request'; notice = null; draw(); },
+        }, 'Forgot your password?')
+      : null;
+
     mount(container, h('div', { class: 'auth-screen' }, [
       h('h1', {}, 'Life Tracker'),
       h('p', { class: 'lead' }, 'Shared events, expenses, replacement reminders, goals and documents — for you and your partner.'),
       noticeEl,
       form,
       switchBtn,
+      forgotBtn,
+    ]));
+  }
+
+  function drawResetRequest() {
+    const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
+    const emailInput = h('input', { type: 'email', autocomplete: 'email', required: true, placeholder: 'you@example.com' });
+    const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Send reset link');
+
+    const form = h('form', {
+      onsubmit: async (e) => {
+        e.preventDefault();
+        errorEl.style.display = 'none';
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Sending…';
+        try {
+          const { error } = await supabase.auth.resetPasswordForEmail(emailInput.value.trim(), {
+            redirectTo: `${SITE_URL}/reset-password.html`,
+          });
+          if (error) throw error;
+          mode = 'sign_in';
+          notice = 'Check your email for a password reset link.';
+          draw();
+        } catch (err) {
+          errorEl.textContent = err.message || 'Something went wrong';
+          errorEl.style.display = 'block';
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Send reset link';
+        }
+      },
+    }, [
+      h('div', { class: 'field' }, [h('label', {}, 'Email'), emailInput]),
+      errorEl,
+      submitBtn,
+    ]);
+
+    const backBtn = h('button', {
+      class: 'link-btn',
+      type: 'button',
+      onclick: () => { mode = 'sign_in'; notice = null; draw(); },
+    }, 'Back to log in');
+
+    mount(container, h('div', { class: 'auth-screen' }, [
+      h('h1', {}, 'Reset your password'),
+      h('p', { class: 'lead' }, "We'll email you a link to set a new password."),
+      form,
+      backBtn,
     ]));
   }
 
