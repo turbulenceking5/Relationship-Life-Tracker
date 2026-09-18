@@ -48,6 +48,18 @@ export function nextOccurrence(dateStr, recurring) {
   return candidate;
 }
 
+// Like nextOccurrence, but never rolls forward into next year — a
+// recurring event whose month/day has already gone by this year stays
+// mapped to *this* year's date instead of jumping to next year's. Used
+// to tell "already happened this year" apart from "still coming up this
+// year," which nextOccurrence's rolling behavior deliberately collapses
+// into one "always upcoming" bucket (see docs/03-feature-events.md).
+export function thisYearOccurrence(dateStr, recurring) {
+  if (!dateStr || !recurring) return dateStr;
+  const [, month, day] = dateStr.split('-');
+  return `${todayStr().slice(0, 4)}-${month}-${day}`;
+}
+
 export function dueStatus(dateStr) {
   const days = daysUntil(dateStr);
   if (days === null) return { label: '', cls: '' };

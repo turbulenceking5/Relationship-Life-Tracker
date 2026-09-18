@@ -1,6 +1,6 @@
 import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
 import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
-import { formatDate, todayStr, nextOccurrence } from './format.js';
+import { formatDate, todayStr, thisYearOccurrence } from './format.js';
 
 const TABLE = 'events';
 const CATEGORIES = ['birthday', 'anniversary', 'appointment', 'other'];
@@ -57,13 +57,17 @@ function openEditSheet(row, container, ctx) {
 export async function render(container, ctx) {
   const rows = await fetchRows(TABLE, ctx.household.id, 'event_date', true);
   const today = todayStr();
-  const withNext = rows.map((r) => ({ ...r, _next: nextOccurrence(r.event_date, r.recurring) }));
-  const upcoming = withNext.filter((r) => r._next >= today).sort((a, b) => (a._next < b._next ? -1 : 1));
-  const past = withNext.filter((r) => r._next < today).sort((a, b) => (a._next < b._next ? 1 : -1));
+  // thisYearOccurrence (unlike nextOccurrence, used elsewhere for the home
+  // dashboard) never rolls a recurring event forward into next year, so a
+  // birthday whose date already passed this year lands in Done rather
+  // than being mixed into Upcoming under a misleading "next year" date.
+  const withYear = rows.map((r) => ({ ...r, _thisYear: thisYearOccurrence(r.event_date, r.recurring) }));
+  const upcoming = withYear.filter((r) => r._thisYear >= today).sort((a, b) => (a._thisYear < b._thisYear ? -1 : 1));
+  const done = withYear.filter((r) => r._thisYear < today).sort((a, b) => (a._thisYear < b._thisYear ? 1 : -1));
 
-  function card(row) {
+  function card(row, isDone) {
     const dateLabel = row.recurring
-      ? `Next: ${formatDate(row._next)} · repeats yearly`
+      ? `${isDone ? '' : 'Next: '}${formatDate(row._thisYear)} · repeats yearly`
       : formatDate(row.event_date);
     return h('div', { class: 'card' }, [
       h('div', { class: 'card-row' }, [
@@ -128,11 +132,11 @@ export async function render(container, ctx) {
 
   const list = [
     h('div', { class: 'section-title' }, 'Upcoming'),
-    ...(upcoming.length ? upcoming.map(card) : [h('div', { class: 'empty-state' }, 'No upcoming events yet.')]),
+    ...(upcoming.length ? upcoming.map((row) => card(row, false)) : [h('div', { class: 'empty-state' }, 'No upcoming events yet.')]),
   ];
-  if (past.length) {
-    list.push(h('div', { class: 'section-title' }, 'Past'));
-    list.push(...past.slice(0, 20).map(card));
+  if (done.length) {
+    list.push(h('div', { class: 'section-title' }, 'Done'));
+    list.push(...done.slice(0, 20).map((row) => card(row, true)));
   }
 
   mount(container, [

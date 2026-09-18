@@ -6,7 +6,8 @@ appointments, renewal dates, move-in dates — anything date-based that
 isn't an expense or a replacement.
 
 ## MVP (Phase 0, shipped)
-- List upcoming events, soonest first, with past events collapsed below.
+- List upcoming events, soonest first, with events already done this
+  year collapsed below under "Done."
 - Add an event: title, optional description, category, date.
 - Edit an event (title, date, category, recurring, description).
 - Delete an event.
@@ -15,12 +16,22 @@ isn't an expense or a replacement.
 A `recurring` checkbox marks an event as yearly (auto-checked when
 category is `birthday` or `anniversary`, but always editable). `event_date`
 stays the original/historical date — a birthday keeps its real birth year
-rather than being rewritten — and the app computes each recurring event's
-next occurrence at render time (`nextOccurrence()` in `format.js`) to
-decide whether it's upcoming and what to sort by. Without this, an event
-stored with a real historical year (birth year, wedding year) would
-permanently sit in "Past" once that literal date went by. See
-[`02-data-model.md`](02-data-model.md).
+rather than being rewritten.
+
+Two different "what's the relevant date" functions exist in `format.js`,
+each for a different purpose:
+- `thisYearOccurrence()` maps a recurring event onto *this* year's
+  month/day and never rolls forward — used by the Events tab itself to
+  split Upcoming (this year's occurrence is still ahead) from **Done**
+  (it's already happened this year, e.g. a birthday in January by the
+  time September rolls around). Without this, a passed recurring event
+  would either wrongly sit in "Done" forever (if compared against its
+  literal stored year) or get silently folded back into "Upcoming" under
+  a confusing next-year date, mixed in with things still actually coming
+  up this year.
+- `nextOccurrence()` rolls forward to next year once this year's date has
+  passed — used by the home dashboard's "Coming up" feed, whose job is
+  "what's genuinely next," not "what's left in this calendar year."
 
 ## Phase 1
 - Category filter chips (birthday / anniversary / appointment / other).
@@ -36,4 +47,5 @@ See `events` table in [`02-data-model.md`](02-data-model.md).
 ## UI notes
 - Keep add-event to a single short form — this should never feel heavier
   than typing it into a notes app, or it won't get used.
-- Sort by `event_date` ascending for "upcoming," descending for "past."
+- Sort ascending within "Upcoming," descending (most recent first) within
+  "Done."

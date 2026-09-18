@@ -74,6 +74,16 @@ status. Check items off as they land.
 - [x] **Dark-mode glow theme**: a neon-on-black visual treatment (glowing
       card borders, gradient category pills, glowing tab icons) applied
       only when the device is in dark mode — the light theme is untouched.
+- [x] **Events split into Upcoming/Done by calendar year**: a recurring
+      event whose date has already passed *this* year (e.g. a January
+      birthday, viewed in September) now shows under "Done" with the date
+      it actually happened, instead of being folded back into "Upcoming"
+      under a misleading next-year date and mixed in with things
+      genuinely still coming up before year-end. New
+      `thisYearOccurrence()` in `format.js`, distinct from the existing
+      `nextOccurrence()` (still used by the home dashboard's rolling
+      "Coming up" feed, a different concern). See
+      [`docs/03-feature-events.md`](docs/03-feature-events.md).
 
 ## Phase 0 — Foundations ✅ (this session)
 
