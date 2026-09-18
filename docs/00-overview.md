@@ -15,6 +15,9 @@ that's easy to lose track of:
   checklist, and linked documents.
 - **Documents** — PDFs/photos of warranties, contracts, receipts, kept for
   future reference and optionally linked to a goal.
+- **Grocery List** — a shared shopping checklist.
+- **Recipes** — a shared recipe box, each with ingredients and
+  instructions, collapsible to save room.
 
 ## Who it's for
 
@@ -51,6 +54,8 @@ backend is configured.
 | [`13-feature-money-tab.md`](13-feature-money-tab.md) | Why/how Expenses and Rent are condensed into one "Money" tab |
 | [`14-ui-patterns.md`](14-ui-patterns.md) | UI conventions to follow when adding a new screen or form |
 | [`15-development-testing.md`](15-development-testing.md) | How to test changes locally without touching real data |
+| [`16-feature-grocery-list.md`](16-feature-grocery-list.md) | Shared grocery checklist (Money tab's Grocery List segment) |
+| [`17-feature-recipes.md`](17-feature-recipes.md) | Recipe box with ingredients/instructions (Money tab's Recipes segment) |
 
 The top-level [`ROADMAP.md`](../ROADMAP.md) tracks phases and status across
 all of the above. [`../CLAUDE.md`](../CLAUDE.md) is the short version for

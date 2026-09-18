@@ -90,6 +90,22 @@ status. Check items off as they land.
       date. Goals with a passed target date drop off the same feed. See
       [`docs/03-feature-events.md`](docs/03-feature-events.md) and
       [`docs/12-feature-goals.md`](docs/12-feature-goals.md).
+- [x] **Grocery List and Recipes added to the Money tab**: two more
+      segments alongside Expenses/BrackenRidge Rent. Grocery List is a
+      shared checklist (item + optional quantity, check off as bought,
+      bulk "Clear bought items"). Recipes is a collapsible recipe box —
+      each recipe has a title plus Ingredients/Instructions subgroups,
+      and collapses to just its title (same `<details class="goal-
+      section">` pattern as Goals) so a growing collection doesn't turn
+      into an endless scroll. The `.segmented` control now scrolls
+      horizontally instead of squeezing four segments into equal-width
+      buttons. See [`docs/16-feature-grocery-list.md`](docs/16-feature-grocery-list.md)
+      and [`docs/17-feature-recipes.md`](docs/17-feature-recipes.md).
+      Along the way, fixed a latent bug in `goals.js` where renaming a
+      goal updated the database but not its collapsed `<summary>` title
+      (same root cause the new recipes.js code had to get right the
+      first time) — both now re-render the whole list after a title
+      change instead of just the edited section's body.
 
 ## Phase 0 — Foundations ✅ (this session)
 

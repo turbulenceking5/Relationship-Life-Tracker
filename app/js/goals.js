@@ -139,12 +139,11 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
             target_date: editDateInput.value || null,
             target_amount: editTargetInput.value ? parseFloat(editTargetInput.value) : null,
           });
-          Object.assign(goal, {
-            title: editTitleInput.value.trim(),
-            target_date: editDateInput.value || null,
-            target_amount: editTargetInput.value ? parseFloat(editTargetInput.value) : null,
-          });
-          renderGoalBody(section, ctx, goal, members, false, onDeleted);
+          // Re-render the whole list, not just this section — the
+          // collapsed <summary> title was set once from a plain string
+          // when the list was first built, so mutating `goal` in place
+          // wouldn't update it.
+          onDeleted();
         } catch (err) {
           errorEl.textContent = err.message;
           errorEl.style.display = 'block';

@@ -1,4 +1,4 @@
-# Feature: Money tab (Expenses / BrackenRidge Rent)
+# Feature: Money tab (Expenses / BrackenRidge Rent / Grocery List / Recipes)
 
 Expenses, Replacement Reminders, and (originally) Repayments were
 condensed into one **Money** tab with a segmented sub-nav after the tab
@@ -7,19 +7,27 @@ on a phone-width screen. Repayments was later removed entirely (not
 relocated — see [`06-feature-repayments.md`](06-feature-repayments.md)),
 investment property rent tracking moved here from the Goals tab, and
 Replacement Reminders was later removed too (not relocated — see
-[`05-feature-replacements.md`](05-feature-replacements.md)), so the
-current sub-nav is just Expenses and BrackenRidge Rent.
+[`05-feature-replacements.md`](05-feature-replacements.md)). Grocery List
+and Recipes were added later as two more segments — not strictly "money"
+either, but they're household life-admin in the same spirit as rent, and
+adding a whole new top-level tab per household chore would recreate the
+exact tab-bar crowding this consolidation exists to avoid.
 
 ## How it works
 
 `app/js/money.js` is a thin router, not a feature module in its own
 right:
 
-- It renders a `.segmented` control (Expenses / BrackenRidge Rent) above
-  a content area.
+- It renders a `.segmented` control (Expenses / BrackenRidge Rent /
+  Grocery List / Recipes) above a content area. With four segments
+  (one a long label) the control no longer fits equal-width buttons on a
+  phone screen, so `.segmented` scrolls horizontally instead of
+  squeezing every button down to fit — see the "Why not one long
+  scrolling page instead" section for how each segment stays independent.
 - Each segment delegates straight to its own feature module —
-  `expenses.js`, `rent.js` — calling its `render(container, ctx)` exactly
-  as the top-level tab router in `app.js` used to.
+  `expenses.js`, `rent.js`, `grocery.js`, `recipes.js` — calling its
+  `render(container, ctx)` exactly as the top-level tab router in
+  `app.js` used to.
 - `activeSub` is module-level state (same pattern as `currentTab` in
   `app.js`), so it's remembered for as long as the page stays loaded, but
   always starts back on "Expenses" after a full reload.

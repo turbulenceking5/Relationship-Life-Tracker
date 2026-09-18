@@ -21,6 +21,8 @@ auth.users (Supabase-managed)
      │        ──1:N── custom_goals ──1:N── goal_transactions
      │                             ──1:N── goal_tasks
      │        ──1:N── documents ── related_type/related_id ──▶ (goal, optionally)
+     │        ──1:N── grocery_items
+     │        ──1:N── recipes
      │
      └──1:N── household_members (join table to auth.users)
 ```
@@ -214,6 +216,38 @@ track a to-do list and a money ledger at the same time.
 | `is_done` | boolean | default false |
 | `created_by` | uuid → auth.users | |
 | `created_at` | timestamptz | |
+
+### `grocery_items`
+See [`16-feature-grocery-list.md`](16-feature-grocery-list.md) (surfaced
+via the Money tab's Grocery List segment). A plain shared shopping list —
+same shape as `goal_tasks`, just not scoped to a goal.
+
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `household_id` | uuid → households | |
+| `title` | text | required, e.g. "Milk" |
+| `quantity` | text | optional, free text (e.g. "2L", "x3") |
+| `is_done` | boolean | default false; checked off once bought |
+| `created_by` | uuid → auth.users | |
+| `created_at` | timestamptz | |
+
+### `recipes`
+See [`17-feature-recipes.md`](17-feature-recipes.md) (surfaced via the
+Money tab's Recipes segment). Ingredients and instructions are plain
+`text[]` columns rather than their own join tables — each is just an
+ordered list of lines with no per-item metadata, so an array captures
+both content and order without extra table/RLS/CRUD overhead.
+
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `household_id` | uuid → households | |
+| `title` | text | required |
+| `ingredients` | text[] | one entry per line typed in the add/edit form |
+| `instructions` | text[] | one entry per step typed in the add/edit form |
+| `created_by` | uuid → auth.users | |
+| `created_at` / `updated_at` | timestamptz | |
 
 ## Row Level Security summary
 

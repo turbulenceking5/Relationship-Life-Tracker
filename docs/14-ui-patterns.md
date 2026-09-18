@@ -63,6 +63,28 @@ multiple such modules rather than being one themselves.
 - Destructive actions ("Delete") use `.btn.danger-text.small`; secondary
   actions ("Mark as paid", "Mark as received") use `.btn.secondary.small`.
 
+## Collapsible sections: `<details class="goal-section">`
+
+When a tab holds a growing list of independently-large items (Goals,
+Recipes) rather than short list rows (Events, Expenses), wrap each item
+in `<details class="goal-section"><summary>{title}</summary><div
+class="goal-section-body">...</div></details>` instead of a plain
+`.card`. Despite the class name (it shipped with Goals first), it's a
+generic "collapsible card" — reused as-is for Recipes rather than
+duplicated under a new class name. A single item starts expanded (`open:
+items.length === 1`); two or more start collapsed, so the list doesn't
+turn into an endless scroll.
+
+Put Edit/Delete controls inside the expanded body, not on the collapsed
+summary row — the collapsed view should show just the title. After a
+save that changes the title (or anything the list is ordered/keyed by),
+re-render the *whole* list, not just that item's body: the `<summary>`
+text was set once from a plain string when the list was first built, so
+mutating the underlying row object in place won't update it. See
+`renderGoalBody()` in `goals.js` and `renderRecipeBody()` in
+`recipes.js` for the pattern — the body-only re-render is fine for
+edits that don't touch the summary (e.g. adding a transaction).
+
 ## Money amounts
 
 Always format through `formatMoney(amount, currency)` from `format.js`
