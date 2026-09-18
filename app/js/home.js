@@ -25,7 +25,11 @@ export async function render(container, ctx, navigate) {
     .sort((a, b) => (a._next < b._next ? -1 : 1))
     .slice(0, 3);
   const dueRent = rentPayments.filter((r) => !r.paid && dueStatus(r.due_date).cls !== 'ok').slice(0, 5);
-  const goalsWithDates = goals.filter((g) => g.target_date);
+  // Goals with a target date that's already gone by just drop off "Coming
+  // up" — unlike the Events tab's Upcoming/Done split, the home dashboard
+  // is a "what's next" glance, not a record of what's happened, so there's
+  // no Done section to move them into.
+  const goalsWithDates = goals.filter((g) => g.target_date && g.target_date >= today);
 
   function row(icon, title, meta, pill, onClick) {
     return h('div', { class: 'card', onclick: onClick, style: onClick ? 'cursor:pointer' : '' }, [
@@ -59,7 +63,7 @@ export async function render(container, ctx, navigate) {
     )),
     ...goalsWithDates.map((g) => {
       const days = daysUntil(g.target_date);
-      const label = days === 0 ? "It's today!" : days > 0 ? `${days}d to go` : `${Math.abs(days)}d ago`;
+      const label = days === 0 ? "It's today!" : `${days}d to go`;
       return row('🎯', g.title, formatDate(g.target_date), h('span', { class: 'pill upcoming' }, label), () => navigate('goals'));
     }),
   ];

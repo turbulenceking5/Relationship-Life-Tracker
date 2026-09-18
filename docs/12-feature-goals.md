@@ -54,7 +54,9 @@ target and running ledger.
   transactions and tasks — but not its linked documents, which stay in
   the Docs tab, just no longer tagged as linked to anything).
 - A goal with a target date surfaces on the home dashboard's "Coming up"
-  with a day countdown.
+  with a day countdown, and drops off that feed once its target date has
+  passed (it doesn't move to a "Done" list the way Events does — the
+  goal itself, and its progress, still lives on the Goals tab).
 
 ## Data
 
