@@ -1,6 +1,6 @@
 import { h, mount } from './dom.js';
 import { fetchRows } from './crud.js';
-import { formatDate, formatMoney, dueStatus, daysUntil, todayStr, nextOccurrence } from './format.js';
+import { formatDate, formatMoney, dueStatus, daysUntil, todayStr, thisYearOccurrence } from './format.js';
 
 const CATEGORY_ICONS = { birthday: '🎂', anniversary: '💍', appointment: '📅', other: '📌' };
 const GRADIENT_CLASSES = ['grad-a', 'grad-b', 'grad-c', 'grad-d', 'grad-e'];
@@ -19,8 +19,13 @@ export async function render(container, ctx, navigate) {
   ]);
 
   const today = todayStr();
+  // thisYearOccurrence (not nextOccurrence) so a recurring event that's
+  // already happened this year just drops off the dashboard instead of
+  // reappearing early with next year's date — same "has it happened yet
+  // this year" logic as the Events tab's Upcoming/Done split, just without
+  // a Done section to move it into here.
   const soonEvents = events
-    .map((e) => ({ ...e, _next: nextOccurrence(e.event_date, e.recurring) }))
+    .map((e) => ({ ...e, _next: thisYearOccurrence(e.event_date, e.recurring) }))
     .filter((e) => e._next >= today)
     .sort((a, b) => (a._next < b._next ? -1 : 1))
     .slice(0, 3);

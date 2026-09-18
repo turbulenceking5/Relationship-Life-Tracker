@@ -57,10 +57,10 @@ function openEditSheet(row, container, ctx) {
 export async function render(container, ctx) {
   const rows = await fetchRows(TABLE, ctx.household.id, 'event_date', true);
   const today = todayStr();
-  // thisYearOccurrence (unlike nextOccurrence, used elsewhere for the home
-  // dashboard) never rolls a recurring event forward into next year, so a
-  // birthday whose date already passed this year lands in Done rather
-  // than being mixed into Upcoming under a misleading "next year" date.
+  // thisYearOccurrence never rolls a recurring event forward into next
+  // year, so a birthday whose date already passed this year lands in Done
+  // rather than being mixed into Upcoming under a misleading "next year"
+  // date.
   const withYear = rows.map((r) => ({ ...r, _thisYear: thisYearOccurrence(r.event_date, r.recurring) }));
   const upcoming = withYear.filter((r) => r._thisYear >= today).sort((a, b) => (a._thisYear < b._thisYear ? -1 : 1));
   const done = withYear.filter((r) => r._thisYear < today).sort((a, b) => (a._thisYear < b._thisYear ? 1 : -1));

@@ -18,20 +18,19 @@ category is `birthday` or `anniversary`, but always editable). `event_date`
 stays the original/historical date — a birthday keeps its real birth year
 rather than being rewritten.
 
-Two different "what's the relevant date" functions exist in `format.js`,
-each for a different purpose:
-- `thisYearOccurrence()` maps a recurring event onto *this* year's
-  month/day and never rolls forward — used by the Events tab itself to
-  split Upcoming (this year's occurrence is still ahead) from **Done**
-  (it's already happened this year, e.g. a birthday in January by the
-  time September rolls around). Without this, a passed recurring event
-  would either wrongly sit in "Done" forever (if compared against its
-  literal stored year) or get silently folded back into "Upcoming" under
-  a confusing next-year date, mixed in with things still actually coming
-  up this year.
-- `nextOccurrence()` rolls forward to next year once this year's date has
-  passed — used by the home dashboard's "Coming up" feed, whose job is
-  "what's genuinely next," not "what's left in this calendar year."
+`thisYearOccurrence()` in `format.js` maps a recurring event onto *this*
+year's month/day and never rolls forward into next year. Both consumers
+use it the same way — a recurring event whose date has already passed
+this year is treated as "not upcoming," not silently rolled forward to a
+next-year date:
+- The Events tab splits on it: this year's occurrence still ahead goes in
+  **Upcoming**, already happened goes in **Done** (shown with the date it
+  actually happened, e.g. a birthday in January by the time September
+  rolls around).
+- The home dashboard's "Coming up" feed filters on it too: a passed
+  recurring event just drops off the list instead of showing up early
+  with next year's date. It reappears there once the new year actually
+  arrives and `thisYearOccurrence()` recomputes against the current year.
 
 ## Phase 1
 - Category filter chips (birthday / anniversary / appointment / other).

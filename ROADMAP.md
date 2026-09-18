@@ -80,10 +80,16 @@ status. Check items off as they land.
       it actually happened, instead of being folded back into "Upcoming"
       under a misleading next-year date and mixed in with things
       genuinely still coming up before year-end. New
-      `thisYearOccurrence()` in `format.js`, distinct from the existing
-      `nextOccurrence()` (still used by the home dashboard's rolling
-      "Coming up" feed, a different concern). See
+      `thisYearOccurrence()` in `format.js`. See
       [`docs/03-feature-events.md`](docs/03-feature-events.md).
+- [x] **Home dashboard drops passed events/goals instead of showing them
+      early**: the "Coming up" feed now also uses `thisYearOccurrence()`
+      for events (replacing `nextOccurrence()`, since removed as
+      unused) — a birthday already gone by this year just disappears
+      from the dashboard instead of jumping the queue with next year's
+      date. Goals with a passed target date drop off the same feed. See
+      [`docs/03-feature-events.md`](docs/03-feature-events.md) and
+      [`docs/12-feature-goals.md`](docs/12-feature-goals.md).
 
 ## Phase 0 — Foundations ✅ (this session)
 
