@@ -53,6 +53,26 @@ partners agree, e.g. 65/35.
 - Settlement history is listed (and individually deletable, in case of a
   mistake) below the expense list.
 
+### Per-expense split override (shipped)
+An individual expense can use a different split than the household
+default — e.g. a mostly-one-person purchase logged 50/50 by default, but
+"bought myself a gift" logged 100/0. The add/edit expense form
+(`buildSplitField()` in `app/js/expenses.js`) shows the same
+auto-complementing pair of number inputs as the ⚙️ account sheet's
+household-default split, prefilled with that default; only shown once a
+household has two members, same restriction as the balance feature
+itself.
+
+Left unchanged, the expense stores no override at all (`split_percent` /
+`split_percent_user_id` both null on the row) — it keeps tracking the
+household's `split_percent` setting even if that setting is changed
+later. Only an expense someone deliberately typed a different number into
+pins to that specific split forever, shown on its card as e.g. "split
+Alex 50/Sam 50". `computeBalance()` in `app/js/balance.js` checks each
+expense for an override before falling back to the household default,
+so a mix of overridden and default expenses in the same list balances
+correctly.
+
 ## Phase 1 (remaining)
 - Filter by category and by date range (this month / last month / custom).
 - Monthly total and per-category breakdown.

@@ -8,6 +8,21 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-09-28 — Per-expense split override
+
+- Any expense can now use a different split than the household default —
+  the add/edit expense form (`app/js/expenses.js`) shows the same
+  auto-complementing split inputs as the ⚙️ account sheet, prefilled with
+  the household default. Left unchanged, the expense keeps tracking that
+  default even if it's changed later; only deliberately changing it pins
+  that one expense to its own split, shown on its card (e.g. "split Alex
+  50/Sam 50").
+- `computeBalance()` (`app/js/balance.js`) now checks each expense for an
+  override before falling back to the household default, so a mix of
+  overridden and default expenses balances correctly.
+- New nullable `split_percent` / `split_percent_user_id` columns on
+  `expenses` (migration `0020_expense_split_override.sql`).
+
 ## 2026-09-28 — Recurring expenses
 
 - New "Recurring expenses" section on the Expenses tab

@@ -15,6 +15,54 @@ const RECURRING_INTERVAL_PRESETS = [
   { label: 'Custom', days: null },
 ];
 
+// Two-input split override for a single expense, mirroring the ⚙️
+// account sheet's household-default split UI (same auto-complementing
+// pair of number inputs). Only meaningful for a two-person household —
+// same restriction as the household-wide split setting itself. Returns
+// null when there aren't exactly two members, so callers can just skip
+// mounting the field.
+//
+// `initial` is the expense row being edited (or null when adding), used
+// to prefill from its existing override if it has one. Left unchanged
+// from the household default, getOverride() reports "no override"
+// (split_percent: null) rather than freezing in today's default — so an
+// un-touched expense keeps tracking the household setting even if it's
+// changed later; only an expense someone deliberately typed a different
+// number into pins to that specific split forever.
+function buildSplitField(members, initial) {
+  if (members.length !== 2) return null;
+  const [a, b] = members;
+  const initialPercentA = initial?.split_percent == null
+    ? a.split_percent
+    : (initial.split_percent_user_id === a.user_id ? Number(initial.split_percent) : 100 - Number(initial.split_percent));
+
+  const percentA = h('input', { type: 'number', min: '0', max: '100', step: '1', value: initialPercentA });
+  const percentB = h('input', { type: 'number', min: '0', max: '100', step: '1', value: Math.round((100 - initialPercentA) * 100) / 100, disabled: true });
+  percentA.addEventListener('input', () => {
+    const val = Math.max(0, Math.min(100, parseFloat(percentA.value) || 0));
+    percentB.value = Math.round((100 - val) * 100) / 100;
+  });
+
+  const field = h('div', { class: 'field' }, [
+    h('label', {}, 'Split for this expense'),
+    h('div', { class: 'field-row' }, [
+      h('div', { class: 'field' }, [h('label', {}, a.display_name), percentA]),
+      h('div', { class: 'field' }, [h('label', {}, `${b.display_name} (auto)`), percentB]),
+    ]),
+    h('div', { class: 'meta' }, `Defaults to your household split (${a.split_percent}/${b.split_percent}) — change it only if this one splits differently.`),
+  ]);
+
+  function getOverride() {
+    const val = parseFloat(percentA.value);
+    if (Math.round(val * 100) === Math.round(Number(a.split_percent) * 100)) {
+      return { split_percent: null, split_percent_user_id: null };
+    }
+    return { split_percent: val, split_percent_user_id: a.user_id };
+  }
+
+  return { field, getOverride };
+}
+
 function openSettleUpSheet(balance, members, container, ctx) {
   const memberName = (id) => members.find((m) => m.user_id === id)?.display_name || 'Someone';
   const { dialog, body } = makeSheet('Settle up');
@@ -75,6 +123,7 @@ function openEditSheet(row, members, container, ctx) {
   const paidBySelect = h('select', {}, members.map((m) => h('option', { value: m.user_id, selected: m.user_id === row.paid_by }, m.display_name)));
   const dateInput = h('input', { type: 'date', required: true, value: row.expense_date });
   const notesInput = h('textarea', { rows: '2', placeholder: 'Optional notes' }, row.notes || '');
+  const split = buildSplitField(members, row);
 
   const form = h('form', {
     onsubmit: async (e) => {
@@ -89,6 +138,7 @@ function openEditSheet(row, members, container, ctx) {
           paid_by: paidBySelect.value,
           expense_date: dateInput.value,
           notes: notesInput.value.trim() || null,
+          ...(split ? split.getOverride() : {}),
         });
         closeSheet(dialog);
         render(container, ctx);
@@ -108,6 +158,7 @@ function openEditSheet(row, members, container, ctx) {
       h('div', { class: 'field' }, [h('label', {}, 'Paid by'), paidBySelect]),
     ]),
     h('div', { class: 'field' }, [h('label', {}, 'Date'), dateInput]),
+    split ? split.field : null,
     h('div', { class: 'field' }, [h('label', {}, 'Notes'), notesInput]),
     errorEl,
     h('button', { class: 'btn primary', type: 'submit' }, 'Save changes'),
@@ -220,11 +271,18 @@ export async function render(container, ctx) {
   }
 
   function card(row) {
+    const splitNote = row.split_percent == null
+      ? ''
+      : (() => {
+          const [a, b] = members;
+          const pctA = row.split_percent_user_id === a.user_id ? Number(row.split_percent) : 100 - Number(row.split_percent);
+          return ` · split ${a.display_name} ${Math.round(pctA)}/${b.display_name} ${Math.round(100 - pctA)}`;
+        })();
     return h('div', { class: 'card' }, [
       h('div', { class: 'card-row' }, [
         h('div', {}, [
           h('h3', {}, row.title),
-          h('div', { class: 'meta' }, `${formatDate(row.expense_date)} · ${row.category || 'uncategorized'} · paid by ${memberName(row.paid_by)}`),
+          h('div', { class: 'meta' }, `${formatDate(row.expense_date)} · ${row.category || 'uncategorized'} · paid by ${memberName(row.paid_by)}${splitNote}`),
         ]),
         h('div', { style: 'text-align:right' }, [
           h('div', { class: 'amount' }, formatMoney(row.amount, row.currency)),
@@ -335,6 +393,7 @@ export async function render(container, ctx) {
   const paidBySelect = h('select', {}, members.map((m) => h('option', { value: m.user_id, selected: m.user_id === ctx.user.id }, m.display_name)));
   const dateInput = h('input', { type: 'date', required: true, value: todayStr() });
   const notesInput = h('textarea', { rows: '2', placeholder: 'Optional notes' });
+  const addSplit = buildSplitField(members, null);
 
   const form = h('form', {
     onsubmit: async (e) => {
@@ -351,6 +410,7 @@ export async function render(container, ctx) {
           expense_date: dateInput.value,
           notes: notesInput.value.trim() || null,
           created_by: ctx.user.id,
+          ...(addSplit ? addSplit.getOverride() : {}),
         });
         closeSheet(dialog);
         render(container, ctx);
@@ -370,6 +430,7 @@ export async function render(container, ctx) {
       h('div', { class: 'field' }, [h('label', {}, 'Paid by'), paidBySelect]),
     ]),
     h('div', { class: 'field' }, [h('label', {}, 'Date'), dateInput]),
+    addSplit ? addSplit.field : null,
     h('div', { class: 'field' }, [h('label', {}, 'Notes'), notesInput]),
     errorEl,
     h('button', { class: 'btn primary', type: 'submit' }, 'Save expense'),

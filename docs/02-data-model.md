@@ -94,6 +94,8 @@ embed failed with "Could not find a relationship."
 | `paid_by` | uuid → auth.users | who paid |
 | `expense_date` | date | required |
 | `notes` | text | optional |
+| `split_percent` | numeric(5,2) | nullable; overrides the household default split for this expense only — see [`04-feature-expenses.md`](04-feature-expenses.md) |
+| `split_percent_user_id` | uuid → auth.users | nullable; which member `split_percent` is that member's share of (the other member gets the complement) |
 | `created_by` | uuid → auth.users | |
 | `created_at` / `updated_at` | timestamptz | |
 

@@ -1,22 +1,32 @@
 // "Who owes who" for a two-person household: each member is responsible
-// for their split_percent share of every logged expense; settlements
-// are direct payments between partners that offset the running balance
-// without being logged as an expense themselves.
+// for their split_percent share of every logged expense, unless that
+// expense set its own override (split_percent + split_percent_user_id on
+// the expenses row — see 04-feature-expenses.md) — settlements are direct
+// payments between partners that offset the running balance without
+// being logged as an expense themselves.
+function shareFor(expense, member) {
+  if (expense.split_percent == null) return member.split_percent;
+  return expense.split_percent_user_id === member.user_id
+    ? Number(expense.split_percent)
+    : 100 - Number(expense.split_percent);
+}
+
 export function computeBalance(expenses, settlements, members) {
   if (members.length !== 2) return null;
   const [a, b] = members;
 
-  let total = 0;
   const paidByUser = { [a.user_id]: 0, [b.user_id]: 0 };
+  const owedByUser = { [a.user_id]: 0, [b.user_id]: 0 };
   for (const e of expenses) {
     const amt = Number(e.amount);
-    total += amt;
     paidByUser[e.paid_by] = (paidByUser[e.paid_by] || 0) + amt;
+    owedByUser[a.user_id] += amt * (shareFor(e, a) / 100);
+    owedByUser[b.user_id] += amt * (shareFor(e, b) / 100);
   }
 
   const balance = {
-    [a.user_id]: paidByUser[a.user_id] - total * (a.split_percent / 100),
-    [b.user_id]: paidByUser[b.user_id] - total * (b.split_percent / 100),
+    [a.user_id]: paidByUser[a.user_id] - owedByUser[a.user_id],
+    [b.user_id]: paidByUser[b.user_id] - owedByUser[b.user_id],
   };
 
   for (const s of settlements) {

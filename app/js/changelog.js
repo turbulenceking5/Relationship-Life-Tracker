@@ -78,6 +78,14 @@ export const CHANGELOG_ENTRIES = [
       'Pause a subscription without losing its history, or delete it outright',
     ],
   },
+  {
+    id: 8,
+    date: '2026-09-28',
+    title: 'Change the split on individual expenses',
+    items: [
+      'Any expense can now use a different split than your usual one — defaults to your account setting, change it only for that one expense',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';
