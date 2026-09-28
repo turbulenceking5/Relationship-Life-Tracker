@@ -22,7 +22,12 @@ function addDays(dateStr, days) {
 // always exactly one upcoming unpaid period. This one function drives
 // both sections below, parameterized by table name, wording, default
 // cadence, and whether the amount reads as income or expense.
-async function renderPaymentSection(section, ctx, config) {
+//
+// It mounts into two separate containers: `currentEl` gets the add
+// button and unpaid periods (what you actually act on), `historyEl`
+// gets paid periods collapsed behind a <details> — see render() below
+// for why they're pulled apart instead of stacked in one list.
+async function renderPaymentSection(currentEl, historyEl, ctx, config) {
   const { table, defaultLabel, paidVerb, defaultIntervalDays, amountClass, statusPaidLabel } = config;
 
   function openEditSheet(row) {
@@ -53,7 +58,7 @@ async function renderPaymentSection(section, ctx, config) {
             interval_days: intervalDays,
           });
           closeSheet(dialog);
-          renderPaymentSection(section, ctx, config);
+          renderPaymentSection(currentEl, historyEl, ctx, config);
         } catch (err) {
           errorEl.textContent = err.message;
           errorEl.style.display = 'block';
@@ -75,7 +80,7 @@ async function renderPaymentSection(section, ctx, config) {
 
   const rows = await fetchRows(table, ctx.household.id, 'due_date', true);
   const unpaid = rows.filter((r) => !r.paid);
-  const paid = rows.filter((r) => r.paid).slice(0, 10);
+  const paid = rows.filter((r) => r.paid).slice(0, 20);
 
   function card(row) {
     const status = row.paid
@@ -106,11 +111,11 @@ async function renderPaymentSection(section, ctx, config) {
               interval_days: row.interval_days,
               created_by: ctx.user.id,
             });
-            renderPaymentSection(section, ctx, config);
+            renderPaymentSection(currentEl, historyEl, ctx, config);
           },
         }, paidVerb),
         h('button', { class: 'btn secondary small', onclick: () => openEditSheet(row) }, 'Edit'),
-        h('button', { class: 'btn danger-text small', onclick: async () => { await deleteRow(table, row.id); renderPaymentSection(section, ctx, config); } }, 'Delete'),
+        h('button', { class: 'btn danger-text small', onclick: async () => { await deleteRow(table, row.id); renderPaymentSection(currentEl, historyEl, ctx, config); } }, 'Delete'),
       ]),
     ]);
   }
@@ -140,7 +145,7 @@ async function renderPaymentSection(section, ctx, config) {
           created_by: ctx.user.id,
         });
         closeSheet(dialog);
-        renderPaymentSection(section, ctx, config);
+        renderPaymentSection(currentEl, historyEl, ctx, config);
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
@@ -158,28 +163,44 @@ async function renderPaymentSection(section, ctx, config) {
   ]);
   mount(body, form);
 
-  mount(section, [
+  mount(currentEl, [
     h('button', { class: 'btn secondary small', style: 'margin-bottom:10px', onclick: () => openSheet(dialog) }, `+ Add ${config.noun}`),
     unpaid.length ? h('div', {}, unpaid.map(card)) : h('div', { class: 'empty-state' }, config.emptyText),
-    paid.length ? h('div', { class: 'section-title' }, config.recentLabel) : null,
-    ...paid.map(card),
     dialog,
   ]);
+
+  mount(historyEl, paid.length
+    ? h('details', { class: 'goal-section' }, [
+        h('summary', {}, `${config.historyLabel} (${paid.length})`),
+        h('div', { class: 'goal-section-body' }, paid.map(card)),
+      ])
+    : []);
 }
 
 export async function render(container, ctx) {
-  const rentSection = h('div', {}, h('div', { class: 'empty-state' }, 'Loading…'));
-  const mortgageSection = h('div', {}, h('div', { class: 'empty-state' }, 'Loading…'));
+  const rentCurrent = h('div', {}, h('div', { class: 'empty-state' }, 'Loading…'));
+  const mortgageCurrent = h('div', {}, h('div', { class: 'empty-state' }, 'Loading…'));
+  const rentHistory = h('div', {});
+  const mortgageHistory = h('div', {});
 
+  // Current (unpaid) periods for both Rent and Mortgage stay up top,
+  // where they're actionable. Paid history for both is pulled out to a
+  // "History" section at the very bottom, each collapsed behind a
+  // <details> by default — otherwise up to 20 paid cards per table sit
+  // between the two "current" sections and push Mortgage's own unpaid
+  // periods off screen, which is the whole complaint this fixes.
   mount(container, [
     h('div', { class: 'section-title' }, 'Rent'),
-    rentSection,
+    rentCurrent,
     h('div', { class: 'section-title' }, 'Mortgage'),
-    mortgageSection,
+    mortgageCurrent,
+    h('div', { class: 'section-title' }, 'History'),
+    rentHistory,
+    mortgageHistory,
   ]);
 
   await Promise.all([
-    renderPaymentSection(rentSection, ctx, {
+    renderPaymentSection(rentCurrent, rentHistory, ctx, {
       table: 'rent_payments',
       noun: 'rent period',
       defaultLabel: 'BrackenRidge Rent',
@@ -188,9 +209,9 @@ export async function render(container, ctx) {
       defaultIntervalDays: 14,
       amountClass: 'owed_to_us',
       emptyText: 'No upcoming rent tracked yet.',
-      recentLabel: 'Recently received',
+      historyLabel: 'Rent history',
     }),
-    renderPaymentSection(mortgageSection, ctx, {
+    renderPaymentSection(mortgageCurrent, mortgageHistory, ctx, {
       table: 'mortgage_payments',
       noun: 'mortgage payment',
       defaultLabel: 'BrackenRidge Mortgage',
@@ -199,7 +220,7 @@ export async function render(container, ctx) {
       defaultIntervalDays: 30,
       amountClass: 'owed_by_us',
       emptyText: 'No upcoming mortgage payments tracked yet.',
-      recentLabel: 'Recently paid',
+      historyLabel: 'Mortgage history',
     }),
   ]);
 }

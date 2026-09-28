@@ -50,6 +50,11 @@ and keep this file short enough to actually stay read.
   any "today" logic should stay correct for that timezone specifically
   (see `todayStr()` in `app/js/format.js`, which already fixed a
   UTC-vs-local-date bug for this reason).
+- **New user-visible change → add an entry to both `CHANGELOG.md` and
+  `app/js/changelog.js`** (the in-app "What's new" dialog shown on
+  load). See [`docs/18-feature-changelog.md`](docs/18-feature-changelog.md).
+  Skip this for internal-only changes (refactors, doc fixes) — neither
+  file is a commit log.
 
 ## Data sharing model (comes up often)
 

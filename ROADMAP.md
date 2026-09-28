@@ -126,6 +126,22 @@ status. Check items off as they land.
       identical in shape. Mortgage payments due/overdue also show on the
       home dashboard's "What's due" feed alongside rent. See
       [`docs/13-feature-money-tab.md`](docs/13-feature-money-tab.md).
+- [x] **Rent/Mortgage paid history collapsed into a "History" section**:
+      paid periods for both used to sit right below their own section's
+      unpaid ones, so Rent's growing history pushed Mortgage's current
+      periods off screen. Both now pull their paid periods into a single
+      History section at the bottom, each collapsed behind its own
+      `<details>` (closed by default) — one tap away, not clogging the
+      scroll between the two current sections. See
+      [`docs/13-feature-money-tab.md`](docs/13-feature-money-tab.md).
+- [x] **In-app "What's new" changelog**: a dialog on app load lists
+      everything shipped since that browser last dismissed it, sourced
+      from a hand-maintained array in `app/js/changelog.js`
+      (`localStorage`-tracked, per device, no new table). A
+      [`CHANGELOG.md`](CHANGELOG.md) at the repo root is its
+      human-facing counterpart for anyone reading the repo. See
+      [`docs/18-feature-changelog.md`](docs/18-feature-changelog.md) for
+      how the two relate and how to keep both updated going forward.
 
 ## Phase 0 — Foundations ✅ (this session)
 

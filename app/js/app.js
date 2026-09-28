@@ -4,6 +4,8 @@ import { renderAuthScreen } from './auth.js';
 import { renderHouseholdScreen, getMyHousehold, renderInviteInfo, getHouseholdMembers, updateSplitPercents } from './household.js';
 import { isStandalone, isPushSupported, getSubscriptionStatus, enablePush, disablePush } from './notifications.js';
 import { getTheme, setTheme } from './theme.js';
+import { getUnseenEntries, markChangelogSeen } from './changelog.js';
+import { formatDate } from './format.js';
 
 const appEl = document.getElementById('app');
 
@@ -43,6 +45,30 @@ async function afterAuth(user) {
 
   ctx = { user, household };
   renderMainApp();
+  showChangelogIfUnseen();
+}
+
+// Runs once per app load (from afterAuth, not from every tab switch or
+// account-sheet open) so "What's new" reflects what changed since this
+// browser last saw it, not since the current session started.
+function showChangelogIfUnseen() {
+  const unseen = getUnseenEntries();
+  if (!unseen.length) return;
+
+  const { dialog, body } = makeSheet("What's new");
+  mount(body, [
+    ...unseen.flatMap((entry) => [
+      h('div', { class: 'section-title' }, `${entry.title} · ${formatDate(entry.date)}`),
+      h('ul', { class: 'recipe-list' }, entry.items.map((item) => h('li', {}, item))),
+    ]),
+    h('button', { class: 'btn primary', onclick: () => closeSheet(dialog) }, 'Got it'),
+  ]);
+  document.body.appendChild(dialog);
+  // Any way of closing (this button, the sheet's own ✕, tap-outside)
+  // counts as "seen" — someone dismissing via the ✕ isn't asking to be
+  // reminded later.
+  dialog.addEventListener('close', () => { markChangelogSeen(); dialog.remove(); });
+  openSheet(dialog);
 }
 
 function wrapScreen(drawFn) {

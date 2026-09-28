@@ -57,7 +57,9 @@ backend is configured.
 | [`15-development-testing.md`](15-development-testing.md) | How to test changes locally without touching real data |
 | [`16-feature-grocery-list.md`](16-feature-grocery-list.md) | Shared grocery checklist (Money tab's Grocery List segment) |
 | [`17-feature-recipes.md`](17-feature-recipes.md) | Recipe box with ingredients/instructions (Money tab's Recipes segment) |
+| [`18-feature-changelog.md`](18-feature-changelog.md) | The in-app "What's new" dialog and its `../CHANGELOG.md` counterpart |
 
 The top-level [`ROADMAP.md`](../ROADMAP.md) tracks phases and status across
-all of the above. [`../CLAUDE.md`](../CLAUDE.md) is the short version for
+all of the above, and [`../CHANGELOG.md`](../CHANGELOG.md) is a dated log of
+user-visible changes. [`../CLAUDE.md`](../CLAUDE.md) is the short version for
 picking this repo back up in a fresh session.

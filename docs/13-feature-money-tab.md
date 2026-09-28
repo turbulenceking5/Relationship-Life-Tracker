@@ -47,29 +47,46 @@ just an `app.js` TABS-array change) and means their own docs
 their behavior accurately. `rent.js` was extracted from the old Goals tab
 into a standalone module with the same shape.
 
-### `rent.js`: Rent and Mortgage, one page, two sections
+### `rent.js`: Rent and Mortgage, one page, current vs. history
 
-`rent.js` itself renders two stacked sections — **Rent** (money in) and
-**Mortgage** (money out) — for the same property, each with its own
-due/paid list, its own "+ Add" button, and its own "Mark as
-received"/"Mark as paid" action. Both are driven by one shared
-`renderPaymentSection(section, ctx, config)` helper parameterized by
-table name (`rent_payments` / `mortgage_payments`), wording, default
-cadence (fortnightly vs. monthly), and amount color (`owed_to_us` green
-vs. `owed_by_us` red, the same classes the expense balance uses) — the
-two tables are otherwise identical in shape (see
+`rent.js` renders **Rent** (money in) and **Mortgage** (money out) for
+the same property as two sections, each with its own "+ Add" button and
+its own "Mark as received"/"Mark as paid" action. Both are driven by one
+shared `renderPaymentSection(currentEl, historyEl, ctx, config)` helper
+parameterized by table name (`rent_payments` / `mortgage_payments`),
+wording, default cadence (fortnightly vs. monthly), and amount color
+(`owed_to_us` green vs. `owed_by_us` red, the same classes the expense
+balance uses) — the two tables are otherwise identical in shape (see
 [`02-data-model.md`](02-data-model.md)), so duplicating ~140 lines of
 near-identical add/edit/card logic for the second one wasn't worth it.
 
-This does stack two independently-long lists on one page, which is
-exactly what the "Why not one long scrolling page instead" section below
-argues against for the Money tab as a whole — it doesn't apply here
-because each section carries its own explicit, clearly-labeled add
-button directly above its own list ("+ Add rent period" / "+ Add
-mortgage payment"), never a single shared FAB, so there's no ambiguity
-about which list a tap on "+" adds to. Same reasoning Goals already
-relies on for its own per-section "+ Add transaction"/"+ Add task"
-buttons.
+Each call to `renderPaymentSection` mounts into **two** containers, not
+one: `currentEl` gets the add button and unpaid periods (what you'd
+actually act on), `historyEl` gets paid periods collapsed behind a
+`<details class="goal-section">` (the same generic collapsible-card
+pattern Goals and Recipes use — see
+[`14-ui-patterns.md`](14-ui-patterns.md)), summarized as e.g. "Rent
+history (12)". `render()` lays out both current sections first, then
+one **History** section at the very bottom holding both collapsibles.
+This split exists because the two were originally one list each
+(current periods followed immediately by up to 10 paid ones) — with two
+tables on one page, Rent's paid history sat between Rent's current
+periods and Mortgage's, pushing Mortgage off screen on a normal
+household's history. Pulling all history to the bottom, collapsed, means
+scrolling from Rent's current periods to Mortgage's is uninterrupted,
+and the history is still one tap away, not deleted or hidden behind a
+different tab.
+
+Two current sections plus one history section still stacks
+independently-long lists on one page, which is what the "Why not one
+long scrolling page instead" section below argues against for the Money
+tab as a whole — it doesn't apply here because each current section
+carries its own explicit, clearly-labeled add button directly above its
+own list ("+ Add rent period" / "+ Add mortgage payment"), never a
+single shared FAB, so there's no ambiguity about which list a tap on "+"
+adds to; and history is collapsed by default, so it contributes one line
+to the scroll, not a list's worth. Same reasoning Goals already relies
+on for its own per-section "+ Add transaction"/"+ Add task" buttons.
 
 ## Home dashboard links
 
