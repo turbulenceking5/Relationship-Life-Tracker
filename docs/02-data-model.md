@@ -18,6 +18,7 @@ auth.users (Supabase-managed)
      │        ──1:N── expenses ─────────── paid_by ───┤
      │        ──1:N── settlements ── from_user/to_user ┘
      │        ──1:N── rent_payments
+     │        ──1:N── mortgage_payments
      │        ──1:N── custom_goals ──1:N── goal_transactions
      │                             ──1:N── goal_tasks
      │        ──1:N── documents ── related_type/related_id ──▶ (goal, optionally)
@@ -155,8 +156,8 @@ push-notification design.
 
 ### `rent_payments`
 See [`13-feature-money-tab.md`](13-feature-money-tab.md) (surfaced via the
-Money tab's Rent segment). One row per rent period; "mark as received"
-inserts the next period's row automatically.
+Money tab's BrackenRidge segment, Rent section). One row per rent
+period; "mark as received" inserts the next period's row automatically.
 
 | column | type | notes |
 |---|---|---|
@@ -169,6 +170,29 @@ inserts the next period's row automatically.
 | `interval_days` | integer | default 14 (fortnightly); carried forward to the auto-generated next period |
 | `paid` | boolean | default false |
 | `paid_date` | date | set when marked received |
+| `notes` | text | optional |
+| `created_by` | uuid → auth.users | |
+| `created_at` / `updated_at` | timestamptz | |
+
+### `mortgage_payments`
+Same shape as `rent_payments` — the outgoing side of the same property
+(surfaced via the Money tab's BrackenRidge segment, Mortgage section),
+kept as its own table rather than a signed-amount column on
+`rent_payments` since the two aren't coupled to the same period or
+amount and each is just a simple due/paid list. Only difference:
+`interval_days` defaults to 30 (monthly) rather than 14.
+
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `household_id` | uuid → households | |
+| `property_label` | text | optional |
+| `due_date` | date | required |
+| `amount` | numeric(12,2) | |
+| `currency` | text | default `AUD` |
+| `interval_days` | integer | default 30 (monthly); carried forward to the auto-generated next period |
+| `paid` | boolean | default false |
+| `paid_date` | date | set when marked paid |
 | `notes` | text | optional |
 | `created_by` | uuid → auth.users | |
 | `created_at` / `updated_at` | timestamptz | |

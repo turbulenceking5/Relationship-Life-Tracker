@@ -1,4 +1,4 @@
-const CACHE_NAME = 'life-tracker-v11';
+const CACHE_NAME = 'life-tracker-v12';
 const APP_SHELL = [
   './',
   'index.html',

@@ -12,9 +12,10 @@ function gradientClass(seed) {
 }
 
 export async function render(container, ctx, navigate) {
-  const [events, rentPayments, goals] = await Promise.all([
+  const [events, rentPayments, mortgagePayments, goals] = await Promise.all([
     fetchRows('events', ctx.household.id, 'event_date', true),
     fetchRows('rent_payments', ctx.household.id, 'due_date', true),
+    fetchRows('mortgage_payments', ctx.household.id, 'due_date', true),
     fetchRows('custom_goals', ctx.household.id, 'target_date', true),
   ]);
 
@@ -30,6 +31,7 @@ export async function render(container, ctx, navigate) {
     .sort((a, b) => (a._next < b._next ? -1 : 1))
     .slice(0, 3);
   const dueRent = rentPayments.filter((r) => !r.paid && dueStatus(r.due_date).cls !== 'ok').slice(0, 5);
+  const dueMortgage = mortgagePayments.filter((r) => !r.paid && dueStatus(r.due_date).cls !== 'ok').slice(0, 5);
   // Goals with a target date that's already gone by just drop off "Coming
   // up" — unlike the Events tab's Upcoming/Done split, the home dashboard
   // is a "what's next" glance, not a record of what's happened, so there's
@@ -52,6 +54,10 @@ export async function render(container, ctx, navigate) {
     ...dueRent.map((r) => {
       const s = dueStatus(r.due_date);
       return row('🏠', r.property_label || 'BrackenRidge Rent', `Rent due · ${formatMoney(r.amount, r.currency)}`, h('span', { class: `pill ${s.cls}` }, s.label), () => navigate('rent'));
+    }),
+    ...dueMortgage.map((r) => {
+      const s = dueStatus(r.due_date);
+      return row('🏦', r.property_label || 'BrackenRidge Mortgage', `Mortgage due · ${formatMoney(r.amount, r.currency)}`, h('span', { class: `pill ${s.cls}` }, s.label), () => navigate('rent'));
     }),
   ];
 

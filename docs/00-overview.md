@@ -8,8 +8,9 @@ that's easy to lose track of:
 - **Events** — birthdays, anniversaries, appointments, move-in dates, etc.
 - **Expenses** — shared spending, who paid, what category, plus a
   configurable "who owes who" balance and settle-up action.
-- **Rent** — tracking rent income from an investment property (currently
-  "BrackenRidge") as a rolling ledger of due/paid periods.
+- **BrackenRidge** — tracking both cash flows on the household's
+  investment property as rolling ledgers of due/paid periods: rent
+  income and the mortgage payment.
 - **Goals** — open-ended savings/spending trackers (a wedding fund, a
   holiday fund, etc.), each with its own target, transaction log, task
   checklist, and linked documents.
@@ -51,7 +52,7 @@ backend is configured.
 | [`10-suggestions.md`](10-suggestions.md) | Ideas to make the app better, with rationale |
 | [`11-push-notifications.md`](11-push-notifications.md) | How push notifications work (currently has no active trigger) |
 | [`12-feature-goals.md`](12-feature-goals.md) | User-created savings/spending goals, tasks and linked documents (the "Goals" tab) |
-| [`13-feature-money-tab.md`](13-feature-money-tab.md) | Why/how Expenses and Rent are condensed into one "Money" tab |
+| [`13-feature-money-tab.md`](13-feature-money-tab.md) | Why/how Expenses, BrackenRidge (rent + mortgage), Grocery List and Recipes are condensed into one "Money" tab |
 | [`14-ui-patterns.md`](14-ui-patterns.md) | UI conventions to follow when adding a new screen or form |
 | [`15-development-testing.md`](15-development-testing.md) | How to test changes locally without touching real data |
 | [`16-feature-grocery-list.md`](16-feature-grocery-list.md) | Shared grocery checklist (Money tab's Grocery List segment) |

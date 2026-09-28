@@ -1,4 +1,4 @@
-# Feature: Money tab (Expenses / BrackenRidge Rent / Grocery List / Recipes)
+# Feature: Money tab (Expenses / BrackenRidge / Grocery List / Recipes)
 
 Expenses, Replacement Reminders, and (originally) Repayments were
 condensed into one **Money** tab with a segmented sub-nav after the tab
@@ -18,7 +18,7 @@ exact tab-bar crowding this consolidation exists to avoid.
 `app/js/money.js` is a thin router, not a feature module in its own
 right:
 
-- It renders a `.segmented` control (Expenses / BrackenRidge Rent /
+- It renders a `.segmented` control (Expenses / BrackenRidge /
   Grocery List / Recipes) above a content area. With four segments
   (one a long label) the control no longer fits equal-width buttons on a
   phone screen, so `.segmented` scrolls horizontally instead of
@@ -31,11 +31,13 @@ right:
 - `activeSub` is module-level state (same pattern as `currentTab` in
   `app.js`), so it's remembered for as long as the page stays loaded, but
   always starts back on "Expenses" after a full reload.
-- The segment label is a literal string — "BrackenRidge Rent" rather than
-  a generic "Rent" — since this household tracks a single specific
+- The segment label is a literal string — "BrackenRidge" rather than a
+  generic "Property" — since this household tracks a single specific
   property. If a second property is ever added, this label (and the
   per-row `property_label` fallback text in `rent.js`/`home.js`) should
-  go back to something generic.
+  go back to something generic. The label dropped "Rent" once the
+  segment grew to cover the mortgage too (see below) — it's the
+  property's tab now, not just its rent.
 
 Nothing about the underlying modules is money.js-specific — they're
 unaware they're not top-level tabs. This is deliberate: it keeps the
@@ -45,13 +47,38 @@ just an `app.js` TABS-array change) and means their own docs
 their behavior accurately. `rent.js` was extracted from the old Goals tab
 into a standalone module with the same shape.
 
+### `rent.js`: Rent and Mortgage, one page, two sections
+
+`rent.js` itself renders two stacked sections — **Rent** (money in) and
+**Mortgage** (money out) — for the same property, each with its own
+due/paid list, its own "+ Add" button, and its own "Mark as
+received"/"Mark as paid" action. Both are driven by one shared
+`renderPaymentSection(section, ctx, config)` helper parameterized by
+table name (`rent_payments` / `mortgage_payments`), wording, default
+cadence (fortnightly vs. monthly), and amount color (`owed_to_us` green
+vs. `owed_by_us` red, the same classes the expense balance uses) — the
+two tables are otherwise identical in shape (see
+[`02-data-model.md`](02-data-model.md)), so duplicating ~140 lines of
+near-identical add/edit/card logic for the second one wasn't worth it.
+
+This does stack two independently-long lists on one page, which is
+exactly what the "Why not one long scrolling page instead" section below
+argues against for the Money tab as a whole — it doesn't apply here
+because each section carries its own explicit, clearly-labeled add
+button directly above its own list ("+ Add rent period" / "+ Add
+mortgage payment"), never a single shared FAB, so there's no ambiguity
+about which list a tap on "+" adds to. Same reasoning Goals already
+relies on for its own per-section "+ Add transaction"/"+ Add task"
+buttons.
+
 ## Home dashboard links
 
 The home dashboard's "What's due" cards link into specific sub-tabs (a
-tap on a due rent period should land on the Rent segment, not default to
-Expenses). This works via `money.js` exporting `setActiveSub(key)`, which
-`app.js`'s home-tab navigate callback calls before switching to the
-`money` tab:
+tap on a due rent period or mortgage payment should land on the
+BrackenRidge segment, not default to Expenses — both use the same `rent`
+key since they're both rendered by `rent.js`). This works via `money.js`
+exporting `setActiveSub(key)`, which `app.js`'s home-tab navigate
+callback calls before switching to the `money` tab:
 
 ```js
 if (key === 'expenses' || key === 'rent') {

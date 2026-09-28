@@ -2,8 +2,7 @@ import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
 import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
 import { formatDate, formatMoney, dueStatus, todayStr } from './format.js';
 
-const RENT_TABLE = 'rent_payments';
-const RENT_INTERVAL_PRESETS = [
+const INTERVAL_PRESETS = [
   { label: 'Weekly', days: 7 },
   { label: 'Fortnightly', days: 14 },
   { label: 'Monthly', days: 30 },
@@ -16,71 +15,80 @@ function addDays(dateStr, days) {
   return d.toISOString().slice(0, 10);
 }
 
-function openEditSheet(row, container, ctx) {
-  const { dialog, body } = makeSheet('Edit rent period');
-  document.body.appendChild(dialog);
-  dialog.addEventListener('close', () => dialog.remove());
+// Rent (money in) and Mortgage (money out) on the same property are the
+// same "rolling due/paid period" shape (see rent_payments/
+// mortgage_payments in 02-data-model.md) — "mark as paid" both closes
+// out the current period and auto-creates the next one, so there's
+// always exactly one upcoming unpaid period. This one function drives
+// both sections below, parameterized by table name, wording, default
+// cadence, and whether the amount reads as income or expense.
+async function renderPaymentSection(section, ctx, config) {
+  const { table, defaultLabel, paidVerb, defaultIntervalDays, amountClass, statusPaidLabel } = config;
 
-  const isPreset = RENT_INTERVAL_PRESETS.some((p) => p.days === row.interval_days);
-  const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
-  const labelInput = h('input', { type: 'text', value: row.property_label || '' });
-  const dueDateInput = h('input', { type: 'date', required: true, value: row.due_date });
-  const amountInput = h('input', { type: 'number', step: '0.01', min: '0', required: true, value: row.amount });
-  const customIntervalInput = h('input', { type: 'number', min: '1', placeholder: 'Days', value: row.interval_days, style: isPreset ? 'display:none' : 'display:block' });
-  const intervalSelect = h('select', {
-    onchange: () => { customIntervalInput.style.display = intervalSelect.value === 'custom' ? 'block' : 'none'; },
-  }, RENT_INTERVAL_PRESETS.map((p) => h('option', { value: p.days === null ? 'custom' : String(p.days), selected: isPreset ? p.days === row.interval_days : p.days === null }, p.label)));
+  function openEditSheet(row) {
+    const { dialog, body } = makeSheet(`Edit ${config.noun}`);
+    document.body.appendChild(dialog);
+    dialog.addEventListener('close', () => dialog.remove());
 
-  const form = h('form', {
-    onsubmit: async (e) => {
-      e.preventDefault();
-      errorEl.style.display = 'none';
-      const intervalDays = intervalSelect.value === 'custom' ? parseInt(customIntervalInput.value, 10) : parseInt(intervalSelect.value, 10);
-      try {
-        await updateRow(RENT_TABLE, row.id, {
-          property_label: labelInput.value.trim() || null,
-          due_date: dueDateInput.value,
-          amount: parseFloat(amountInput.value),
-          interval_days: intervalDays,
-        });
-        closeSheet(dialog);
-        render(container, ctx);
-      } catch (err) {
-        errorEl.textContent = err.message;
-        errorEl.style.display = 'block';
-      }
-    },
-  }, [
-    h('div', { class: 'field' }, [h('label', {}, 'Property (optional)'), labelInput]),
-    h('div', { class: 'field-row' }, [
-      h('div', { class: 'field' }, [h('label', {}, 'Due date'), dueDateInput]),
-      h('div', { class: 'field' }, [h('label', {}, 'Amount'), amountInput]),
-    ]),
-    h('div', { class: 'field' }, [h('label', {}, 'How often?'), intervalSelect, customIntervalInput]),
-    errorEl,
-    h('button', { class: 'btn primary', type: 'submit' }, 'Save changes'),
-  ]);
-  mount(body, form);
-  openSheet(dialog);
-}
+    const isPreset = INTERVAL_PRESETS.some((p) => p.days === row.interval_days);
+    const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
+    const labelInput = h('input', { type: 'text', value: row.property_label || '' });
+    const dueDateInput = h('input', { type: 'date', required: true, value: row.due_date });
+    const amountInput = h('input', { type: 'number', step: '0.01', min: '0', required: true, value: row.amount });
+    const customIntervalInput = h('input', { type: 'number', min: '1', placeholder: 'Days', value: row.interval_days, style: isPreset ? 'display:none' : 'display:block' });
+    const intervalSelect = h('select', {
+      onchange: () => { customIntervalInput.style.display = intervalSelect.value === 'custom' ? 'block' : 'none'; },
+    }, INTERVAL_PRESETS.map((p) => h('option', { value: p.days === null ? 'custom' : String(p.days), selected: isPreset ? p.days === row.interval_days : p.days === null }, p.label)));
 
-export async function render(container, ctx) {
-  const rows = await fetchRows(RENT_TABLE, ctx.household.id, 'due_date', true);
+    const form = h('form', {
+      onsubmit: async (e) => {
+        e.preventDefault();
+        errorEl.style.display = 'none';
+        const intervalDays = intervalSelect.value === 'custom' ? parseInt(customIntervalInput.value, 10) : parseInt(intervalSelect.value, 10);
+        try {
+          await updateRow(table, row.id, {
+            property_label: labelInput.value.trim() || null,
+            due_date: dueDateInput.value,
+            amount: parseFloat(amountInput.value),
+            interval_days: intervalDays,
+          });
+          closeSheet(dialog);
+          renderPaymentSection(section, ctx, config);
+        } catch (err) {
+          errorEl.textContent = err.message;
+          errorEl.style.display = 'block';
+        }
+      },
+    }, [
+      h('div', { class: 'field' }, [h('label', {}, 'Property (optional)'), labelInput]),
+      h('div', { class: 'field-row' }, [
+        h('div', { class: 'field' }, [h('label', {}, 'Due date'), dueDateInput]),
+        h('div', { class: 'field' }, [h('label', {}, 'Amount'), amountInput]),
+      ]),
+      h('div', { class: 'field' }, [h('label', {}, 'How often?'), intervalSelect, customIntervalInput]),
+      errorEl,
+      h('button', { class: 'btn primary', type: 'submit' }, 'Save changes'),
+    ]);
+    mount(body, form);
+    openSheet(dialog);
+  }
+
+  const rows = await fetchRows(table, ctx.household.id, 'due_date', true);
   const unpaid = rows.filter((r) => !r.paid);
   const paid = rows.filter((r) => r.paid).slice(0, 10);
 
   function card(row) {
     const status = row.paid
-      ? { label: `Received ${formatDate(row.paid_date)}`, cls: 'ok' }
+      ? { label: `${statusPaidLabel} ${formatDate(row.paid_date)}`, cls: 'ok' }
       : dueStatus(row.due_date);
     return h('div', { class: 'card' }, [
       h('div', { class: 'card-row' }, [
         h('div', {}, [
-          h('h3', {}, row.property_label || 'BrackenRidge Rent'),
+          h('h3', {}, row.property_label || defaultLabel),
           h('div', { class: 'meta' }, `Due ${formatDate(row.due_date)} · every ${row.interval_days}d`),
         ]),
         h('div', { style: 'text-align:right' }, [
-          h('div', { class: 'amount owed_to_us' }, formatMoney(row.amount, row.currency)),
+          h('div', { class: `amount ${amountClass}` }, formatMoney(row.amount, row.currency)),
           h('span', { class: `pill ${status.cls}` }, status.label),
         ]),
       ]),
@@ -88,8 +96,8 @@ export async function render(container, ctx) {
         !row.paid && h('button', {
           class: 'btn secondary small',
           onclick: async () => {
-            await updateRow(RENT_TABLE, row.id, { paid: true, paid_date: todayStr() });
-            await insertRow(RENT_TABLE, {
+            await updateRow(table, row.id, { paid: true, paid_date: todayStr() });
+            await insertRow(table, {
               household_id: ctx.household.id,
               property_label: row.property_label,
               due_date: addDays(row.due_date, row.interval_days),
@@ -98,16 +106,16 @@ export async function render(container, ctx) {
               interval_days: row.interval_days,
               created_by: ctx.user.id,
             });
-            render(container, ctx);
+            renderPaymentSection(section, ctx, config);
           },
-        }, 'Mark as received'),
-        h('button', { class: 'btn secondary small', onclick: () => openEditSheet(row, container, ctx) }, 'Edit'),
-        h('button', { class: 'btn danger-text small', onclick: async () => { await deleteRow(RENT_TABLE, row.id); render(container, ctx); } }, 'Delete'),
+        }, paidVerb),
+        h('button', { class: 'btn secondary small', onclick: () => openEditSheet(row) }, 'Edit'),
+        h('button', { class: 'btn danger-text small', onclick: async () => { await deleteRow(table, row.id); renderPaymentSection(section, ctx, config); } }, 'Delete'),
       ]),
     ]);
   }
 
-  const { dialog, body } = makeSheet('Add rent period');
+  const { dialog, body } = makeSheet(`Add ${config.noun}`);
   const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
   const labelInput = h('input', { type: 'text', placeholder: 'e.g. BrackenRidge' });
   const dueDateInput = h('input', { type: 'date', required: true, value: todayStr() });
@@ -115,14 +123,14 @@ export async function render(container, ctx) {
   const customIntervalInput = h('input', { type: 'number', min: '1', placeholder: 'Days', style: 'display:none' });
   const intervalSelect = h('select', {
     onchange: () => { customIntervalInput.style.display = intervalSelect.value === 'custom' ? 'block' : 'none'; },
-  }, RENT_INTERVAL_PRESETS.map((p) => h('option', { value: p.days === null ? 'custom' : String(p.days), selected: p.days === 14 }, p.label)));
+  }, INTERVAL_PRESETS.map((p) => h('option', { value: p.days === null ? 'custom' : String(p.days), selected: p.days === defaultIntervalDays }, p.label)));
   const form = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       errorEl.style.display = 'none';
       const intervalDays = intervalSelect.value === 'custom' ? parseInt(customIntervalInput.value, 10) : parseInt(intervalSelect.value, 10);
       try {
-        await insertRow(RENT_TABLE, {
+        await insertRow(table, {
           household_id: ctx.household.id,
           property_label: labelInput.value.trim() || null,
           due_date: dueDateInput.value,
@@ -132,7 +140,7 @@ export async function render(container, ctx) {
           created_by: ctx.user.id,
         });
         closeSheet(dialog);
-        render(container, ctx);
+        renderPaymentSection(section, ctx, config);
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
@@ -150,11 +158,48 @@ export async function render(container, ctx) {
   ]);
   mount(body, form);
 
-  mount(container, [
-    h('button', { class: 'btn secondary small', style: 'margin-bottom:10px', onclick: () => openSheet(dialog) }, '+ Add rent period'),
-    unpaid.length ? h('div', {}, unpaid.map(card)) : h('div', { class: 'empty-state' }, 'No upcoming rent tracked yet.'),
-    paid.length ? h('div', { class: 'section-title' }, 'Recently received') : null,
+  mount(section, [
+    h('button', { class: 'btn secondary small', style: 'margin-bottom:10px', onclick: () => openSheet(dialog) }, `+ Add ${config.noun}`),
+    unpaid.length ? h('div', {}, unpaid.map(card)) : h('div', { class: 'empty-state' }, config.emptyText),
+    paid.length ? h('div', { class: 'section-title' }, config.recentLabel) : null,
     ...paid.map(card),
     dialog,
+  ]);
+}
+
+export async function render(container, ctx) {
+  const rentSection = h('div', {}, h('div', { class: 'empty-state' }, 'Loading…'));
+  const mortgageSection = h('div', {}, h('div', { class: 'empty-state' }, 'Loading…'));
+
+  mount(container, [
+    h('div', { class: 'section-title' }, 'Rent'),
+    rentSection,
+    h('div', { class: 'section-title' }, 'Mortgage'),
+    mortgageSection,
+  ]);
+
+  await Promise.all([
+    renderPaymentSection(rentSection, ctx, {
+      table: 'rent_payments',
+      noun: 'rent period',
+      defaultLabel: 'BrackenRidge Rent',
+      paidVerb: 'Mark as received',
+      statusPaidLabel: 'Received',
+      defaultIntervalDays: 14,
+      amountClass: 'owed_to_us',
+      emptyText: 'No upcoming rent tracked yet.',
+      recentLabel: 'Recently received',
+    }),
+    renderPaymentSection(mortgageSection, ctx, {
+      table: 'mortgage_payments',
+      noun: 'mortgage payment',
+      defaultLabel: 'BrackenRidge Mortgage',
+      paidVerb: 'Mark as paid',
+      statusPaidLabel: 'Paid',
+      defaultIntervalDays: 30,
+      amountClass: 'owed_by_us',
+      emptyText: 'No upcoming mortgage payments tracked yet.',
+      recentLabel: 'Recently paid',
+    }),
   ]);
 }

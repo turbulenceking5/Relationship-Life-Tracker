@@ -112,8 +112,20 @@ status. Check items off as they land.
       sheet's "Split saved" message was never true, and every balance
       calculation kept using the schema default of 50/50 regardless of
       what was entered. Fixed with a column-scoped grant (`split_percent`
-      only) plus a matching policy, rather than a blanket `UPDATE` grant.
-      See [`docs/08-auth-households.md`](docs/08-auth-households.md).
+      only) plus a matching policy, rather than a blanket `UPDATE` grant —
+      verified directly with an RLS-simulated SQL update in both
+      directions (updating your own row and your partner's) before
+      trusting it fixed. See
+      [`docs/08-auth-households.md`](docs/08-auth-households.md).
+- [x] **Mortgage payments added alongside Rent**: the BrackenRidge segment
+      (renamed from "BrackenRidge Rent," since it now covers both cash
+      flows) shows Rent and Mortgage as two stacked sections on one page,
+      each its own due/paid list with its own "+ Add" button — sharing
+      one `renderPaymentSection()` helper in `rent.js` since the two
+      tables (`rent_payments`/new `mortgage_payments`) are otherwise
+      identical in shape. Mortgage payments due/overdue also show on the
+      home dashboard's "What's due" feed alongside rent. See
+      [`docs/13-feature-money-tab.md`](docs/13-feature-money-tab.md).
 
 ## Phase 0 — Foundations ✅ (this session)
 
