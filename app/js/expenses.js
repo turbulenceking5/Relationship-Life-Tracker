@@ -15,6 +15,46 @@ const RECURRING_INTERVAL_PRESETS = [
   { label: 'Custom', days: null },
 ];
 
+// "This month" total + category breakdown — same contribution-bar/
+// legend visual as the goal contributor breakdown in goals.js
+// (contributionBreakdown()), just grouping by category instead of by
+// who contributed. colorIndex comes from each category's fixed position
+// in CATEGORIES (not sort order), so a category keeps the same color
+// across months regardless of which categories happen to have spending.
+function monthlyBreakdown(rows, currency) {
+  const monthPrefix = todayStr().slice(0, 7);
+  const thisMonth = rows.filter((r) => r.expense_date.slice(0, 7) === monthPrefix);
+  if (!thisMonth.length) return null;
+
+  const total = thisMonth.reduce((sum, r) => sum + Number(r.amount), 0);
+  const totalsByCategory = new Map();
+  for (const r of thisMonth) {
+    const cat = r.category || 'other';
+    totalsByCategory.set(cat, (totalsByCategory.get(cat) || 0) + Number(r.amount));
+  }
+  const categories = [...totalsByCategory.entries()]
+    .map(([cat, amount]) => {
+      const idx = CATEGORIES.indexOf(cat);
+      return { cat, amount, colorIndex: (idx >= 0 ? idx : CATEGORIES.length) % 8 };
+    })
+    .sort((a, b) => b.amount - a.amount);
+
+  return h('div', { class: 'total-banner', style: 'flex-direction:column;align-items:stretch;gap:8px' }, [
+    h('div', { style: 'display:flex;justify-content:space-between;align-items:center' }, [
+      h('span', {}, 'This month'),
+      h('span', { class: 'value' }, formatMoney(total, currency)),
+    ]),
+    h('div', { class: 'contribution-bar' }, categories.map((c) => h('div', {
+      class: 'segment',
+      style: `width:${(c.amount / total) * 100}%;background:var(--series-${c.colorIndex + 1})`,
+    }))),
+    h('div', { class: 'contribution-legend' }, categories.map((c) => h('div', { class: 'item' }, [
+      h('span', { class: 'swatch', style: `background:var(--series-${c.colorIndex + 1})` }),
+      h('span', {}, `${c.cat} · ${formatMoney(c.amount, currency)} (${Math.round((c.amount / total) * 100)}%)`),
+    ]))),
+  ]);
+}
+
 // Two-input split override for a single expense, mirroring the ⚙️
 // account sheet's household-default split UI (same auto-complementing
 // pair of number inputs). Only meaningful for a two-person household —
@@ -466,6 +506,7 @@ export async function render(container, ctx) {
       h('span', {}, 'Total logged'),
       h('span', { class: 'value' }, formatMoney(total, ctx.household.default_currency || 'AUD')),
     ]),
+    monthlyBreakdown(rows, ctx.household.default_currency || 'AUD'),
     balanceBanner,
     recurringSection,
     rows.length ? h('div', { class: 'field' }, searchInput) : null,

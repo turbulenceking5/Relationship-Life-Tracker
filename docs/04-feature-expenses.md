@@ -73,9 +73,19 @@ expense for an override before falling back to the household default,
 so a mix of overridden and default expenses in the same list balances
 correctly.
 
+## Monthly total + category breakdown (shipped)
+A "This month" card sits between the running total and the balance
+banner (`monthlyBreakdown()` in `app/js/expenses.js`): total spent so far
+this calendar month, plus a category breakdown using the same
+contribution-bar/legend visual as a goal's contributor breakdown
+(`contributionBreakdown()` in `goals.js`) — just grouping by category
+instead of by who contributed. A category's color comes from its fixed
+position in the `CATEGORIES` list, not sort order, so it stays the same
+color month to month even as which categories have spending changes.
+Hidden entirely when there's no spending this month yet.
+
 ## Phase 1 (remaining)
 - Filter by category and by date range (this month / last month / custom).
-- Monthly total and per-category breakdown.
 - Smart defaults on the add form: last-used category, today's date
   pre-filled, remember last payer.
 

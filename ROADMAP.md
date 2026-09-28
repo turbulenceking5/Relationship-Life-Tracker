@@ -182,7 +182,9 @@ schema.
       [`04-feature-expenses.md`](docs/04-feature-expenses.md) and
       [`07-feature-documents.md`](docs/07-feature-documents.md).
 - [ ] Sort/group expenses by month, category, who paid
-- [ ] Basic monthly spend total + per-category breakdown
+- [x] Basic monthly spend total + per-category breakdown — a "This
+      month" card with a contribution-bar/legend visual on the Expenses
+      tab. See [`04-feature-expenses.md`](docs/04-feature-expenses.md).
 - [ ] Empty-state and onboarding polish (first-run tour)
 
 ## Phase 2 — Reminders that actually reach you

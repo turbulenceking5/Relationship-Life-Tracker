@@ -86,6 +86,14 @@ export const CHANGELOG_ENTRIES = [
       'Any expense can now use a different split than your usual one — defaults to your account setting, change it only for that one expense',
     ],
   },
+  {
+    id: 9,
+    date: '2026-09-28',
+    title: 'Monthly spend total + category breakdown',
+    items: [
+      'A "This month" card on Expenses shows your total spend and a breakdown by category',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

@@ -8,6 +8,17 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-09-28 — Monthly spend total + category breakdown
+
+- New "This month" card on the Expenses tab (`monthlyBreakdown()` in
+  `app/js/expenses.js`): total spent so far this calendar month, plus a
+  category breakdown shown with the same contribution-bar/legend visual
+  the Goals tab already uses for "who contributed how much" — just
+  grouping by category instead of by person. A category keeps the same
+  color month to month (tied to its fixed position in the categories
+  list, not sort order). Hidden entirely when there's no spending yet
+  this month.
+
 ## 2026-09-28 — Per-expense split override
 
 - Any expense can now use a different split than the household default —
