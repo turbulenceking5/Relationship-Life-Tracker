@@ -106,6 +106,14 @@ status. Check items off as they land.
       (same root cause the new recipes.js code had to get right the
       first time) — both now re-render the whole list after a title
       change instead of just the edited section's body.
+- [x] **Fixed the expense split silently never saving**: `household_members`
+      had no `UPDATE` RLS policy, so `updateSplitPercents()`'s writes were
+      silently dropped by RLS (0 rows affected, no error) — the account
+      sheet's "Split saved" message was never true, and every balance
+      calculation kept using the schema default of 50/50 regardless of
+      what was entered. Fixed with a column-scoped grant (`split_percent`
+      only) plus a matching policy, rather than a blanket `UPDATE` grant.
+      See [`docs/08-auth-households.md`](docs/08-auth-households.md).
 
 ## Phase 0 — Foundations ✅ (this session)
 

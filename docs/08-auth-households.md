@@ -81,6 +81,20 @@ Only shown/editable once a household has exactly two members, since the
 concept. `updateSplitPercents()` in `household.js` writes both members'
 rows in one call so they can't drift out of summing to 100.
 
+`household_members` originally had only a SELECT policy (joining/creating
+a household deliberately goes through the `create_household`/
+`join_household` SECURITY DEFINER RPCs, not direct client writes — see
+above), so `updateSplitPercents()`'s direct `UPDATE` had no RLS policy to
+allow it. PostgREST doesn't error on this — RLS just silently drops the
+write (0 rows affected) — so the account sheet's "Split saved" message
+was never true, and every balance calculation kept using the schema
+default of 50/50 no matter what was entered. Fixed in
+`0016_household_members_split_update.sql` by granting `UPDATE` on just
+the `split_percent` column (not a blanket grant) plus a matching RLS
+policy scoped to `is_household_member(household_id)` — narrow enough
+that a hand-crafted request still can't rewrite `role`/`user_id`/
+`household_id`, which still have no write path outside the two RPCs.
+
 ## Permissions model
 Deliberately flat for v1: every member of a household has full read/write
 access to all of that household's data. There's no "read-only" or
