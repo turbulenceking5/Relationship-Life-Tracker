@@ -109,6 +109,21 @@ function openEditSheet(row, members, container, ctx) {
   openSheet(dialog);
 }
 
+// Matches title, category, notes, or who paid — case-insensitive
+// substring, no fancy tokenizing. The total/balance banners stay based
+// on the full list regardless of search; search is for finding a
+// specific expense, not for scoping what counts toward the balance.
+function matchesSearch(row, memberName, query) {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  return (
+    row.title.toLowerCase().includes(q) ||
+    (row.category || '').toLowerCase().includes(q) ||
+    (row.notes || '').toLowerCase().includes(q) ||
+    memberName(row.paid_by).toLowerCase().includes(q)
+  );
+}
+
 export async function render(container, ctx) {
   const [rows, members, settlements] = await Promise.all([
     fetchRows(TABLE, ctx.household.id, 'expense_date', false),
@@ -202,6 +217,18 @@ export async function render(container, ctx) {
   ]);
   mount(body, form);
 
+  const searchInput = h('input', { type: 'search', placeholder: 'Search expenses…' });
+  const listContainer = h('div', {});
+  function renderList() {
+    const query = searchInput.value.trim();
+    const filtered = rows.filter((r) => matchesSearch(r, memberName, query));
+    mount(listContainer, filtered.length
+      ? filtered.map(card)
+      : [h('div', { class: 'empty-state' }, query ? 'No expenses match your search.' : 'No expenses logged yet.')]);
+  }
+  searchInput.addEventListener('input', renderList);
+  renderList();
+
   const balanceBanner = balance && !balance.settled
     ? h('div', { class: 'total-banner' }, [
         h('span', {}, `${memberName(balance.owedBy)} owes ${memberName(balance.owedTo)}`),
@@ -220,7 +247,8 @@ export async function render(container, ctx) {
       h('span', { class: 'value' }, formatMoney(total, ctx.household.default_currency || 'AUD')),
     ]),
     balanceBanner,
-    rows.length ? h('div', {}, rows.map(card)) : h('div', { class: 'empty-state' }, 'No expenses logged yet.'),
+    rows.length ? h('div', { class: 'field' }, searchInput) : null,
+    listContainer,
     settlements.length ? h('div', { class: 'section-title' }, 'Settlements') : null,
     ...settlements.map(settlementCard),
     h('button', { class: 'fab', onclick: () => openSheet(dialog) }, '+'),

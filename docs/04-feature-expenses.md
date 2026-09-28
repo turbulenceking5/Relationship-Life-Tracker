@@ -18,15 +18,17 @@ and guesswork.
 - Delete an expense.
 - Running total of all logged expenses shown at the top of the list.
 
-## Phase 1
-- Filter by category and by date range (this month / last month / custom).
-- Monthly total and per-category breakdown.
-- Smart defaults on the add form: last-used category, today's date
-  pre-filled, remember last payer.
-
-## Phase 2
-- Recurring expenses (rent, subscriptions) that auto-log on schedule
-  instead of being re-entered manually.
+## Search (shipped)
+A plain text filter above the list (`app/js/expenses.js`) matches title,
+category, notes, or who paid, case-insensitive substring — filters the
+already-fetched list client-side rather than re-querying per keystroke,
+so typing doesn't hit the network. The running total and balance banner
+stay based on the full list regardless of search; search is for finding
+a specific expense, not for scoping what counts toward the balance.
+Hidden entirely when the household has no expenses yet. Category-only
+filter chips (part of Phase 1's original plan) weren't added on top of
+this — see the same reasoning in
+[`07-feature-documents.md`](07-feature-documents.md).
 
 ## "Who owes who" balance (Phase 3, shipped)
 Each household member has a `split_percent` (see

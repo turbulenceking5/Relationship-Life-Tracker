@@ -1,6 +1,7 @@
 import { h, mount } from './dom.js';
 import { fetchRows } from './crud.js';
 import { formatDate, formatMoney, dueStatus, daysUntil, todayStr, thisYearOccurrence } from './format.js';
+import { expiryStatus } from './documents.js';
 
 const CATEGORY_ICONS = { birthday: '🎂', anniversary: '💍', appointment: '📅', other: '📌' };
 const GRADIENT_CLASSES = ['grad-a', 'grad-b', 'grad-c', 'grad-d', 'grad-e'];
@@ -12,10 +13,11 @@ function gradientClass(seed) {
 }
 
 export async function render(container, ctx, navigate) {
-  const [events, rentPayments, mortgagePayments, goals] = await Promise.all([
+  const [events, rentPayments, mortgagePayments, documents, goals] = await Promise.all([
     fetchRows('events', ctx.household.id, 'event_date', true),
     fetchRows('rent_payments', ctx.household.id, 'due_date', true),
     fetchRows('mortgage_payments', ctx.household.id, 'due_date', true),
+    fetchRows('documents', ctx.household.id, 'expiry_date', true),
     fetchRows('custom_goals', ctx.household.id, 'target_date', true),
   ]);
 
@@ -30,8 +32,15 @@ export async function render(container, ctx, navigate) {
     .filter((e) => e._next >= today)
     .sort((a, b) => (a._next < b._next ? -1 : 1))
     .slice(0, 3);
-  const dueRent = rentPayments.filter((r) => !r.paid && dueStatus(r.due_date).cls !== 'ok').slice(0, 5);
-  const dueMortgage = mortgagePayments.filter((r) => !r.paid && dueStatus(r.due_date).cls !== 'ok').slice(0, 5);
+  // Merged and sorted by due date, not grouped by type — otherwise every
+  // rent period (regardless of urgency) would show before every mortgage
+  // period (or an expiring document) just because rent_payments happened
+  // to be fetched first.
+  const dueItemsData = [
+    ...rentPayments.filter((r) => !r.paid && dueStatus(r.due_date).cls !== 'ok').map((r) => ({ ...r, _kind: 'rent', _due: r.due_date })),
+    ...mortgagePayments.filter((r) => !r.paid && dueStatus(r.due_date).cls !== 'ok').map((r) => ({ ...r, _kind: 'mortgage', _due: r.due_date })),
+    ...documents.filter((d) => d.expiry_date && expiryStatus(d.expiry_date).cls !== 'ok').map((d) => ({ ...d, _kind: 'document', _due: d.expiry_date })),
+  ].sort((a, b) => (a._due < b._due ? -1 : a._due > b._due ? 1 : 0)).slice(0, 5);
   // Goals with a target date that's already gone by just drop off "Coming
   // up" — unlike the Events tab's Upcoming/Done split, the home dashboard
   // is a "what's next" glance, not a record of what's happened, so there's
@@ -50,16 +59,21 @@ export async function render(container, ctx, navigate) {
     ]);
   }
 
-  const dueItems = [
-    ...dueRent.map((r) => {
-      const s = dueStatus(r.due_date);
-      return row('🏠', r.property_label || 'BrackenRidge Rent', `Rent due · ${formatMoney(r.amount, r.currency)}`, h('span', { class: `pill ${s.cls}` }, s.label), () => navigate('rent'));
-    }),
-    ...dueMortgage.map((r) => {
-      const s = dueStatus(r.due_date);
-      return row('🏦', r.property_label || 'BrackenRidge Mortgage', `Mortgage due · ${formatMoney(r.amount, r.currency)}`, h('span', { class: `pill ${s.cls}` }, s.label), () => navigate('rent'));
-    }),
-  ];
+  const dueItems = dueItemsData.map((r) => {
+    if (r._kind === 'document') {
+      const s = expiryStatus(r._due);
+      return row('📄', r.title, `Expires ${formatDate(r.expiry_date)}`, h('span', { class: `pill ${s.cls}` }, s.label), () => navigate('documents'));
+    }
+    const s = dueStatus(r._due);
+    const isRent = r._kind === 'rent';
+    return row(
+      isRent ? '🏠' : '🏦',
+      r.property_label || (isRent ? 'BrackenRidge Rent' : 'BrackenRidge Mortgage'),
+      `${isRent ? 'Rent' : 'Mortgage'} due · ${formatMoney(r.amount, r.currency)}`,
+      h('span', { class: `pill ${s.cls}` }, s.label),
+      () => navigate('rent'),
+    );
+  });
 
   const upcomingEvents = soonEvents.map((e) => row(
     CATEGORY_ICONS[e.category] || '📌',

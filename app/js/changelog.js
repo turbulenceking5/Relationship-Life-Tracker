@@ -50,6 +50,16 @@ export const CHANGELOG_ENTRIES = [
       'The "Coming up" feed is now two sections, "Upcoming events" and "Upcoming goals", instead of one mixed list',
     ],
   },
+  {
+    id: 5,
+    date: '2026-09-28',
+    title: 'Search, document expiry alerts, and a smarter What\'s due',
+    items: [
+      'Search boxes added to Expenses and Documents',
+      'A document with an expiry date now shows a status badge, and shows up on the home dashboard once it\'s expiring soon or overdue',
+      '"What\'s due" now shows rent, mortgage, and expiring documents together sorted by date, instead of grouped by type',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

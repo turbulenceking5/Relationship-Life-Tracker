@@ -142,6 +142,15 @@ status. Check items off as they land.
       human-facing counterpart for anyone reading the repo. See
       [`docs/18-feature-changelog.md`](docs/18-feature-changelog.md) for
       how the two relate and how to keep both updated going forward.
+- [x] **Home dashboard: events and goals split apart**: "Coming up" was
+      one list mixing events and goals; now "Upcoming events" and
+      "Upcoming goals" are separate sections, each with its own
+      empty-state message.
+- [x] **Home dashboard: "What's due" sorted by date across types**: rent,
+      mortgage, and expiring documents used to be shown grouped by type
+      (every rent period before every mortgage period, regardless of
+      which was actually more urgent); now merged into one list sorted
+      by date. See [`docs/13-feature-money-tab.md`](docs/13-feature-money-tab.md).
 
 ## Phase 0 — Foundations ✅ (this session)
 
@@ -167,7 +176,11 @@ schema.
       expiry — not the uploaded file itself), goals, and individual goal
       transactions. Each edit sheet mirrors its add form, pre-filled, and
       mutates via `updateRow` instead of `insertRow`.
-- [ ] Search and category filters across expenses/documents
+- [x] Search across expenses/documents — a plain text filter, not
+      category chips on top of it (a search box already covers "find the
+      boiler warranty" as well as a chip row would). See
+      [`04-feature-expenses.md`](docs/04-feature-expenses.md) and
+      [`07-feature-documents.md`](docs/07-feature-documents.md).
 - [ ] Sort/group expenses by month, category, who paid
 - [ ] Basic monthly spend total + per-category breakdown
 - [ ] Empty-state and onboarding polish (first-run tour)
@@ -181,7 +194,10 @@ schema.
 - [x] Overdue escalation — a daily repeat notification for as long as an
       item stays overdue (simple form of escalation; no separate tiers yet)
 - [ ] Recurring expenses (rent, subscriptions) that auto-log each period
-- [ ] Document expiry alerts (insurance, warranties, contracts)
+- [ ] Document expiry alerts (insurance, warranties, contracts) — the
+      visual half (a status pill, plus surfacing on the home dashboard's
+      "What's due") is shipped; the push-notification half isn't. See
+      [`07-feature-documents.md`](docs/07-feature-documents.md).
 - [ ] Digest option: a daily/weekly summary instead of per-item pings
 
 ## Phase 3 — Money features worth having

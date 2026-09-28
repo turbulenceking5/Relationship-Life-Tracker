@@ -8,6 +8,24 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-09-28 — Search, document expiry alerts, and a smarter What's due
+
+- Added a search box to Expenses (`app/js/expenses.js`) and Documents
+  (`app/js/documents.js`) — matches title/category/notes/paid-by for
+  expenses, title/category/linked-goal for documents, case-insensitive
+  substring, filtering the already-fetched list client-side. Hidden
+  entirely when the list is empty.
+- Documents with an `expiry_date` now show a status pill (`Expires in
+  Nd` / `Expired Nd ago`) once within 14 days of expiring or already
+  past it, via a new `expiryStatus()` in `documents.js` (same
+  overdue/due-soon/ok thresholds as `dueStatus()`, expiry-appropriate
+  wording). An expiring/expired document also feeds into the home
+  dashboard's "What's due".
+- The home dashboard's "What's due" feed now merges rent, mortgage, and
+  expiring documents into one list sorted by date, instead of showing
+  every rent period before every mortgage period regardless of which is
+  actually more urgent.
+
 ## 2026-09-28 — Home tab: events and goals split apart
 
 - The Home tab's "Coming up" feed is now two separate sections,

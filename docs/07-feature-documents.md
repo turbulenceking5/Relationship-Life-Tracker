@@ -30,12 +30,30 @@ stay in sync automatically. A linked document still shows in the
 top-level Docs tab, tagged "linked to `<goal title>`", so nothing
 disappears by being attached somewhere else.
 
-## Phase 1
-- Filter by category; search by title/notes.
+## Search (shipped)
+A plain text filter above the list (`app/js/documents.js`) matches
+title, category, or linked-goal name, case-insensitive substring, no
+fancy tokenizing — filters the already-fetched list client-side rather
+than re-querying per keystroke. Hidden entirely when the household has
+no documents yet, so there's nothing to search. Category-only filter
+chips (Phase 1's original plan) weren't added on top of this — a search
+box already covers "find the boiler warranty" as well as a chip row
+would, without another row of UI.
+
+## Expiry status (shipped, partially)
+A document with `expiry_date` set shows a status pill (`Expires in Nd` /
+`Expired Nd ago`) once it's within 14 days of expiring or already past
+it — same overdue/due-soon/ok thresholds as rent/mortgage due dates
+(`dueStatus()` in `format.js`), via a parallel `expiryStatus()` exported
+from `documents.js` with expiry-appropriate wording. An expiring/expired
+document also surfaces on the home dashboard's "What's due" feed,
+merged and sorted by date alongside rent and mortgage — see
+[`13-feature-money-tab.md`](13-feature-money-tab.md).
 
 ## Phase 2
-- Expiry alerts: push notification ahead of `expiry_date` (insurance
-  renewals, warranty end dates).
+- Push notification ahead of `expiry_date` (insurance renewals, warranty
+  end dates) — the visual status pill above exists; nothing pushes a
+  notification for it yet.
 
 ## Phase 4
 - Thumbnail previews for images/PDFs in the list.

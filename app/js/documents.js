@@ -1,11 +1,21 @@
 import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
 import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
-import { formatDate } from './format.js';
+import { formatDate, daysUntil } from './format.js';
 import { supabase } from './supabaseClient.js';
 
 export const DOCUMENT_TABLE = 'documents';
 export const DOCUMENT_BUCKET = 'documents';
 export const DOCUMENT_CATEGORIES = ['warranty', 'contract', 'receipt', 'id', 'other'];
+
+// Same overdue/due-soon/ok day thresholds as dueStatus() in format.js
+// (used for rent/mortgage due dates), but with wording that fits an
+// expiry rather than a bill: a document "expires," it isn't "due."
+export function expiryStatus(expiryDate) {
+  const days = daysUntil(expiryDate);
+  if (days < 0) return { label: `Expired ${Math.abs(days)}d ago`, cls: 'overdue' };
+  if (days <= 14) return { label: `Expires in ${days}d`, cls: 'due-soon' };
+  return { label: '', cls: 'ok' };
+}
 
 export async function viewDocument(row) {
   const { data, error } = await supabase.storage.from(DOCUMENT_BUCKET).createSignedUrl(row.file_path, 60);
@@ -122,6 +132,19 @@ export function openUploadDocumentSheet(ctx, { sheetTitle = 'Add document', rela
   openSheet(dialog);
 }
 
+// Matches title, category, or linked-goal name — case-insensitive
+// substring, no fancy tokenizing.
+function matchesSearch(row, goalTitle, query) {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  const linkedGoal = row.related_type === 'goal' ? goalTitle(row.related_id) : null;
+  return (
+    row.title.toLowerCase().includes(q) ||
+    (row.category || '').toLowerCase().includes(q) ||
+    (linkedGoal || '').toLowerCase().includes(q)
+  );
+}
+
 export async function render(container, ctx) {
   const [rows, goals] = await Promise.all([
     fetchRows(DOCUMENT_TABLE, ctx.household.id, 'created_at', false),
@@ -131,12 +154,14 @@ export async function render(container, ctx) {
 
   function card(row) {
     const linkedGoal = row.related_type === 'goal' ? goalTitle(row.related_id) : null;
+    const status = row.expiry_date ? expiryStatus(row.expiry_date) : null;
     return h('div', { class: 'card' }, [
       h('div', { class: 'card-row' }, [
         h('div', {}, [
           h('h3', {}, row.title),
           h('div', { class: 'meta' }, `${row.category || 'document'} · added ${formatDate(row.created_at.slice(0, 10))}${row.expiry_date ? ' · expires ' + formatDate(row.expiry_date) : ''}${linkedGoal ? ' · linked to ' + linkedGoal : ''}`),
         ]),
+        status && status.cls !== 'ok' ? h('span', { class: `pill ${status.cls}` }, status.label) : null,
       ]),
       h('div', { class: 'actions-row' }, [
         h('button', { class: 'btn secondary small', onclick: () => viewDocument(row) }, 'View'),
@@ -146,8 +171,21 @@ export async function render(container, ctx) {
     ]);
   }
 
+  const searchInput = h('input', { type: 'search', placeholder: 'Search documents…' });
+  const listContainer = h('div', {});
+  function renderList() {
+    const query = searchInput.value.trim();
+    const filtered = rows.filter((r) => matchesSearch(r, goalTitle, query));
+    mount(listContainer, filtered.length
+      ? filtered.map(card)
+      : [h('div', { class: 'empty-state' }, query ? 'No documents match your search.' : 'No documents yet — warranties, contracts, receipts all live here, privately.')]);
+  }
+  searchInput.addEventListener('input', renderList);
+  renderList();
+
   mount(container, [
-    rows.length ? h('div', {}, rows.map(card)) : h('div', { class: 'empty-state' }, 'No documents yet — warranties, contracts, receipts all live here, privately.'),
+    rows.length ? h('div', { class: 'field' }, searchInput) : null,
+    listContainer,
     h('button', { class: 'fab', onclick: () => openUploadDocumentSheet(ctx, { onSaved: () => render(container, ctx) }) }, '+'),
   ]);
 }
