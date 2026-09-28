@@ -97,6 +97,27 @@ embed failed with "Could not find a relationship."
 | `created_by` | uuid → auth.users | |
 | `created_at` / `updated_at` | timestamptz | |
 
+### `recurring_expenses`
+See [`04-feature-expenses.md`](04-feature-expenses.md). A template that
+auto-logs a matching `expenses` row each period via a daily `pg_cron`
+job, rather than a real ledger entry itself.
+
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `household_id` | uuid → households | |
+| `title` | text | required |
+| `amount` | numeric(12,2) | |
+| `currency` | text | default `AUD` |
+| `category` | text | |
+| `paid_by` | uuid → auth.users | nullable |
+| `interval_days` | integer | default 30 |
+| `next_due_date` | date | required; advanced by `interval_days` each time it auto-logs |
+| `notes` | text | optional |
+| `active` | boolean | default true; paused templates are skipped without losing history |
+| `created_by` | uuid → auth.users | |
+| `created_at` / `updated_at` | timestamptz | |
+
 ### `settlements`
 See [`04-feature-expenses.md`](04-feature-expenses.md). A direct balancing
 payment between two household members — separate from `expenses` since

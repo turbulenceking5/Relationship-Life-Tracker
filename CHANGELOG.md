@@ -8,6 +8,21 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-09-28 — Recurring expenses
+
+- New "Recurring expenses" section on the Expenses tab
+  (`app/js/expenses.js`) for subscriptions, insurance, or anything else
+  that repeats on a schedule — set an amount, category, and how often
+  (weekly/monthly/yearly/custom), and it logs itself as a regular expense
+  each period with no one needing to open the app. Pause a template
+  without losing its already-logged history, or delete it outright.
+- New `recurring_expenses` table (migration `0019_recurring_expenses.sql`)
+  and a daily `pg_cron` job (`process-recurring-expenses-daily`) that
+  calls a `process_recurring_expenses()` Postgres function — pure SQL, no
+  edge function or HTTP call involved, since it never leaves the
+  database. Catches up every skipped period if a template was paused for
+  a while.
+
 ## 2026-09-28 — Push notifications are actually wired up now
 
 - `notify-due-items` (the daily edge function behind push notifications,

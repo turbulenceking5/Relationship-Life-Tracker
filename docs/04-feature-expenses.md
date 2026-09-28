@@ -59,9 +59,23 @@ partners agree, e.g. 65/35.
 - Smart defaults on the add form: last-used category, today's date
   pre-filled, remember last payer.
 
-## Phase 2
-- Recurring expenses (rent, subscriptions) that auto-log on schedule
-  instead of being re-entered manually.
+## Recurring expenses (shipped)
+A collapsible "Recurring expenses" section (open by default once it has
+any) sits above the search box in `app/js/expenses.js`, backed by a new
+`recurring_expenses` table — same fields as a one-off expense plus
+`interval_days` and `next_due_date` (the same rolling-period shape as
+`rent_payments`/`mortgage_payments`), and `active` so a subscription can
+be paused without deleting its history of already-logged expenses.
+
+Unlike rent/mortgage, there's no user "mark as done" action — a
+subscription should log itself with nobody needing to open the app. A
+daily `pg_cron` job (`process-recurring-expenses-daily`, migration
+`0019_recurring_expenses.sql`) calls a `process_recurring_expenses()`
+Postgres function that inserts one `expenses` row per period that's come
+due (looping if a template was paused a while or a cron run was ever
+missed, so no period silently disappears) and advances `next_due_date`
+past today. It's pure SQL — unlike `notify-due-items` there's no HTTP
+call or shared secret involved, since it never leaves the database.
 
 ## Phase 3 (remaining)
 - Multi-currency: convert to household default currency for totals while

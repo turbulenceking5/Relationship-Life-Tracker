@@ -69,6 +69,15 @@ export const CHANGELOG_ENTRIES = [
       'Rent, mortgage, goals, and documents notify again daily while overdue; goals stop once fully saved',
     ],
   },
+  {
+    id: 7,
+    date: '2026-09-28',
+    title: 'Recurring expenses',
+    items: [
+      'New "Recurring expenses" section on the Expenses tab for subscriptions, insurance, or anything else that repeats — set it once and it logs itself each period',
+      'Pause a subscription without losing its history, or delete it outright',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

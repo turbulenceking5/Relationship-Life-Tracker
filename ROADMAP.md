@@ -195,7 +195,9 @@ schema.
       [`docs/19-notification-sources.md`](docs/19-notification-sources.md)
 - [x] Overdue escalation — a daily repeat notification for as long as an
       item stays overdue (simple form of escalation; no separate tiers yet)
-- [ ] Recurring expenses (rent, subscriptions) that auto-log each period
+- [x] Recurring expenses (subscriptions, insurance) that auto-log each
+      period via a daily `pg_cron` job, no user action needed — see
+      [`04-feature-expenses.md`](docs/04-feature-expenses.md)
 - [x] Document expiry alerts (insurance, warranties, contracts) — a status
       pill, surfacing on the home dashboard's "What's due", and a push
       notification once actually expired. See
