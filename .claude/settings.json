@@ -49,7 +49,22 @@
       "mcp__github__subscribe_pr_activity",
       "mcp__github__unsubscribe_pr_activity",
       "mcp__github__request_copilot_review",
-      "mcp__github__actions_run_trigger"
+      "mcp__github__actions_run_trigger",
+      "mcp__SupraBase__apply_migration",
+      "mcp__SupraBase__execute_sql",
+      "mcp__SupraBase__list_tables",
+      "mcp__SupraBase__list_migrations",
+      "mcp__SupraBase__list_extensions",
+      "mcp__SupraBase__get_project",
+      "mcp__SupraBase__get_project_url",
+      "mcp__SupraBase__get_publishable_keys",
+      "mcp__SupraBase__get_advisors",
+      "mcp__SupraBase__query_logs",
+      "mcp__SupraBase__search_docs",
+      "mcp__SupraBase__generate_typescript_types",
+      "mcp__SupraBase__deploy_edge_function",
+      "mcp__SupraBase__list_edge_functions",
+      "mcp__SupraBase__get_edge_function"
     ]
   }
 }
