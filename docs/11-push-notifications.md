@@ -1,18 +1,16 @@
-# Push notifications (Phase 2, shipped — currently has no active trigger)
+# Push notifications (Phase 2, shipped)
 
 Due-date reminders delivered as a real push notification — not just
-something you'd see if you happened to open the app. The plumbing
-(subscribe/unsubscribe, the daily cron, the edge function, showing the
-notification) is all shipped and working; what's currently missing is
-anything for it to scan. It originally watched `replacement_items`, then
-also `repayments` — both features have since been removed entirely (see
+something you'd see if you happened to open the app. It originally
+watched `replacement_items`, then also `repayments` — both features have
+since been removed entirely (see
 [`05-feature-replacements.md`](05-feature-replacements.md) and
-[`06-feature-repayments.md`](06-feature-repayments.md)), so the function
-runs daily and sends nothing. Re-wiring it to a still-live due-date
-source (`rent_payments.due_date`, `custom_goals.target_date`) is a
-possible follow-up noted in [`12-feature-goals.md`](12-feature-goals.md)
-and [`13-feature-money-tab.md`](13-feature-money-tab.md) — it isn't done
-yet.
+[`06-feature-repayments.md`](06-feature-repayments.md)) — and for a while
+the function ran daily and sent nothing. It's now wired up to every
+still-live due-date source instead: rent, mortgage, goal target dates,
+document expiry, and events. See
+[`19-notification-sources.md`](19-notification-sources.md) for exactly
+what's scanned, the per-source trigger rule, and why.
 
 ## Why this exists
 
@@ -31,12 +29,12 @@ Edge Function: notify-due-items
    │  1. Reads its own VAPID keys + the shared secret from Vault
    │     (via the SECURITY DEFINER function get_edge_secrets(), which
    │     only service_role may call)
-   │  2. Currently: no due-date source is queried, so this list is
-   │     always empty — see the note at the top of this doc.
+   │  2. Scans rent/mortgage/goals/documents/events for anything due —
+   │     see 19-notification-sources.md for the exact rules
    │  3. Looks up push_subscriptions for each affected household
    │  4. Sends a Web Push message to each subscription (npm:web-push)
-   │  5. Marks last_notified_date (on whatever table is wired up) and
-   │     drops dead subscriptions (410/404)
+   │  5. Marks last_notified_date (on the source row) and drops dead
+   │     subscriptions (410/404)
    ▼
 Service worker (app/service-worker.js)
    │  'push' event → shows a native notification
@@ -122,9 +120,8 @@ generating your own keys:
   verified (see the function's own logs / the `sent`/`failed` counts it
   returns); the last mile (does it actually pop up on the lock screen) can
   only be confirmed by installing the app on a phone and trying it.
-- Nothing currently triggers a notification (see the note at the top) —
-  events don't either (see [`03-feature-events.md`](03-feature-events.md),
-  listed as a possible later addition once there's a home dashboard to
-  centralize "coming up" logic).
+- Events only notify same-day, not with N days' advance warning (see
+  [`03-feature-events.md`](03-feature-events.md)) — an advance-reminder
+  offset per event isn't built.
 - No user-facing digest/quiet-hours settings yet (roadmap Phase 2 also
   lists a digest option as a nice-to-have, not yet built).

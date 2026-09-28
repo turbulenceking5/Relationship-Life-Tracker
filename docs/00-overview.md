@@ -50,7 +50,7 @@ backend is configured.
 | [`08-auth-households.md`](08-auth-households.md) | Accounts, households, invite codes, permissions, expense split |
 | [`09-setup-supabase.md`](09-setup-supabase.md) | Backend setup, running the app locally |
 | [`10-suggestions.md`](10-suggestions.md) | Ideas to make the app better, with rationale |
-| [`11-push-notifications.md`](11-push-notifications.md) | How push notifications work (currently has no active trigger) |
+| [`11-push-notifications.md`](11-push-notifications.md) | How push notifications work (cron, edge function, service worker, Vault secrets) |
 | [`12-feature-goals.md`](12-feature-goals.md) | User-created savings/spending goals, tasks and linked documents (the "Goals" tab) |
 | [`13-feature-money-tab.md`](13-feature-money-tab.md) | Why/how Expenses, BrackenRidge (rent + mortgage), Grocery List and Recipes are condensed into one "Money" tab |
 | [`14-ui-patterns.md`](14-ui-patterns.md) | UI conventions to follow when adding a new screen or form |
@@ -58,6 +58,7 @@ backend is configured.
 | [`16-feature-grocery-list.md`](16-feature-grocery-list.md) | Shared grocery checklist (Money tab's Grocery List segment) |
 | [`17-feature-recipes.md`](17-feature-recipes.md) | Recipe box with ingredients/instructions (Money tab's Recipes segment) |
 | [`18-feature-changelog.md`](18-feature-changelog.md) | The in-app "What's new" dialog and its `../CHANGELOG.md` counterpart |
+| [`19-notification-sources.md`](19-notification-sources.md) | Exactly what `notify-due-items` scans (rent, mortgage, goals, documents, events) and why |
 
 The top-level [`ROADMAP.md`](../ROADMAP.md) tracks phases and status across
 all of the above, and [`../CHANGELOG.md`](../CHANGELOG.md) is a dated log of

@@ -8,6 +8,23 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-09-28 — Push notifications are actually wired up now
+
+- `notify-due-items` (the daily edge function behind push notifications,
+  see [`docs/11-push-notifications.md`](docs/11-push-notifications.md))
+  used to run every day and send nothing — it watched two features
+  (replacements, repayments) that were removed a while back. It now scans
+  every live due-date source instead: unpaid rent, unpaid mortgage, a
+  goal's target date (skipped once fully saved), an expired document, and
+  same-day events (birthdays/anniversaries included). See
+  [`docs/19-notification-sources.md`](docs/19-notification-sources.md)
+  for exactly what triggers each one.
+- New `last_notified_date` column on `rent_payments`, `mortgage_payments`,
+  `custom_goals`, `documents`, and `events` (migration
+  `0018_notification_sources.sql`) so each item notifies at most once per
+  calendar day, escalating daily while it stays overdue — except events,
+  which only notify on the day itself.
+
 ## 2026-09-28 — Search, document expiry alerts, and a smarter What's due
 
 - Added a search box to Expenses (`app/js/expenses.js`) and Documents

@@ -40,7 +40,7 @@ chips (Phase 1's original plan) weren't added on top of this — a search
 box already covers "find the boiler warranty" as well as a chip row
 would, without another row of UI.
 
-## Expiry status (shipped, partially)
+## Expiry status (shipped)
 A document with `expiry_date` set shows a status pill (`Expires in Nd` /
 `Expired Nd ago`) once it's within 14 days of expiring or already past
 it — same overdue/due-soon/ok thresholds as rent/mortgage due dates
@@ -50,10 +50,12 @@ document also surfaces on the home dashboard's "What's due" feed,
 merged and sorted by date alongside rent and mortgage — see
 [`13-feature-money-tab.md`](13-feature-money-tab.md).
 
-## Phase 2
-- Push notification ahead of `expiry_date` (insurance renewals, warranty
-  end dates) — the visual status pill above exists; nothing pushes a
-  notification for it yet.
+A document past its `expiry_date` also triggers a push notification via
+`notify-due-items` (on the day it expires, escalating daily while it
+stays expired) — see [`19-notification-sources.md`](19-notification-sources.md).
+Unlike the 14-day "due soon" visual pill above, the push only fires once
+actually expired, not ahead of time — the pill already gives advance
+warning when the app is opened.
 
 ## Phase 4
 - Thumbnail previews for images/PDFs in the list.

@@ -60,6 +60,15 @@ export const CHANGELOG_ENTRIES = [
       '"What\'s due" now shows rent, mortgage, and expiring documents together sorted by date, instead of grouped by type',
     ],
   },
+  {
+    id: 6,
+    date: '2026-09-28',
+    title: 'Push notifications actually notify now',
+    items: [
+      'Rent, mortgage, goal target dates, expired documents, and same-day events now send a real push notification, not just a log entry you had to open the app to see',
+      'Rent, mortgage, goals, and documents notify again daily while overdue; goals stop once fully saved',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

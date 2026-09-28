@@ -78,6 +78,7 @@ embed failed with "Could not find a relationship."
 | `category` | text | e.g. `birthday`, `anniversary`, `appointment` |
 | `event_date` | date | required — kept as the original/historical date even for recurring events |
 | `recurring` | boolean | default false; yearly if true — see [`03-feature-events.md`](03-feature-events.md) |
+| `last_notified_date` | date | last day `notify-due-items` sent a push for this row — see [`19-notification-sources.md`](19-notification-sources.md) |
 | `created_by` | uuid → auth.users | |
 | `created_at` / `updated_at` | timestamptz | |
 
@@ -132,6 +133,7 @@ Metadata row; the actual file lives in Supabase Storage under the
 | `related_id` | uuid | optional FK-by-convention to the row above |
 | `expiry_date` | date | optional, for things like insurance |
 | `notes` | text | optional |
+| `last_notified_date` | date | last day `notify-due-items` sent a push for this row's expiry — see [`19-notification-sources.md`](19-notification-sources.md) |
 | `uploaded_by` | uuid → auth.users | |
 | `created_at` | timestamptz | |
 
@@ -171,6 +173,7 @@ period; "mark as received" inserts the next period's row automatically.
 | `paid` | boolean | default false |
 | `paid_date` | date | set when marked received |
 | `notes` | text | optional |
+| `last_notified_date` | date | last day `notify-due-items` sent a push for this row — see [`19-notification-sources.md`](19-notification-sources.md) |
 | `created_by` | uuid → auth.users | |
 | `created_at` / `updated_at` | timestamptz | |
 
@@ -194,6 +197,7 @@ amount and each is just a simple due/paid list. Only difference:
 | `paid` | boolean | default false |
 | `paid_date` | date | set when marked paid |
 | `notes` | text | optional |
+| `last_notified_date` | date | last day `notify-due-items` sent a push for this row — see [`19-notification-sources.md`](19-notification-sources.md) |
 | `created_by` | uuid → auth.users | |
 | `created_at` / `updated_at` | timestamptz | |
 
@@ -209,6 +213,7 @@ goal (any number per household — a wedding fund, a holiday fund, etc.).
 | `target_amount` | numeric(12,2) | optional |
 | `target_date` | date | optional |
 | `currency` | text | default `AUD` |
+| `last_notified_date` | date | last day `notify-due-items` sent a push for this row's target date — see [`19-notification-sources.md`](19-notification-sources.md) |
 | `created_by` | uuid → auth.users | |
 | `created_at` / `updated_at` | timestamptz | |
 

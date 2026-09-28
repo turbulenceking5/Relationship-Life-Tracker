@@ -189,14 +189,16 @@ schema.
 
 - [x] Web Push notifications (iOS 16.4+ supports this for home-screen PWAs)
       — originally for replacement and repayment due dates, both since
-      removed, so the plumbing works but nothing currently triggers it —
-      see [`docs/11-push-notifications.md`](docs/11-push-notifications.md)
+      removed; now wired up to rent, mortgage, goal target dates, document
+      expiry, and events instead — see
+      [`docs/11-push-notifications.md`](docs/11-push-notifications.md) and
+      [`docs/19-notification-sources.md`](docs/19-notification-sources.md)
 - [x] Overdue escalation — a daily repeat notification for as long as an
       item stays overdue (simple form of escalation; no separate tiers yet)
 - [ ] Recurring expenses (rent, subscriptions) that auto-log each period
-- [ ] Document expiry alerts (insurance, warranties, contracts) — the
-      visual half (a status pill, plus surfacing on the home dashboard's
-      "What's due") is shipped; the push-notification half isn't. See
+- [x] Document expiry alerts (insurance, warranties, contracts) — a status
+      pill, surfacing on the home dashboard's "What's due", and a push
+      notification once actually expired. See
       [`07-feature-documents.md`](docs/07-feature-documents.md).
 - [ ] Digest option: a daily/weekly summary instead of per-item pings
 

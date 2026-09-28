@@ -1,9 +1,9 @@
-// Scheduled by pg_cron (see supabase/migrations/0004_schedule_notifications.sql)
-// once a day. Currently has no active trigger table to scan (Replacements
-// and Repayments — the two features that used to feed this — have both
-// been removed); it still runs daily and sends nothing. See
-// docs/11-push-notifications.md for how to wire a new due-date source
-// (rent_payments, custom_goals.target_date) back into it.
+// Scheduled by pg_cron (see supabase/migrations/0004_schedule_notifications.sql,
+// retimed in 0005_localize_australia.sql) once a day at 08:00 Australia/
+// Brisbane. Scans every live due-date source and pushes one notification per
+// due/overdue item, per household. See docs/11-push-notifications.md for the
+// overall design and docs/19-notification-sources.md for exactly what's
+// scanned and why.
 //
 // Auth: this function does NOT use Supabase JWT verification (it's
 // deployed with verify_jwt = false) because its only caller is the
@@ -13,6 +13,30 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
+
+// Brisbane (Australia/Queensland) never observes daylight saving, but this
+// still uses the IANA zone rather than a hardcoded +10 offset so it stays
+// correct if that ever changes.
+function brisbaneTodayStr(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Brisbane" }).format(new Date());
+}
+
+function daysUntil(dateStr: string, today: string): number {
+  const t = new Date(today + "T00:00:00Z").getTime();
+  const d = new Date(dateStr + "T00:00:00Z").getTime();
+  return Math.round((d - t) / 86400000);
+}
+
+// Mirrors thisYearOccurrence() in app/js/format.js: a recurring event
+// always maps onto *this* year's month/day, never rolling forward into
+// next year once that date has passed.
+function thisYearOccurrence(dateStr: string, recurring: boolean, today: string): string {
+  if (!recurring) return dateStr;
+  const [, month, day] = dateStr.split("-");
+  return `${today.slice(0, 4)}-${month}-${day}`;
+}
+
+type Notification = { household_id: string; title: string; body: string; table: string; id: string };
 
 Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -31,9 +55,123 @@ Deno.serve(async (req: Request) => {
 
   webpush.setVapidDetails(secrets.vapid_subject, secrets.vapid_public_key, secrets.vapid_private_key);
 
-  const notifications: { household_id: string; title: string; body: string }[] = [];
+  const today = brisbaneTodayStr();
+  const notifications: Notification[] = [];
 
-  // No due-date source is currently wired up — see the file header comment.
+  // Rent/mortgage: due today or overdue, not already notified today. Stays
+  // "overdue" (and keeps notifying daily) until marked paid, same as the
+  // in-app "Overdue" pill (dueStatus() in format.js).
+  const [{ data: rent }, { data: mortgage }, { data: events }, { data: goals }, { data: documents }] =
+    await Promise.all([
+      admin.from("rent_payments").select("id, household_id, due_date, property_label, last_notified_date").eq("paid", false),
+      admin.from("mortgage_payments").select("id, household_id, due_date, property_label, last_notified_date").eq("paid", false),
+      admin.from("events").select("id, household_id, title, event_date, recurring, last_notified_date"),
+      admin.from("custom_goals").select("id, household_id, title, target_date, target_amount, last_notified_date").not("target_date", "is", null),
+      admin.from("documents").select("id, household_id, title, expiry_date, last_notified_date").not("expiry_date", "is", null),
+    ]);
+
+  for (const r of rent ?? []) {
+    if (r.last_notified_date === today) continue;
+    if (daysUntil(r.due_date, today) > 0) continue;
+    notifications.push({
+      household_id: r.household_id,
+      title: "Rent due",
+      body: `${r.property_label || "BrackenRidge"} rent was due ${r.due_date === today ? "today" : "on " + r.due_date}.`,
+      table: "rent_payments",
+      id: r.id,
+    });
+  }
+
+  for (const m of mortgage ?? []) {
+    if (m.last_notified_date === today) continue;
+    if (daysUntil(m.due_date, today) > 0) continue;
+    notifications.push({
+      household_id: m.household_id,
+      title: "Mortgage due",
+      body: `${m.property_label || "BrackenRidge"} mortgage was due ${m.due_date === today ? "today" : "on " + m.due_date}.`,
+      table: "mortgage_payments",
+      id: m.id,
+    });
+  }
+
+  // Events (birthdays/anniversaries and one-off dates alike): only on the
+  // day itself — unlike a bill, a past event date isn't something to keep
+  // chasing, so this doesn't escalate like rent/mortgage/goals do.
+  for (const e of events ?? []) {
+    if (e.last_notified_date === today) continue;
+    const occurrence = thisYearOccurrence(e.event_date, e.recurring, today);
+    if (occurrence !== today) continue;
+    notifications.push({
+      household_id: e.household_id,
+      title: "Event today",
+      body: `${e.title} is today.`,
+      table: "events",
+      id: e.id,
+    });
+  }
+
+  // Goals: due today or overdue by target_date, same escalation as
+  // rent/mortgage, but skipped once the goal is already fully funded
+  // (remaining <= 0) — matches the "Saved so far" progress shown in the
+  // Goals tab (goals.js), so a goal that's met before its date stops
+  // nagging instead of notifying forever.
+  const goalIds = (goals ?? []).map((g) => g.id);
+  const savedByGoal = new Map<string, number>();
+  if (goalIds.length) {
+    const { data: txns } = await admin
+      .from("goal_transactions")
+      .select("goal_id, amount")
+      .eq("type", "saved")
+      .in("goal_id", goalIds);
+    for (const t of txns ?? []) {
+      savedByGoal.set(t.goal_id, (savedByGoal.get(t.goal_id) || 0) + Number(t.amount));
+    }
+  }
+
+  for (const g of goals ?? []) {
+    if (g.last_notified_date === today) continue;
+    if (daysUntil(g.target_date, today) > 0) continue;
+    if (g.target_amount != null) {
+      const saved = savedByGoal.get(g.id) || 0;
+      if (saved >= Number(g.target_amount)) continue;
+    }
+    notifications.push({
+      household_id: g.household_id,
+      title: "Goal date due",
+      body: `"${g.title}" was due ${g.target_date === today ? "today" : "on " + g.target_date}.`,
+      table: "custom_goals",
+      id: g.id,
+    });
+  }
+
+  // Documents: expiry treated the same as a bill's due date (due
+  // today/overdue, escalating daily) rather than the 14-day "due soon"
+  // window the in-app status pill shows — the pill already gives advance
+  // warning when the app is opened; the push notification is the "this
+  // has actually lapsed" nudge.
+  for (const d of documents ?? []) {
+    if (d.last_notified_date === today) continue;
+    if (daysUntil(d.expiry_date, today) > 0) continue;
+    notifications.push({
+      household_id: d.household_id,
+      title: "Document expired",
+      body: `"${d.title}" ${d.expiry_date === today ? "expires today" : "expired on " + d.expiry_date}.`,
+      table: "documents",
+      id: d.id,
+    });
+  }
+
+  // Mark every notified row before sending — a household with no active
+  // subscriptions yet still shouldn't be re-notified tomorrow for the same
+  // item, since "notified" here means "the daily check surfaced it," not
+  // "a push was successfully delivered."
+  const idsByTable = new Map<string, string[]>();
+  for (const n of notifications) {
+    idsByTable.set(n.table, [...(idsByTable.get(n.table) ?? []), n.id]);
+  }
+  for (const [table, ids] of idsByTable) {
+    await admin.from(table).update({ last_notified_date: today }).in("id", ids);
+  }
 
   let sent = 0;
   let failed = 0;

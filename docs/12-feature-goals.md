@@ -72,12 +72,15 @@ household-scoped RLS pattern as every other table.
 `wedding_fund`/`wedding_transactions` tables — existing wedding fund data
 was migrated in as a goal titled "Wedding Fund" rather than lost.
 
+## Push notifications (shipped)
+
+A goal with a `target_date` that's due today or overdue, and not yet
+fully saved toward its `target_amount`, notifies via `notify-due-items` —
+see [`19-notification-sources.md`](19-notification-sources.md) for the
+exact rule and why "fully saved" is what stops it escalating forever.
+
 ## Possible follow-ups (not built)
 
-- Push notifications for an approaching goal target date, reusing the
-  existing `notify-due-items` edge function (see
-  [`11-push-notifications.md`](11-push-notifications.md)) — not wired up
-  yet (it currently has no active trigger table at all).
 - Reordering goals or tasks, or pinning a goal open by default regardless
   of count.
 - Deleting a goal could optionally offer to also delete (not just

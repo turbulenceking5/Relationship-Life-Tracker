@@ -35,9 +35,17 @@ next-year date:
 ## Phase 1
 - Category filter chips (birthday / anniversary / appointment / other).
 
+## Push notifications (shipped, same-day only)
+An event notifies via `notify-due-items` on the day it falls (including a
+recurring event's `thisYearOccurrence()`), not N days ahead — see
+[`19-notification-sources.md`](19-notification-sources.md). Doesn't
+escalate the way an unpaid bill does, since a past event date isn't
+something to keep chasing.
+
 ## Phase 2+
 - Merge into the home dashboard's "coming up" feed.
-- Optional reminder notification N days before (Phase 2 push notifications).
+- Optional reminder notification N days *before* the event (currently
+  same-day only).
 - iCal export/subscribe feed (Phase 5).
 
 ## Data
