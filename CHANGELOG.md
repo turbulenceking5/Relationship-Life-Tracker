@@ -8,6 +8,13 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-09-28 — Home tab: events and goals split apart
+
+- The Home tab's "Coming up" feed is now two separate sections,
+  "Upcoming events" and "Upcoming goals", instead of one list mixing
+  both record types together. Each keeps its own empty-state message
+  when it has nothing to show.
+
 ## 2026-09-28 — Mortgage tracking, changelog, and a real expense-split fix
 
 - BrackenRidge now tracks the mortgage payment alongside rent, not just

@@ -61,29 +61,31 @@ export async function render(container, ctx, navigate) {
     }),
   ];
 
-  const comingUp = [
-    ...soonEvents.map((e) => row(
-      CATEGORY_ICONS[e.category] || '📌',
-      e.title,
-      e.recurring ? `${formatDate(e._next)} · yearly` : formatDate(e._next),
-      h('div', { style: 'display:flex;gap:6px;align-items:center' }, [
-        e.category ? h('span', { class: `pill ${gradientClass(e.id)}` }, e.category) : null,
-        h('span', { class: 'pill upcoming' }, `In ${daysUntil(e._next)} day${daysUntil(e._next) === 1 ? '' : 's'}`),
-      ]),
-      () => navigate('events'),
-    )),
-    ...goalsWithDates.map((g) => {
-      const days = daysUntil(g.target_date);
-      const label = days === 0 ? "It's today!" : `${days}d to go`;
-      return row('🎯', g.title, formatDate(g.target_date), h('span', { class: 'pill upcoming' }, label), () => navigate('goals'));
-    }),
-  ];
+  const upcomingEvents = soonEvents.map((e) => row(
+    CATEGORY_ICONS[e.category] || '📌',
+    e.title,
+    e.recurring ? `${formatDate(e._next)} · yearly` : formatDate(e._next),
+    h('div', { style: 'display:flex;gap:6px;align-items:center' }, [
+      e.category ? h('span', { class: `pill ${gradientClass(e.id)}` }, e.category) : null,
+      h('span', { class: 'pill upcoming' }, `In ${daysUntil(e._next)} day${daysUntil(e._next) === 1 ? '' : 's'}`),
+    ]),
+    () => navigate('events'),
+  ));
+
+  const upcomingGoals = goalsWithDates.map((g) => {
+    const days = daysUntil(g.target_date);
+    const label = days === 0 ? "It's today!" : `${days}d to go`;
+    return row('🎯', g.title, formatDate(g.target_date), h('span', { class: 'pill upcoming' }, label), () => navigate('goals'));
+  });
 
   mount(container, [
     h('div', { class: 'section-title' }, "What's due"),
     ...(dueItems.length ? dueItems : [h('div', { class: 'empty-state' }, [h('div', { class: 'glow-check' }, '✓'), 'All caught up!'])]),
 
-    h('div', { class: 'section-title' }, 'Coming up'),
-    ...(comingUp.length ? comingUp : [h('div', { class: 'empty-state' }, 'No upcoming events.')]),
+    h('div', { class: 'section-title' }, 'Upcoming events'),
+    ...(upcomingEvents.length ? upcomingEvents : [h('div', { class: 'empty-state' }, 'No upcoming events.')]),
+
+    h('div', { class: 'section-title' }, 'Upcoming goals'),
+    ...(upcomingGoals.length ? upcomingGoals : [h('div', { class: 'empty-state' }, 'No goals with a target date coming up.')]),
   ]);
 }

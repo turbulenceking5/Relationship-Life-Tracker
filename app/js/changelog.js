@@ -42,6 +42,14 @@ export const CHANGELOG_ENTRIES = [
       "This dialog — you'll see it here again whenever there's something new",
     ],
   },
+  {
+    id: 4,
+    date: '2026-09-28',
+    title: 'Home tab: events and goals split apart',
+    items: [
+      'The "Coming up" feed is now two sections, "Upcoming events" and "Upcoming goals", instead of one mixed list',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';
