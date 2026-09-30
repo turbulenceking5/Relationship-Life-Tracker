@@ -1,0 +1,110 @@
+# Auth & Households
+
+## Accounts
+Email + password via Supabase Auth. Each partner has their own login —
+there's no shared device password, which matters once push notifications
+and "who added this" attribution exist.
+
+A `profiles` row is auto-created for every new user (via an
+`on auth.users insert` trigger) so the rest of the app has a display name
+to show without extra signup steps.
+
+**Forgot password**: "Forgot your password?" on the login screen calls
+`supabase.auth.resetPasswordForEmail()`, which emails a link to
+`reset-password.html`. Supabase processes the recovery token in that
+link's URL automatically (same client/localStorage as the rest of the
+app) and establishes a session, so the page just needs to collect a new
+password and call `supabase.auth.updateUser({ password })` — no custom
+token handling. This mirrors the existing sign-up email-confirmation
+flow in `confirmed.html`. The redirect URL
+(`{SITE_URL}/reset-password.html`) must be present in the Supabase
+project's Auth → URL Configuration → Redirect URLs allowlist (a
+dashboard-only setting — see `09-setup-supabase.md`).
+
+## Households
+A **household** is the sharing boundary. Every feature row (`events`,
+`expenses`, `settlements`, `documents`, `rent_payments`, `custom_goals`,
+`goal_transactions`, `goal_tasks`) belongs to exactly one household, and
+a user can see/edit a row only if they're a member of that household.
+
+### Who can actually see what you add
+
+Nobody outside your household — this is enforced by the database itself
+(Postgres Row Level Security), not just by the app's UI, so it holds even
+if someone queries the API directly rather than going through the app.
+Concretely:
+
+- Adding an event/expense/document/etc. makes it visible only to the
+  other member(s) of *your* household.
+- Anyone else who opens the app link and signs up creates their own,
+  separate, empty household — they don't land in yours, and they can't
+  see or guess their way into it.
+- The only way another person joins *your* household is by entering the
+  invite code shown in the ⚙️ account sheet, which only your household's
+  own members can see. There's no way to join by guessing a household ID.
+
+So in practice: this app being "shared" means shared with whoever you've
+handed that invite code to — not shared with every user of the deployed
+app.
+
+### Creating a household
+First-time users create a household (e.g. "Alex & Sam") via the
+`create_household(name)` RPC, which:
+1. Inserts the `households` row with a freshly generated 8-character
+   invite code.
+2. Adds the creator as a `household_members` row with `role = 'owner'`.
+
+### Joining a household
+The partner enters the invite code shown in-app, via the
+`join_household(invite_code)` RPC, which validates the code and adds them
+as a `household_members` row with `role = 'member'`.
+
+Both RPCs are `SECURITY DEFINER` Postgres functions — this is deliberate:
+`household_members` has **no** direct INSERT policy for regular clients,
+so the only way to become a member is through code that enforces the
+invite-code check. A client can't just `insert` itself into an arbitrary
+household's membership list by guessing a UUID.
+
+### Why an invite code instead of email invites
+Simpler to implement, no email-sending infra needed, and for a
+two-person household sharing a code once by text/in person is more than
+enough. Email invites are a reasonable Phase 1+ addition if this app ever
+grows past household-of-two use.
+
+### Expense split
+Each `household_members` row has a `split_percent` (default 50), editable
+from the ⚙️ account sheet's "Expense split" section — two number inputs
+that auto-complement (typing 35 for one member sets the other to 65).
+Only shown/editable once a household has exactly two members, since the
+"who owes who" balance it drives (see
+[`04-feature-expenses.md`](04-feature-expenses.md)) is a two-person
+concept. `updateSplitPercents()` in `household.js` writes both members'
+rows in one call so they can't drift out of summing to 100.
+
+`household_members` originally had only a SELECT policy (joining/creating
+a household deliberately goes through the `create_household`/
+`join_household` SECURITY DEFINER RPCs, not direct client writes — see
+above), so `updateSplitPercents()`'s direct `UPDATE` had no RLS policy to
+allow it. PostgREST doesn't error on this — RLS just silently drops the
+write (0 rows affected) — so the account sheet's "Split saved" message
+was never true, and every balance calculation kept using the schema
+default of 50/50 no matter what was entered. Fixed in
+`0016_household_members_split_update.sql` by granting `UPDATE` on just
+the `split_percent` column (not a blanket grant) plus a matching RLS
+policy scoped to `is_household_member(household_id)` — narrow enough
+that a hand-crafted request still can't rewrite `role`/`user_id`/
+`household_id`, which still have no write path outside the two RPCs.
+
+## Permissions model
+Deliberately flat for v1: every member of a household has full read/write
+access to all of that household's data. There's no "read-only" or
+"admin-only" role distinction — `role` on `household_members` currently
+only distinguishes `owner` (the creator) for potential future use (e.g.
+only the owner can rename/delete the household), and isn't otherwise
+enforced yet.
+
+## Multiple households (future)
+The schema already supports a user belonging to multiple households (it's
+a proper many-to-many join table) — the UI just doesn't expose switching
+between them yet. That's listed as a Phase 5 stretch goal (e.g. a separate
+household for tracking things with extended family).
