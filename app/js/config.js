@@ -38,4 +38,4 @@ export const VAPID_PUBLIC_KEY = 'BL2m2SQvD5IIaI60UbnxCipQU6rGZp6pVox4XrZ8jgEwZLb
 // Until both are filled in, the Docs tab's "Connect Google Drive" button
 // shows a setup-needed message instead of failing silently.
 export const GOOGLE_CLIENT_ID = '204377341271-jl5m0hva97k5uiiv4pkia6mine9b1mer.apps.googleusercontent.com';
-export const GOOGLE_API_KEY = '';
+export const GOOGLE_API_KEY = 'AIzaSyDLvMDSBSh7om7b_tjx_hTNg2tKmkEYiug';
