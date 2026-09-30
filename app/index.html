@@ -34,6 +34,15 @@
   </div>
 
   <script src="js/vendor/supabase.js"></script>
+  <!-- Google Identity Services (OAuth token client) and the Google API
+       client (for the Drive picker) — see docs/21-google-drive-documents.md.
+       Loaded from Google's own domains rather than vendored, unlike
+       Supabase, since they're tied to the browser's live Google session
+       state, not a static SDK. Loaded deferred: the Docs tab only touches
+       these when a document upload/connect actually happens, so a slow
+       or blocked load here shouldn't hold up app boot. -->
+  <script src="https://accounts.google.com/gsi/client" defer></script>
+  <script src="https://apis.google.com/js/api.js" defer></script>
   <script type="module" src="js/app.js"></script>
   <script>
     if ('serviceWorker' in navigator) {

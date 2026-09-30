@@ -8,6 +8,40 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-09-30 — Documents move to Google Drive; any file, not just photos
+
+- New document uploads now go to a shared Google Drive folder instead of
+  Supabase Storage — see
+  [`docs/21-google-drive-documents.md`](docs/21-google-drive-documents.md)
+  for the full design, including why the second partner needs a one-time
+  Google Picker step (`drive.file` OAuth scope only grants the app access
+  to files a given user created, opened, or explicitly picked — a folder
+  merely shared with their account isn't reachable via the API until
+  they pick it once).
+- Fixed the upload file input having `capture="environment"` set, which
+  on Android forced the camera open directly instead of showing a file
+  picker — PDFs and other non-image files were effectively unreachable.
+  The input is now unrestricted (any file type) with no `capture`
+  attribute.
+- New `⚙️ Account & household → Documents storage` section: "Connect
+  Google Drive" for whoever connects first (creates the shared folder in
+  their own Drive, with an optional field to share it with your
+  partner's Google account by email), and "Grant my account access" for
+  the second partner (runs the Picker join flow above).
+- Documents uploaded before this change keep working exactly as before
+  against Supabase Storage — `documents.storage_provider` distinguishes
+  old rows (`'supabase'`) from new ones (`'drive'`); `view`/`delete`
+  branch on it. Migration `0024_google_drive_documents.sql` also adds
+  `households.drive_folder_id`/`drive_folder_name`/`drive_connected_by`
+  and a column-scoped `UPDATE` grant/policy for them (`households` never
+  had a blanket `UPDATE` policy — same gap
+  `0016_household_members_split_update.sql` hit and fixed the same way).
+- Requires the repo owner to create a Google Cloud project (OAuth client
+  ID + API key) — dashboard-only setup, documented in `app/js/config.js`
+  and [`docs/21-google-drive-documents.md`](docs/21-google-drive-documents.md).
+  Until that's done, the Docs tab shows a setup-needed message instead of
+  failing silently.
+
 ## 2026-09-30 — Personal to-dos: a private reminder list
 
 - New "My To-dos" segment in the Money tab: a reminder list scoped to you

@@ -2,6 +2,7 @@ import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
 import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
 import { formatDate, daysUntil } from './format.js';
 import { supabase } from './supabaseClient.js';
+import { isConfigured, isDriveConnected, hasLocalDriveAccess, uploadFileToDrive, deleteDriveFile } from './googleDrive.js';
 
 export const DOCUMENT_TABLE = 'documents';
 export const DOCUMENT_BUCKET = 'documents';
@@ -18,13 +19,21 @@ export function expiryStatus(expiryDate) {
 }
 
 export async function viewDocument(row) {
+  if (row.storage_provider === 'drive') {
+    window.open(row.drive_web_view_link || `https://drive.google.com/file/d/${row.drive_file_id}/view`, '_blank');
+    return;
+  }
   const { data, error } = await supabase.storage.from(DOCUMENT_BUCKET).createSignedUrl(row.file_path, 60);
   if (error) { alert(error.message); return; }
   window.open(data.signedUrl, '_blank');
 }
 
 export async function removeDocument(row) {
-  await supabase.storage.from(DOCUMENT_BUCKET).remove([row.file_path]);
+  if (row.storage_provider === 'drive') {
+    await deleteDriveFile(row.drive_file_id).catch(() => {}); // best-effort, same tolerance as the Supabase Storage path below
+  } else {
+    await supabase.storage.from(DOCUMENT_BUCKET).remove([row.file_path]);
+  }
   await deleteRow(DOCUMENT_TABLE, row.id);
 }
 
@@ -78,11 +87,26 @@ export function openUploadDocumentSheet(ctx, { sheetTitle = 'Add document', rela
   document.body.appendChild(dialog);
   dialog.addEventListener('close', () => dialog.remove());
 
+  if (!isConfigured()) {
+    mount(body, h('p', { class: 'meta' }, 'Google Drive isn’t set up for this deployment yet — see docs/21-google-drive-documents.md.'));
+    openSheet(dialog);
+    return;
+  }
+  if (!isDriveConnected(ctx.household) || !hasLocalDriveAccess(ctx)) {
+    mount(body, h('p', { class: 'meta' }, 'Connect Google Drive first, from ⚙️ Account & household → Documents storage, then come back here to upload.'));
+    openSheet(dialog);
+    return;
+  }
+
   const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
   const titleInput = h('input', { type: 'text', required: true, placeholder: 'e.g. Boiler warranty' });
   const categorySelect = h('select', {}, DOCUMENT_CATEGORIES.map((c) => h('option', { value: c }, c)));
   const expiryInput = h('input', { type: 'date' });
-  const fileInput = h('input', { type: 'file', accept: 'application/pdf,image/*', capture: 'environment', required: true });
+  // No `accept`/`capture` restriction: documents are any file type, not
+  // just photos/PDFs (a `capture` attribute here used to force Android
+  // straight into the camera, hiding the file picker entirely — see
+  // docs/21-google-drive-documents.md).
+  const fileInput = h('input', { type: 'file', required: true });
   const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Upload document');
 
   const form = h('form', {
@@ -94,14 +118,14 @@ export function openUploadDocumentSheet(ctx, { sheetTitle = 'Add document', rela
       submitBtn.disabled = true;
       submitBtn.textContent = 'Uploading…';
       try {
-        const path = `${ctx.household.id}/${crypto.randomUUID()}-${file.name}`;
-        const { error: uploadError } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, file, { contentType: file.type });
-        if (uploadError) throw uploadError;
+        const uploaded = await uploadFileToDrive(ctx, file);
         await insertRow(DOCUMENT_TABLE, {
           household_id: ctx.household.id,
           title: titleInput.value.trim(),
           category: categorySelect.value,
-          file_path: path,
+          storage_provider: 'drive',
+          drive_file_id: uploaded.id,
+          drive_web_view_link: uploaded.webViewLink,
           file_name: file.name,
           mime_type: file.type,
           expiry_date: expiryInput.value || null,
@@ -124,7 +148,8 @@ export function openUploadDocumentSheet(ctx, { sheetTitle = 'Add document', rela
       h('div', { class: 'field' }, [h('label', {}, 'Category'), categorySelect]),
       h('div', { class: 'field' }, [h('label', {}, 'Expiry date (optional)'), expiryInput]),
     ]),
-    h('div', { class: 'field' }, [h('label', {}, 'File (PDF or photo)'), fileInput]),
+    h('div', { class: 'field' }, [h('label', {}, 'File'), fileInput]),
+    h('p', { class: 'meta' }, 'Uploads to the household’s Google Drive folder.'),
     errorEl,
     submitBtn,
   ]);

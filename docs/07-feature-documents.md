@@ -7,17 +7,31 @@ big purchases, ID scans for reference.
 
 ## MVP (Phase 0, shipped)
 - List documents with title, category, upload date, uploader.
-- Upload a document: pick a file (PDF/image), title, category, optional
-  notes and expiry date.
-- Download/view a document (signed, time-limited URL from private
-  Storage).
+- Upload a document: pick a file (any type — see "Storage" below), title,
+  category, optional notes and expiry date.
+- Download/view a document (Drive's view link for new uploads; a signed,
+  time-limited Storage URL for documents uploaded before the Drive
+  change — see below).
 - Edit a document's title, category, and expiry date. The uploaded file
   itself isn't replaceable in place — delete and re-upload for that,
-  since swapping a file (and generating its Storage path) is a different
-  operation to updating a text field.
-- Delete a document (removes both the DB row and the Storage object).
+  since swapping a file is a different operation to updating a text
+  field.
+- Delete a document (removes both the DB row and the underlying file).
 - Link a document to a goal (shipped, see below) via `related_type` +
   `related_id`.
+
+## Storage: Google Drive (shipped)
+New uploads are stored in a shared Google Drive folder rather than
+Supabase Storage — connect it from `⚙️ Account & household → Documents
+storage`. Documents uploaded before this change keep working exactly as
+before against Supabase Storage; `documents.storage_provider`
+distinguishes the two per row. See
+[`21-google-drive-documents.md`](21-google-drive-documents.md) for the
+full design (why `drive.file` OAuth scope, why the second partner needs
+a one-time Google Picker step, and the dashboard-only Google Cloud setup
+this depends on) and the fix for uploads previously being effectively
+photo-only (an Android `capture` attribute on the file input, unrelated
+to Drive, fixed in the same change).
 
 ## Linking to a goal (shipped)
 Uploading from within a goal (see
@@ -64,14 +78,18 @@ warning when the app is opened.
 - Bulk export/download as a zip for personal backup.
 
 ## Data
-See `documents` table in [`02-data-model.md`](02-data-model.md). Files
-live in the private Supabase Storage bucket `documents`, at path
-`{household_id}/{uuid}-{original filename}`. Storage RLS policies mirror
-the table policies: only members of that household can read/write objects
-under their household's folder. Access from the app is always via a
-short-lived signed URL — the bucket itself is never public.
+See `documents` table in [`02-data-model.md`](02-data-model.md). New
+uploads (`storage_provider = 'drive'`) live in the household's Google
+Drive folder (`drive_file_id`/`drive_web_view_link`). Documents uploaded
+before the Drive change (`storage_provider = 'supabase'`) still live in
+the private Supabase Storage bucket `documents`, at path
+`{household_id}/{uuid}-{original filename}`; Storage RLS policies mirror
+the table policies, and access is always via a short-lived signed URL —
+that bucket itself is never public. See
+[`21-google-drive-documents.md`](21-google-drive-documents.md).
 
 ## UI notes
-- Uploading should support both "pick a file" and, on iOS, "take a photo"
-  directly (the file input's `capture` attribute) — most receipts/
-  warranty cards will be photographed on the spot, not scanned.
+- The file input accepts any file type, with no `capture` attribute —
+  see [`21-google-drive-documents.md`](21-google-drive-documents.md) for
+  why that attribute previously made PDFs/files effectively unreachable
+  on Android.

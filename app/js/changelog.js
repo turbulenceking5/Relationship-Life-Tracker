@@ -112,6 +112,16 @@ export const CHANGELOG_ENTRIES = [
       'Push notifications for a due reminder go only to your own devices',
     ],
   },
+  {
+    id: 12,
+    date: '2026-09-30',
+    title: 'Documents move to Google Drive — any file, not just photos',
+    items: [
+      'Uploading a document no longer opens the camera by default — pick any file type (PDFs, Word docs, spreadsheets, photos), not just images',
+      'New uploads are stored in a shared Google Drive folder instead of on this app’s own server — connect it from ⚙️ Account & household',
+      'Documents already uploaded before this change keep working exactly as before',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

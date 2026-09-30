@@ -50,6 +50,9 @@ this" instead of a raw UUID.
 | `default_currency` | text | e.g. `AUD`, prefills new entries |
 | `created_by` | uuid → auth.users | |
 | `created_at` | timestamptz | |
+| `drive_folder_id` | text | optional, Google Drive folder id for shared document storage — see [`21-google-drive-documents.md`](21-google-drive-documents.md) |
+| `drive_folder_name` | text | optional, that folder's display name |
+| `drive_connected_by` | uuid → auth.users | optional, whichever partner ran the initial connect and owns the folder in their own Drive |
 
 ### `household_members`
 | column | type | notes |
@@ -160,8 +163,11 @@ the running "who owes who" balance.
 | `created_at` | timestamptz | |
 
 ### `documents`
-Metadata row; the actual file lives in Supabase Storage under the
-`documents` bucket at `documents/{household_id}/{uuid}-{filename}`.
+Metadata row; the actual file lives in Google Drive for new uploads
+(`storage_provider = 'drive'`), or in Supabase Storage under the
+`documents` bucket at `documents/{household_id}/{uuid}-{filename}` for
+documents uploaded before that change (`storage_provider = 'supabase'`).
+See [`21-google-drive-documents.md`](21-google-drive-documents.md).
 
 | column | type | notes |
 |---|---|---|
@@ -169,7 +175,10 @@ Metadata row; the actual file lives in Supabase Storage under the
 | `household_id` | uuid → households | |
 | `title` | text | required |
 | `category` | text | e.g. `warranty`, `contract`, `receipt`, `id` |
-| `file_path` | text | Storage object path |
+| `storage_provider` | text | `'supabase'` \| `'drive'`, default `'supabase'` |
+| `file_path` | text | optional (only `'supabase'` rows) — Storage object path |
+| `drive_file_id` | text | optional (only `'drive'` rows) |
+| `drive_web_view_link` | text | optional (only `'drive'` rows) |
 | `file_name` | text | original filename |
 | `mime_type` | text | |
 | `related_type` | text | optional: `goal` (only value currently wired up; `expense` \| `event` reserved for later) |

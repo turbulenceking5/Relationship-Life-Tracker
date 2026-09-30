@@ -162,6 +162,14 @@ status. Check items off as they land.
       To-dos" segment in the Money tab, with its own push notifications
       (sent only to the owner's devices). See
       [`docs/20-feature-personal-todos.md`](docs/20-feature-personal-todos.md).
+- [x] **Documents move to Google Drive; any file, not just photos**: new
+      uploads are stored in one shared Google Drive folder instead of
+      Supabase Storage, connected from `⚙️ Account & household →
+      Documents storage`. Along the way, fixed the upload file input
+      forcing Android straight into the camera (a `capture` attribute
+      that made PDFs/other files effectively unreachable) — it now
+      accepts any file type. Existing documents keep working unchanged.
+      See [`docs/21-google-drive-documents.md`](docs/21-google-drive-documents.md).
 
 ## Phase 0 — Foundations ✅ (this session)
 

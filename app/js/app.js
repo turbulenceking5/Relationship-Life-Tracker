@@ -6,6 +6,15 @@ import { isStandalone, isPushSupported, getSubscriptionStatus, enablePush, disab
 import { getTheme, setTheme } from './theme.js';
 import { getUnseenEntries, markChangelogSeen } from './changelog.js';
 import { formatDate } from './format.js';
+import {
+  isConfigured as isDriveConfigured,
+  isDriveConnected,
+  hasLocalDriveAccess,
+  folderUrl,
+  connectAsFirstPartner,
+  connectAsSecondPartner,
+  shareFolderWithEmail,
+} from './googleDrive.js';
 
 const appEl = document.getElementById('app');
 
@@ -126,6 +135,7 @@ function showAccountSheet() {
   const { dialog, body } = makeSheet('Account & household');
   const notificationsSection = h('div', { class: 'meta' }, 'Checking notification status…');
   const splitSection = h('div', { class: 'meta' }, 'Loading…');
+  const driveSection = h('div', {});
 
   mount(body, [
     h('p', { class: 'meta' }, ctx.user.email),
@@ -134,6 +144,8 @@ function showAccountSheet() {
     renderThemeToggle(),
     h('div', { class: 'section-title' }, 'Expense split'),
     splitSection,
+    h('div', { class: 'section-title' }, 'Documents storage'),
+    driveSection,
     h('div', { class: 'section-title' }, 'Notifications'),
     notificationsSection,
     h('button', {
@@ -148,6 +160,69 @@ function showAccountSheet() {
 
   renderNotificationsSection(notificationsSection);
   renderSplitSection(splitSection);
+  renderDriveSection(driveSection);
+}
+
+// Documents now live in a shared Google Drive folder rather than
+// Supabase Storage — see docs/21-google-drive-documents.md for why, and
+// for why the "second partner" case needs a Picker step rather than just
+// working off the first partner's share.
+function renderDriveSection(container) {
+  function draw() {
+    if (!isDriveConfigured()) {
+      mount(container, h('p', { class: 'meta' }, 'Google Drive isn’t set up for this deployment yet (needs a Google Cloud project — see docs/21-google-drive-documents.md).'));
+      return;
+    }
+
+    const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
+    const runConnect = (fn, busyLabel) => async () => {
+      errorEl.style.display = 'none';
+      btn.disabled = true;
+      btn.textContent = busyLabel;
+      try {
+        await fn();
+        draw();
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+        btn.disabled = false;
+      }
+    };
+
+    let btn;
+    let rows;
+    if (!isDriveConnected(ctx.household)) {
+      const emailInput = h('input', { type: 'email', placeholder: "Partner's Google account email (optional)" });
+      btn = h('button', {
+        class: 'btn secondary',
+        onclick: runConnect(async () => {
+          await connectAsFirstPartner(ctx);
+          if (emailInput.value.trim()) await shareFolderWithEmail(ctx, emailInput.value.trim());
+        }, 'Connecting…'),
+      }, 'Connect Google Drive');
+      rows = [
+        h('p', { class: 'meta' }, 'Connect a Google account to store uploaded documents there instead of on this server. Creates one shared folder both of you upload into.'),
+        h('div', { class: 'field' }, emailInput),
+        btn,
+      ];
+    } else if (hasLocalDriveAccess(ctx)) {
+      rows = [
+        h('p', { class: 'meta' }, `Connected — documents are stored in "${ctx.household.drive_folder_name}" in Google Drive.`),
+        h('a', { class: 'btn secondary small', href: folderUrl(ctx.household), target: '_blank', rel: 'noopener' }, 'Open folder in Drive'),
+      ];
+    } else {
+      btn = h('button', {
+        class: 'btn secondary',
+        onclick: runConnect(() => connectAsSecondPartner(ctx), 'Connecting…'),
+      }, 'Grant my account access');
+      rows = [
+        h('p', { class: 'meta' }, `Your partner connected "${ctx.household.drive_folder_name}" in Google Drive. Select it below (it should show under "Shared with me") to grant your own account access too.`),
+        btn,
+      ];
+    }
+    mount(container, [...rows, errorEl]);
+  }
+  draw();
 }
 
 function renderThemeToggle() {
