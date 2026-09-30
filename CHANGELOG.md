@@ -8,6 +8,20 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-09-30 — Document category filter chips + Drive filename prefix
+
+- New category filter chips (All/Warranty/Contract/Receipt/ID/Other)
+  above the Docs tab's search box, combining with the existing text
+  search rather than replacing it.
+- New uploads to Google Drive get a category prefix in the Drive-visible
+  filename (e.g. `[Warranty] Boiler warranty.pdf`), so documents at least
+  sort together by category if you ever browse the shared folder directly
+  in Drive rather than through the app. Real Drive subfolders per
+  category weren't used — they don't work with this app's OAuth scope
+  without also needing a join step per category per partner; see
+  [`docs/21-google-drive-documents.md`](docs/21-google-drive-documents.md)
+  for why.
+
 ## 2026-09-30 — Documents move to Google Drive; any file, not just photos
 
 - New document uploads now go to a shared Google Drive folder instead of

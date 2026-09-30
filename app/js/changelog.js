@@ -122,6 +122,15 @@ export const CHANGELOG_ENTRIES = [
       'Documents already uploaded before this change keep working exactly as before',
     ],
   },
+  {
+    id: 13,
+    date: '2026-09-30',
+    title: 'Document category filter chips',
+    items: [
+      'New filter chips (All/Warranty/Contract/Receipt/ID/Other) on the Docs tab, alongside search',
+      'New Drive uploads are also prefixed with their category (e.g. "[Warranty] Boiler warranty.pdf") if you ever browse the shared folder directly in Drive',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

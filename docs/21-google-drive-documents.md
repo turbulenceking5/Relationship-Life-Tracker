@@ -111,6 +111,34 @@ OAuth flow.
   `openUploadDocumentSheet`) — shows a "connect first" message if Drive
   isn't connected/joined yet, otherwise a plain file input (any type) plus
   title/category/expiry, same shape as before.
+- Docs tab: category filter chips (`All`/`Warranty`/`Contract`/`Receipt`/
+  `ID`/`Other`) above the search box, same `.segmented` control money.js
+  uses for its own sub-nav. Combines with the text search rather than
+  replacing it; resets to "All" on every re-render, same as the search
+  box's typed text not persisting across an add/edit/delete.
+
+## Why category organization is filename-prefix, not real Drive subfolders
+A category subfolder per type (e.g. a "Warranties" folder) sounds like
+the obvious way to organize the shared Drive folder, but it collides with
+`drive.file`'s access model (see above): whichever partner's token
+creates a given category folder is the only one whose token can write
+into it. The other partner's next upload of that category wouldn't find
+it (their token has no access to a folder it didn't create/open/pick)
+and would silently create a *second*, duplicate folder with the same
+name — fragmenting exactly what this was supposed to prevent. Fixing that
+properly would mean a Picker-based "join" step per category, repeated
+indefinitely as new categories come up — too much friction for what this
+buys.
+
+Instead, `uploadFileToDrive()` (`app/js/googleDrive.js`) takes an
+optional `driveFileName` override; `documents.js` prefixes it with the
+category in brackets (e.g. `[Warranty] Boiler warranty.pdf`) before
+upload. Everything stays in the one root folder both partners already
+have access to (no new access-propagation problem), while sorting by
+name in Drive's own UI naturally clusters same-category files together.
+The app's own category filter chips (above) are the more useful way to
+browse by category day-to-day; the filename prefix is mainly for anyone
+who opens the folder directly in Drive.
 
 ## Not done (possible follow-ups)
 - No UI to disconnect/switch the household's Drive folder once set.
