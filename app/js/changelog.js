@@ -94,6 +94,15 @@ export const CHANGELOG_ENTRIES = [
       'A "This month" card on Expenses shows your total spend and a breakdown by category',
     ],
   },
+  {
+    id: 10,
+    date: '2026-09-30',
+    title: 'Repeatable events: weekly, fortnightly, monthly, yearly',
+    items: [
+      'Recurring events were yearly only — the add/edit form now offers weekly, fortnightly, and monthly too',
+      'Good for a standing appointment or chore reminder, not just birthdays and anniversaries',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

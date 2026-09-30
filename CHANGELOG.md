@@ -8,6 +8,22 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-09-30 — Repeatable events: weekly, fortnightly, monthly, yearly
+
+- Recurring events used to be yearly only (birthdays, anniversaries). The
+  add/edit event form now has a "Repeats" dropdown — Doesn't repeat /
+  Weekly / Fortnightly / Monthly / Yearly — good for a standing
+  appointment or a chore reminder, not just an annual date.
+- `thisYearOccurrence()` generalized into `currentOccurrence()` in
+  `app/js/format.js`: yearly still maps onto this calendar year's
+  month/day, monthly onto this calendar month's day (clamped to the
+  month's last day), and weekly/fortnightly roll forward from the event's
+  own anchor date in fixed 7/14-day steps. All three consumers (Events
+  tab's Upcoming/Done split, the home dashboard's "Coming up" feed, and
+  the `notify-due-items` push notification check) updated to match.
+- New `recurring_interval` column on `events` (migration
+  `0022_event_recurring_interval.sql`).
+
 ## 2026-09-28 — Monthly spend total + category breakdown
 
 - New "This month" card on the Expenses tab (`monthlyBreakdown()` in

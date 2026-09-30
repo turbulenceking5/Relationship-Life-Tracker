@@ -14,7 +14,7 @@ running daily and sending nothing.
 | `mortgage_payments` (unpaid rows) | `due_date` today or in the past | Yes |
 | `custom_goals` (with a `target_date`) | `target_date` today or in the past, **and** not already fully saved (`saved >= target_amount`, when a target amount is set) | Yes, until the goal is fully funded |
 | `documents` (with an `expiry_date`) | `expiry_date` today or in the past | Yes |
-| `events` | `thisYearOccurrence(event_date, recurring)` falls exactly on today | No — a birthday that's passed isn't "overdue," so this fires once, on the day, not daily afterward |
+| `events` | `currentOccurrence(event_date, recurring, recurring_interval)` falls exactly on today | No — a birthday that's passed isn't "overdue," so this fires once, on the day, not daily afterward |
 
 Every source except `events` reuses the same "due today or overdue"
 threshold as the in-app pill (`dueStatus()` in `app/js/format.js`) — not

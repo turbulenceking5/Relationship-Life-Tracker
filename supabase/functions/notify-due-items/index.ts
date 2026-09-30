@@ -27,11 +27,32 @@ function daysUntil(dateStr: string, today: string): number {
   return Math.round((d - t) / 86400000);
 }
 
-// Mirrors thisYearOccurrence() in app/js/format.js: a recurring event
-// always maps onto *this* year's month/day, never rolling forward into
-// next year once that date has passed.
-function thisYearOccurrence(dateStr: string, recurring: boolean, today: string): string {
+// Mirrors currentOccurrence() in app/js/format.js: a recurring event maps
+// onto its occurrence within the CURRENT cycle for the given interval,
+// never rolling forward once that occurrence has passed. See that
+// function's comment for why weekly/fortnightly roll from the event's own
+// anchor date instead of a calendar boundary.
+function currentOccurrence(dateStr: string, recurring: boolean, interval: string, today: string): string {
   if (!recurring) return dateStr;
+
+  if (interval === "monthly") {
+    const [, , day] = dateStr.split("-");
+    const [ty, tm] = today.split("-");
+    const daysInMonth = new Date(Date.UTC(Number(ty), Number(tm), 0)).getUTCDate();
+    const clampedDay = Math.min(Number(day), daysInMonth);
+    return `${ty}-${tm}-${String(clampedDay).padStart(2, "0")}`;
+  }
+
+  if (interval === "weekly" || interval === "fortnightly") {
+    const stepDays = interval === "weekly" ? 7 : 14;
+    const anchor = new Date(dateStr + "T00:00:00Z").getTime();
+    const t = new Date(today + "T00:00:00Z").getTime();
+    const diffDays = Math.round((t - anchor) / 86400000);
+    if (diffDays < 0) return dateStr;
+    const cycles = Math.floor(diffDays / stepDays);
+    return new Date(anchor + cycles * stepDays * 86400000).toISOString().slice(0, 10);
+  }
+
   const [, month, day] = dateStr.split("-");
   return `${today.slice(0, 4)}-${month}-${day}`;
 }
@@ -65,7 +86,7 @@ Deno.serve(async (req: Request) => {
     await Promise.all([
       admin.from("rent_payments").select("id, household_id, due_date, property_label, last_notified_date").eq("paid", false),
       admin.from("mortgage_payments").select("id, household_id, due_date, property_label, last_notified_date").eq("paid", false),
-      admin.from("events").select("id, household_id, title, event_date, recurring, last_notified_date"),
+      admin.from("events").select("id, household_id, title, event_date, recurring, recurring_interval, last_notified_date"),
       admin.from("custom_goals").select("id, household_id, title, target_date, target_amount, last_notified_date").not("target_date", "is", null),
       admin.from("documents").select("id, household_id, title, expiry_date, last_notified_date").not("expiry_date", "is", null),
     ]);
@@ -99,7 +120,7 @@ Deno.serve(async (req: Request) => {
   // chasing, so this doesn't escalate like rent/mortgage/goals do.
   for (const e of events ?? []) {
     if (e.last_notified_date === today) continue;
-    const occurrence = thisYearOccurrence(e.event_date, e.recurring, today);
+    const occurrence = currentOccurrence(e.event_date, e.recurring, e.recurring_interval, today);
     if (occurrence !== today) continue;
     notifications.push({
       household_id: e.household_id,

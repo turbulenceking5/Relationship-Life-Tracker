@@ -151,6 +151,11 @@ status. Check items off as they land.
       (every rent period before every mortgage period, regardless of
       which was actually more urgent); now merged into one list sorted
       by date. See [`docs/13-feature-money-tab.md`](docs/13-feature-money-tab.md).
+- [x] **Repeatable events beyond yearly**: recurring events were yearly
+      only (birthdays/anniversaries); a "Repeats" dropdown now also offers
+      weekly, fortnightly, and monthly, for things like a standing
+      appointment or a chore reminder. See
+      [`docs/03-feature-events.md`](docs/03-feature-events.md).
 
 ## Phase 0 — Foundations ✅ (this session)
 

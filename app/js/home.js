@@ -1,6 +1,6 @@
 import { h, mount } from './dom.js';
 import { fetchRows } from './crud.js';
-import { formatDate, formatMoney, dueStatus, daysUntil, todayStr, thisYearOccurrence } from './format.js';
+import { formatDate, formatMoney, dueStatus, daysUntil, todayStr, currentOccurrence } from './format.js';
 import { expiryStatus } from './documents.js';
 
 const CATEGORY_ICONS = { birthday: '🎂', anniversary: '💍', appointment: '📅', other: '📌' };
@@ -22,13 +22,14 @@ export async function render(container, ctx, navigate) {
   ]);
 
   const today = todayStr();
-  // thisYearOccurrence (not nextOccurrence) so a recurring event that's
-  // already happened this year just drops off the dashboard instead of
-  // reappearing early with next year's date — same "has it happened yet
-  // this year" logic as the Events tab's Upcoming/Done split, just without
-  // a Done section to move it into here.
+  // currentOccurrence (never rolling forward to the next cycle) so a
+  // recurring event that's already happened this cycle just drops off the
+  // dashboard instead of reappearing early with its next occurrence's
+  // date — same "has it happened yet this cycle" logic as the Events
+  // tab's Upcoming/Done split, just without a Done section to move it
+  // into here.
   const soonEvents = events
-    .map((e) => ({ ...e, _next: thisYearOccurrence(e.event_date, e.recurring) }))
+    .map((e) => ({ ...e, _next: currentOccurrence(e.event_date, e.recurring, e.recurring_interval) }))
     .filter((e) => e._next >= today)
     .sort((a, b) => (a._next < b._next ? -1 : 1))
     .slice(0, 3);
@@ -78,7 +79,7 @@ export async function render(container, ctx, navigate) {
   const upcomingEvents = soonEvents.map((e) => row(
     CATEGORY_ICONS[e.category] || '📌',
     e.title,
-    e.recurring ? `${formatDate(e._next)} · yearly` : formatDate(e._next),
+    e.recurring ? `${formatDate(e._next)} · ${e.recurring_interval}` : formatDate(e._next),
     h('div', { style: 'display:flex;gap:6px;align-items:center' }, [
       e.category ? h('span', { class: `pill ${gradientClass(e.id)}` }, e.category) : null,
       h('span', { class: 'pill upcoming' }, `In ${daysUntil(e._next)} day${daysUntil(e._next) === 1 ? '' : 's'}`),
