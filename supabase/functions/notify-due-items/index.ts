@@ -57,7 +57,19 @@ function currentOccurrence(dateStr: string, recurring: boolean, interval: string
   return `${today.slice(0, 4)}-${month}-${day}`;
 }
 
-type Notification = { household_id: string; title: string; body: string; table: string; id: string };
+function addDaysUTC(dateStr: string, n: number): string {
+  return new Date(new Date(dateStr + "T00:00:00Z").getTime() + n * 86400000).toISOString().slice(0, 10);
+}
+
+function addOneMonthUTC(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const ny = m === 12 ? y + 1 : y;
+  const nm = m === 12 ? 1 : m + 1;
+  const daysInMonth = new Date(Date.UTC(ny, nm, 0)).getUTCDate();
+  return `${ny}-${String(nm).padStart(2, "0")}-${String(Math.min(d, daysInMonth)).padStart(2, "0")}`;
+}
+
+type Notification = { household_id: string; title: string; body: string; table: string; id: string; user_id?: string };
 
 Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -82,13 +94,14 @@ Deno.serve(async (req: Request) => {
   // Rent/mortgage: due today or overdue, not already notified today. Stays
   // "overdue" (and keeps notifying daily) until marked paid, same as the
   // in-app "Overdue" pill (dueStatus() in format.js).
-  const [{ data: rent }, { data: mortgage }, { data: events }, { data: goals }, { data: documents }] =
+  const [{ data: rent }, { data: mortgage }, { data: events }, { data: goals }, { data: documents }, { data: todos }] =
     await Promise.all([
       admin.from("rent_payments").select("id, household_id, due_date, property_label, last_notified_date").eq("paid", false),
       admin.from("mortgage_payments").select("id, household_id, due_date, property_label, last_notified_date").eq("paid", false),
       admin.from("events").select("id, household_id, title, event_date, recurring, recurring_interval, last_notified_date"),
       admin.from("custom_goals").select("id, household_id, title, target_date, target_amount, last_notified_date").not("target_date", "is", null),
       admin.from("documents").select("id, household_id, title, expiry_date, last_notified_date").not("expiry_date", "is", null),
+      admin.from("personal_todos").select("id, household_id, user_id, prompt, remind_date, repeat_frequency, last_notified_date").eq("is_done", false),
     ]);
 
   for (const r of rent ?? []) {
@@ -182,26 +195,68 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  // Personal to-dos: due today or overdue, private to their own user_id —
+  // unlike every other source, the push must go only to that one person's
+  // own devices, not the whole household (see push_subscriptions lookup
+  // below). A one-off reminder (repeat_frequency 'none') is marked done
+  // once it fires, same as ticking it off by hand; a repeating one instead
+  // advances remind_date to its next occurrence and stays active. There's
+  // no way to honor the row's own remind_time precisely — this daily
+  // check only runs once, at 08:00 Australia/Brisbane — see
+  // docs/20-feature-personal-todos.md for that limitation.
+  const todoUpdates: { id: string; patch: Record<string, unknown> }[] = [];
+  for (const t of todos ?? []) {
+    if (t.last_notified_date === today) continue;
+    if (daysUntil(t.remind_date, today) > 0) continue;
+    notifications.push({
+      household_id: t.household_id,
+      user_id: t.user_id,
+      title: "Reminder",
+      body: t.prompt,
+      table: "personal_todos",
+      id: t.id,
+    });
+    const patch: Record<string, unknown> = { last_notified_date: today };
+    if (t.repeat_frequency === "none") {
+      patch.is_done = true;
+    } else if (t.repeat_frequency === "daily") {
+      patch.remind_date = addDaysUTC(t.remind_date, 1);
+    } else if (t.repeat_frequency === "weekly") {
+      patch.remind_date = addDaysUTC(t.remind_date, 7);
+    } else if (t.repeat_frequency === "monthly") {
+      patch.remind_date = addOneMonthUTC(t.remind_date);
+    }
+    todoUpdates.push({ id: t.id, patch });
+  }
+
   // Mark every notified row before sending — a household with no active
   // subscriptions yet still shouldn't be re-notified tomorrow for the same
   // item, since "notified" here means "the daily check surfaced it," not
   // "a push was successfully delivered."
   const idsByTable = new Map<string, string[]>();
   for (const n of notifications) {
+    if (n.table === "personal_todos") continue;
     idsByTable.set(n.table, [...(idsByTable.get(n.table) ?? []), n.id]);
   }
   for (const [table, ids] of idsByTable) {
     await admin.from(table).update({ last_notified_date: today }).in("id", ids);
+  }
+  for (const u of todoUpdates) {
+    await admin.from("personal_todos").update(u.patch).eq("id", u.id);
   }
 
   let sent = 0;
   let failed = 0;
 
   for (const note of notifications) {
-    const { data: subs } = await admin
+    let subsQuery = admin
       .from("push_subscriptions")
       .select("endpoint, p256dh, auth_key")
       .eq("household_id", note.household_id);
+    // Personal to-dos are private — only push to the owning user's own
+    // devices, not every device in the household.
+    if (note.user_id) subsQuery = subsQuery.eq("user_id", note.user_id);
+    const { data: subs } = await subsQuery;
 
     for (const sub of subs ?? []) {
       try {

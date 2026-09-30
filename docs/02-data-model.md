@@ -121,6 +121,25 @@ job, rather than a real ledger entry itself.
 | `created_by` | uuid → auth.users | |
 | `created_at` / `updated_at` | timestamptz | |
 
+### `personal_todos`
+See [`20-feature-personal-todos.md`](20-feature-personal-todos.md). The
+one table scoped to a single user rather than the whole household — its
+RLS policy is `user_id = auth.uid()`, not the usual
+`is_household_member(household_id)`.
+
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `household_id` | uuid → households | kept so `household_id` can't be forged to point at a household the user isn't actually in; not itself the access boundary |
+| `user_id` | uuid → auth.users | the owner — the actual access boundary |
+| `prompt` | text | required, the reminder text |
+| `remind_date` | date | required |
+| `remind_time` | time | default `09:00`; shown in the UI but not currently honored precisely by push delivery — see [`20-feature-personal-todos.md`](20-feature-personal-todos.md) |
+| `repeat_frequency` | text | `none` \| `daily` \| `weekly` \| `monthly`; default `none` |
+| `is_done` | boolean | default false |
+| `last_notified_date` | date | last day `notify-due-items` sent a push for this row — see [`19-notification-sources.md`](19-notification-sources.md) |
+| `created_at` / `updated_at` | timestamptz | |
+
 ### `settlements`
 See [`04-feature-expenses.md`](04-feature-expenses.md). A direct balancing
 payment between two household members — separate from `expenses` since

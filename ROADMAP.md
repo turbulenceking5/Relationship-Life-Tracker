@@ -156,6 +156,12 @@ status. Check items off as they land.
       weekly, fortnightly, and monthly, for things like a standing
       appointment or a chore reminder. See
       [`docs/03-feature-events.md`](docs/03-feature-events.md).
+- [x] **Personal to-dos**: a private reminder list, invisible to the
+      other household member — the one feature in the app scoped to a
+      single user rather than the whole household. Lives as a "My
+      To-dos" segment in the Money tab, with its own push notifications
+      (sent only to the owner's devices). See
+      [`docs/20-feature-personal-todos.md`](docs/20-feature-personal-todos.md).
 
 ## Phase 0 — Foundations ✅ (this session)
 

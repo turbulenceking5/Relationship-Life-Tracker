@@ -1,4 +1,4 @@
-const CACHE_NAME = 'life-tracker-v16';
+const CACHE_NAME = 'life-tracker-v17';
 const APP_SHELL = [
   './',
   'index.html',
@@ -28,6 +28,7 @@ const APP_SHELL = [
   'js/goals.js',
   'js/documents.js',
   'js/home.js',
+  'js/personal-todos.js',
   'icons/icon-192.png',
   'icons/icon-512.png',
   'icons/apple-touch-icon.png',

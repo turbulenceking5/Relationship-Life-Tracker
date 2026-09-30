@@ -58,7 +58,8 @@ backend is configured.
 | [`16-feature-grocery-list.md`](16-feature-grocery-list.md) | Shared grocery checklist (Money tab's Grocery List segment) |
 | [`17-feature-recipes.md`](17-feature-recipes.md) | Recipe box with ingredients/instructions (Money tab's Recipes segment) |
 | [`18-feature-changelog.md`](18-feature-changelog.md) | The in-app "What's new" dialog and its `../CHANGELOG.md` counterpart |
-| [`19-notification-sources.md`](19-notification-sources.md) | Exactly what `notify-due-items` scans (rent, mortgage, goals, documents, events) and why |
+| [`19-notification-sources.md`](19-notification-sources.md) | Exactly what `notify-due-items` scans (rent, mortgage, goals, documents, events, personal to-dos) and why |
+| [`20-feature-personal-todos.md`](20-feature-personal-todos.md) | Private per-user reminder list, invisible to the other household member |
 
 The top-level [`ROADMAP.md`](../ROADMAP.md) tracks phases and status across
 all of the above, and [`../CHANGELOG.md`](../CHANGELOG.md) is a dated log of

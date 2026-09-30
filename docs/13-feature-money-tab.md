@@ -1,4 +1,4 @@
-# Feature: Money tab (Expenses / BrackenRidge / Grocery List / Recipes)
+# Feature: Money tab (Expenses / BrackenRidge / Grocery List / Recipes / My To-dos)
 
 Expenses, Replacement Reminders, and (originally) Repayments were
 condensed into one **Money** tab with a segmented sub-nav after the tab
@@ -7,11 +7,14 @@ on a phone-width screen. Repayments was later removed entirely (not
 relocated — see [`06-feature-repayments.md`](06-feature-repayments.md)),
 investment property rent tracking moved here from the Goals tab, and
 Replacement Reminders was later removed too (not relocated — see
-[`05-feature-replacements.md`](05-feature-replacements.md)). Grocery List
-and Recipes were added later as two more segments — not strictly "money"
-either, but they're household life-admin in the same spirit as rent, and
-adding a whole new top-level tab per household chore would recreate the
-exact tab-bar crowding this consolidation exists to avoid.
+[`05-feature-replacements.md`](05-feature-replacements.md)). Grocery List,
+Recipes, and My To-dos were added later as more segments — none strictly
+"money" (My To-dos isn't even shared, let alone financial), but they're
+household (or in My To-dos' case, personal) life-admin in the same spirit
+as rent, and adding a whole new top-level tab per feature would recreate
+the exact tab-bar crowding this consolidation exists to avoid. See
+[`20-feature-personal-todos.md`](20-feature-personal-todos.md) for why a
+private feature still lives here.
 
 ## How it works
 
@@ -19,15 +22,15 @@ exact tab-bar crowding this consolidation exists to avoid.
 right:
 
 - It renders a `.segmented` control (Expenses / BrackenRidge /
-  Grocery List / Recipes) above a content area. With four segments
-  (one a long label) the control no longer fits equal-width buttons on a
-  phone screen, so `.segmented` scrolls horizontally instead of
-  squeezing every button down to fit — see the "Why not one long
+  Grocery List / Recipes / My To-dos) above a content area. With five
+  segments (two long labels) the control no longer fits equal-width
+  buttons on a phone screen, so `.segmented` scrolls horizontally instead
+  of squeezing every button down to fit — see the "Why not one long
   scrolling page instead" section for how each segment stays independent.
 - Each segment delegates straight to its own feature module —
-  `expenses.js`, `rent.js`, `grocery.js`, `recipes.js` — calling its
-  `render(container, ctx)` exactly as the top-level tab router in
-  `app.js` used to.
+  `expenses.js`, `rent.js`, `grocery.js`, `recipes.js`,
+  `personal-todos.js` — calling its `render(container, ctx)` exactly as
+  the top-level tab router in `app.js` used to.
 - `activeSub` is module-level state (same pattern as `currentTab` in
   `app.js`), so it's remembered for as long as the page stays loaded, but
   always starts back on "Expenses" after a full reload.

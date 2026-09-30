@@ -8,6 +8,24 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-09-30 — Personal to-dos: a private reminder list
+
+- New "My To-dos" segment in the Money tab: a reminder list scoped to you
+  alone, invisible to your partner — the one feature in the app that
+  isn't shared. Add a reminder (prompt, date, time, and doesn't-repeat/
+  daily/weekly/monthly), mark it done, edit, or delete it.
+- Push notifications for a due/overdue reminder go only to your own
+  devices, not your partner's. A repeating reminder advances to its next
+  occurrence after firing instead of nagging forever; a one-off is marked
+  done.
+- New `personal_todos` table (migration `0023_personal_todos.sql`), RLS
+  restricted to its owner (`user_id = auth.uid()`) rather than the
+  household-wide policy every other table uses.
+- Known limitation: the reminder's chosen time of day isn't honored
+  precisely yet — the daily notification check only runs once, at 8am
+  Brisbane time, regardless of what time you picked. See
+  [`docs/20-feature-personal-todos.md`](docs/20-feature-personal-todos.md).
+
 ## 2026-09-30 — Repeatable events: weekly, fortnightly, monthly, yearly
 
 - Recurring events used to be yearly only (birthdays, anniversaries). The

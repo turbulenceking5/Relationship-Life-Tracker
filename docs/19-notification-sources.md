@@ -15,6 +15,7 @@ running daily and sending nothing.
 | `custom_goals` (with a `target_date`) | `target_date` today or in the past, **and** not already fully saved (`saved >= target_amount`, when a target amount is set) | Yes, until the goal is fully funded |
 | `documents` (with an `expiry_date`) | `expiry_date` today or in the past | Yes |
 | `events` | `currentOccurrence(event_date, recurring, recurring_interval)` falls exactly on today | No — a birthday that's passed isn't "overdue," so this fires once, on the day, not daily afterward |
+| `personal_todos` (not done) | `remind_date` today or in the past | Yes, until marked done — see [`20-feature-personal-todos.md`](20-feature-personal-todos.md) for how a repeating one advances instead of escalating forever |
 
 Every source except `events` reuses the same "due today or overdue"
 threshold as the in-app pill (`dueStatus()` in `app/js/format.js`) — not
@@ -38,12 +39,13 @@ the same implicit signal the Goals tab itself uses — see
 ## Deduplication
 
 Each source table got a `last_notified_date` column (migration
-`0018_notification_sources.sql`) so a row that already triggered a
-notification today doesn't trigger a second one from a re-run later the
-same day. It's set the moment an item is judged due — not only after a
-push actually sends — so a household with zero registered devices still
-doesn't get renotified tomorrow for something it was already (silently)
-notified about today.
+`0018_notification_sources.sql`; `personal_todos` got its own copy in
+`0023_personal_todos.sql`) so a row that already triggered a notification
+today doesn't trigger a second one from a re-run later the same day. It's
+set the moment an item is judged due — not only after a push actually
+sends — so a household (or, for `personal_todos`, a single user) with
+zero registered devices still doesn't get renotified tomorrow for
+something it was already (silently) notified about today.
 
 ## Timezone
 

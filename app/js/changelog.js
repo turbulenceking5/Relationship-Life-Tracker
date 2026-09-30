@@ -103,6 +103,15 @@ export const CHANGELOG_ENTRIES = [
       'Good for a standing appointment or chore reminder, not just birthdays and anniversaries',
     ],
   },
+  {
+    id: 11,
+    date: '2026-09-30',
+    title: 'Personal to-dos — a reminder list just for you',
+    items: [
+      'New "My To-dos" segment on the Money tab, invisible to your partner',
+      'Push notifications for a due reminder go only to your own devices',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';
