@@ -160,6 +160,15 @@ export const CHANGELOG_ENTRIES = [
       'A recurring event’s "done" status is tied to its current occurrence, so it automatically resets once the next one comes around',
     ],
   },
+  {
+    id: 17,
+    date: '2026-10-01',
+    title: 'Grocery list categories',
+    items: [
+      'Grocery items now get a category (Produce, Meat, Dairy, Bakery, Frozen, Pantry, Household, Other)',
+      'The "To buy" list is grouped into sections by category, in shop-aisle order',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

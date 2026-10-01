@@ -8,6 +8,17 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-01 — Grocery list categories
+
+- New `category` column on `grocery_items` (plain text, default `'other'`,
+  no CHECK constraint — same pattern as `documents.category`), picked from
+  a fixed list in `app/js/grocery.js`: produce, meat, dairy, bakery,
+  frozen, pantry, household, other.
+- The "To buy" list is now grouped into a section per category, in that
+  same shop-aisle order, instead of one flat list in add-order. "In cart"
+  stays flat, since it's just a holding area before "Clear bought items".
+  See [`docs/16-feature-grocery-list.md`](docs/16-feature-grocery-list.md).
+
 ## 2026-10-01 — Mark events as done
 
 - Any event (recurring or one-off) can now be marked done by hand from its

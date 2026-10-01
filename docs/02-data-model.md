@@ -310,6 +310,7 @@ same shape as `goal_tasks`, just not scoped to a goal.
 | `household_id` | uuid → households | |
 | `title` | text | required, e.g. "Milk" |
 | `quantity` | text | optional, free text (e.g. "2L", "x3") |
+| `category` | text | default `'other'`; one of `GROCERY_CATEGORIES` in `app/js/grocery.js` — groups the "To buy" list into sections — see [`16-feature-grocery-list.md`](16-feature-grocery-list.md) |
 | `is_done` | boolean | default false; checked off once bought |
 | `created_by` | uuid → auth.users | |
 | `created_at` | timestamptz | |

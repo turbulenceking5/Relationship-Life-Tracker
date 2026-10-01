@@ -3,6 +3,22 @@ import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
 
 const TABLE = 'grocery_items';
 
+// Fixed shop-aisle order rather than alphabetical, so sections read the
+// way you'd actually walk the store. 'other' always sorts last as a
+// catch-all. A stray/legacy category not in this list still renders fine —
+// categoryLabel() falls back to capitalizing it, it just sorts after
+// 'other' since it isn't found in CATEGORY_ORDER.
+export const GROCERY_CATEGORIES = ['produce', 'meat', 'dairy', 'bakery', 'frozen', 'pantry', 'household', 'other'];
+
+function categoryLabel(category) {
+  return category.charAt(0).toUpperCase() + category.slice(1);
+}
+
+function categoryRank(category) {
+  const i = GROCERY_CATEGORIES.indexOf(category);
+  return i === -1 ? GROCERY_CATEGORIES.length : i;
+}
+
 export async function render(container, ctx) {
   const rows = await fetchRows(TABLE, ctx.household.id, 'created_at', true);
   const toBuy = rows.filter((r) => !r.is_done);
@@ -12,6 +28,7 @@ export async function render(container, ctx) {
   const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
   const titleInput = h('input', { type: 'text', required: true, placeholder: 'e.g. Milk' });
   const quantityInput = h('input', { type: 'text', placeholder: 'e.g. 2L (optional)' });
+  const categorySelect = h('select', {}, GROCERY_CATEGORIES.map((c) => h('option', { value: c }, categoryLabel(c))));
   const form = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
@@ -21,6 +38,7 @@ export async function render(container, ctx) {
           household_id: ctx.household.id,
           title: titleInput.value.trim(),
           quantity: quantityInput.value.trim() || null,
+          category: categorySelect.value,
           created_by: ctx.user.id,
         });
         closeSheet(dialog);
@@ -35,6 +53,7 @@ export async function render(container, ctx) {
       h('div', { class: 'field' }, [h('label', {}, 'Item'), titleInput]),
       h('div', { class: 'field' }, [h('label', {}, 'Quantity'), quantityInput]),
     ]),
+    h('div', { class: 'field' }, [h('label', {}, 'Category'), categorySelect]),
     errorEl,
     h('button', { class: 'btn primary', type: 'submit' }, 'Add item'),
   ]);
@@ -61,10 +80,33 @@ export async function render(container, ctx) {
     ]);
   }
 
+  // Grouped into sections by category (in shop-aisle order) rather than
+  // one flat list — the point of categorizing a grocery list is reading
+  // it section-by-section while actually walking the store, not just
+  // tagging items for later. "In cart" stays a flat list below since it's
+  // just a holding area before "Clear bought items", not something you
+  // read while shopping.
+  const toBuySections = GROCERY_CATEGORIES
+    .map((c) => ({ category: c, items: toBuy.filter((r) => r.category === c) }))
+    .filter((s) => s.items.length);
+  for (const r of toBuy) {
+    if (!GROCERY_CATEGORIES.includes(r.category)) {
+      let stray = toBuySections.find((s) => s.category === r.category);
+      if (!stray) { stray = { category: r.category, items: [] }; toBuySections.push(stray); }
+      stray.items.push(r);
+    }
+  }
+  toBuySections.sort((a, b) => categoryRank(a.category) - categoryRank(b.category));
+
   mount(container, [
     h('button', { class: 'btn secondary small', style: 'margin-bottom:14px', onclick: () => openSheet(dialog) }, '+ Add item'),
     h('div', { class: 'section-title' }, 'To buy'),
-    toBuy.length ? h('div', {}, toBuy.map(itemCard)) : h('div', { class: 'empty-state' }, 'Nothing on the list — add something above.'),
+    toBuySections.length
+      ? h('div', {}, toBuySections.flatMap((s) => [
+          h('div', { class: 'meta', style: 'margin:10px 0 4px;font-weight:600' }, categoryLabel(s.category)),
+          ...s.items.map(itemCard),
+        ]))
+      : h('div', { class: 'empty-state' }, 'Nothing on the list — add something above.'),
     ...(bought.length ? [
       h('div', { class: 'section-title' }, 'In cart'),
       h('div', {}, bought.map(itemCard)),
