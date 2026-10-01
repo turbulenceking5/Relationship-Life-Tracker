@@ -125,7 +125,7 @@ status. Check items off as they land.
       tables (`rent_payments`/new `mortgage_payments`) are otherwise
       identical in shape. Mortgage payments due/overdue also show on the
       home dashboard's "What's due" feed alongside rent. See
-      [`docs/13-feature-money-tab.md`](docs/13-feature-money-tab.md).
+      [`docs/23-feature-rent-mortgage.md`](docs/23-feature-rent-mortgage.md).
 - [x] **Rent/Mortgage paid history collapsed into a "History" section**:
       paid periods for both used to sit right below their own section's
       unpaid ones, so Rent's growing history pushed Mortgage's current
@@ -133,7 +133,7 @@ status. Check items off as they land.
       History section at the bottom, each collapsed behind its own
       `<details>` (closed by default) — one tap away, not clogging the
       scroll between the two current sections. See
-      [`docs/13-feature-money-tab.md`](docs/13-feature-money-tab.md).
+      [`docs/23-feature-rent-mortgage.md`](docs/23-feature-rent-mortgage.md).
 - [x] **In-app "What's new" changelog**: a dialog on app load lists
       everything shipped since that browser last dismissed it, sourced
       from a hand-maintained array in `app/js/changelog.js`
@@ -145,12 +145,14 @@ status. Check items off as they land.
 - [x] **Home dashboard: events and goals split apart**: "Coming up" was
       one list mixing events and goals; now "Upcoming events" and
       "Upcoming goals" are separate sections, each with its own
-      empty-state message.
+      empty-state message. See
+      [`docs/22-feature-home-dashboard.md`](docs/22-feature-home-dashboard.md).
 - [x] **Home dashboard: "What's due" sorted by date across types**: rent,
       mortgage, and expiring documents used to be shown grouped by type
       (every rent period before every mortgage period, regardless of
       which was actually more urgent); now merged into one list sorted
-      by date. See [`docs/13-feature-money-tab.md`](docs/13-feature-money-tab.md).
+      by date. See
+      [`docs/22-feature-home-dashboard.md`](docs/22-feature-home-dashboard.md).
 - [x] **Repeatable events beyond yearly**: recurring events were yearly
       only (birthdays/anniversaries); a "Repeats" dropdown now also offers
       weekly, fortnightly, and monthly, for things like a standing
