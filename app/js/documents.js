@@ -6,7 +6,18 @@ import { isConfigured, isDriveConnected, hasLocalDriveAccess, uploadFileToDrive,
 
 export const DOCUMENT_TABLE = 'documents';
 export const DOCUMENT_BUCKET = 'documents';
-export const DOCUMENT_CATEGORIES = ['warranty', 'contract', 'receipt', 'id', 'other'];
+export const DOCUMENT_CATEGORIES = ['warranty', 'contract', 'receipt', 'id', 'sophie', 'other'];
+
+// 'id' capitalizes to 'ID', not 'Id' — every other category just needs a
+// leading capital. Used both for the category filter chips below and to
+// prefix the filename shown in Drive (see openUploadDocumentSheet) so
+// documents at least sort/group by category there without needing real
+// Drive subfolders — see the comment on uploadFileToDrive() in
+// googleDrive.js for why subfolders don't work with this app's OAuth scope.
+function categoryLabel(category) {
+  if (category === 'id') return 'ID';
+  return category.charAt(0).toUpperCase() + category.slice(1);
+}
 
 // Same overdue/due-soon/ok day thresholds as dueStatus() in format.js
 // (used for rent/mortgage due dates), but with wording that fits an
@@ -118,7 +129,8 @@ export function openUploadDocumentSheet(ctx, { sheetTitle = 'Add document', rela
       submitBtn.disabled = true;
       submitBtn.textContent = 'Uploading…';
       try {
-        const uploaded = await uploadFileToDrive(ctx, file);
+        const driveFileName = `[${categoryLabel(categorySelect.value)}] ${file.name}`;
+        const uploaded = await uploadFileToDrive(ctx, file, driveFileName);
         await insertRow(DOCUMENT_TABLE, {
           household_id: ctx.household.id,
           title: titleInput.value.trim(),
@@ -196,19 +208,39 @@ export async function render(container, ctx) {
     ]);
   }
 
+  // Category filter chips — a quick way to browse "just the warranties"
+  // without typing, complementing the text search below rather than
+  // replacing it (both apply together). Resets to "All" on every
+  // render() the same way the search box's typed text does, rather than
+  // persisting across add/edit/delete — see matchesSearch() above for the
+  // equivalent search behavior.
+  let activeCategory = 'all';
+  const categoryOptions = [{ value: 'all', label: 'All' }, ...DOCUMENT_CATEGORIES.map((c) => ({ value: c, label: categoryLabel(c) }))];
+  const chipButtons = categoryOptions.map((opt) => h('button', {
+    type: 'button',
+    class: opt.value === 'all' ? 'active' : '',
+    onclick: () => {
+      activeCategory = opt.value;
+      chipButtons.forEach((btn, i) => { btn.className = categoryOptions[i].value === activeCategory ? 'active' : ''; });
+      renderList();
+    },
+  }, opt.label));
+  const filterRow = h('div', { class: 'segmented' }, chipButtons);
+
   const searchInput = h('input', { type: 'search', placeholder: 'Search documents…' });
   const listContainer = h('div', {});
   function renderList() {
     const query = searchInput.value.trim();
-    const filtered = rows.filter((r) => matchesSearch(r, goalTitle, query));
+    const filtered = rows.filter((r) => (activeCategory === 'all' || r.category === activeCategory) && matchesSearch(r, goalTitle, query));
     mount(listContainer, filtered.length
       ? filtered.map(card)
-      : [h('div', { class: 'empty-state' }, query ? 'No documents match your search.' : 'No documents yet — warranties, contracts, receipts all live here, privately.')]);
+      : [h('div', { class: 'empty-state' }, query || activeCategory !== 'all' ? 'No documents match your search.' : 'No documents yet — warranties, contracts, receipts all live here, privately.')]);
   }
   searchInput.addEventListener('input', renderList);
   renderList();
 
   mount(container, [
+    rows.length ? filterRow : null,
     rows.length ? h('div', { class: 'field' }, searchInput) : null,
     listContainer,
     h('button', { class: 'fab', onclick: () => openUploadDocumentSheet(ctx, { onSaved: () => render(container, ctx) }) }, '+'),

@@ -170,6 +170,13 @@ status. Check items off as they land.
       that made PDFs/other files effectively unreachable) — it now
       accepts any file type. Existing documents keep working unchanged.
       See [`docs/21-google-drive-documents.md`](docs/21-google-drive-documents.md).
+- [x] **Document category filter chips + Drive filename prefix**: chips
+      (All/Warranty/Contract/Receipt/ID/Other) on the Docs tab alongside
+      search; new Drive uploads get a category prefix in the filename
+      (e.g. `[Warranty] Boiler warranty.pdf`). Real Drive subfolders per
+      category weren't used — they don't work with this app's narrow
+      OAuth scope without a join step per category per partner. See
+      [`docs/21-google-drive-documents.md`](docs/21-google-drive-documents.md).
 
 ## Phase 0 — Foundations ✅ (this session)
 

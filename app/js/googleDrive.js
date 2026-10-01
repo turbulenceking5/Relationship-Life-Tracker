@@ -183,9 +183,18 @@ export async function shareFolderWithEmail(ctx, email) {
   }).catch(() => {}); // best-effort — not sharing doesn't block the folder itself existing
 }
 
-export async function uploadFileToDrive(ctx, file) {
+// driveFileName lets the caller prefix the name shown in Drive (e.g.
+// "[Warranty] Boiler warranty.pdf") without touching the app's own
+// documents.file_name column — see documents.js. Real Drive subfolders
+// per category aren't used for this: drive.file scope only grants a
+// given user's token access to folders *that user's own token* created,
+// opened, or picked, so a category folder the other partner creates
+// would be invisible to your uploads (and vice versa), silently forking
+// into duplicate folders — the same reason the shared root folder needs
+// its one-time Picker join step, just per category instead of once.
+export async function uploadFileToDrive(ctx, file, driveFileName = file.name) {
   const accessToken = await requestAccessToken({ interactive: false }).catch(() => requestAccessToken());
-  const metadata = { name: file.name, parents: [ctx.household.drive_folder_id] };
+  const metadata = { name: driveFileName, parents: [ctx.household.drive_folder_id] };
   const form = new FormData();
   form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
   form.append('file', file);
