@@ -26,7 +26,7 @@ export async function render(container, ctx) {
   const { dialog: addGoalDialog, body: addGoalBody } = makeSheet('Add goal');
   const addErrorEl = h('div', { class: 'error-msg', style: 'display:none' });
   const titleInput = h('input', { type: 'text', required: true, placeholder: 'e.g. Holiday fund' });
-  const targetInput = h('input', { type: 'number', step: '0.01', min: '0', placeholder: '0.00 (optional)' });
+  const targetInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0', placeholder: '0.00 (optional)' });
   const dateInput = h('input', { type: 'date' });
   const addGoalForm = h('form', {
     onsubmit: async (e) => {
@@ -128,7 +128,7 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
     const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
     const editTitleInput = h('input', { type: 'text', required: true, value: goal.title });
     const editDateInput = h('input', { type: 'date', value: goal.target_date || '' });
-    const editTargetInput = h('input', { type: 'number', step: '0.01', min: '0', placeholder: '0.00', value: target !== null ? target : '' });
+    const editTargetInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0', placeholder: '0.00', value: target !== null ? target : '' });
     const form = h('form', {
       onsubmit: async (e) => {
         e.preventDefault();
@@ -184,7 +184,7 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
       h('option', { value: 'spent', selected: t.type === 'spent' }, 'Spent on the goal'),
     ]);
     const editTitleInput = h('input', { type: 'text', required: true, value: t.title });
-    const editAmountInput = h('input', { type: 'number', step: '0.01', min: '0', required: true, value: t.amount });
+    const editAmountInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0', required: true, value: t.amount });
     const editDateInput = h('input', { type: 'date', required: true, value: t.transaction_date });
     const editNotesInput = h('textarea', { rows: '2', placeholder: 'Optional notes' }, t.notes || '');
     const editForm = h('form', {
@@ -228,7 +228,7 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
     h('option', { value: 'spent' }, 'Spent on the goal'),
   ]);
   const txnTitleInput = h('input', { type: 'text', required: true, placeholder: 'e.g. Deposit' });
-  const amountInput = h('input', { type: 'number', step: '0.01', min: '0', required: true, placeholder: '0.00' });
+  const amountInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0', required: true, placeholder: '0.00' });
   const txnDateInput = h('input', { type: 'date', required: true, value: todayStr() });
   const notesInput = h('textarea', { rows: '2', placeholder: 'Optional notes' });
   const form = h('form', {

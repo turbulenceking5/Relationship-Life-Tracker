@@ -139,6 +139,18 @@ export const CHANGELOG_ENTRIES = [
       'Added as a document category — shows up when adding/editing a document and in the filter chips',
     ],
   },
+  {
+    id: 15,
+    date: '2026-10-01',
+    title: 'Safer deletes, a fuller Home tab, and quicker expense entry',
+    items: [
+      'Every "Delete" button now asks you to confirm first, everywhere in the app',
+      'Home now shows your expense balance and a quick glance at the Grocery List and My To-dos',
+      'Adding an expense remembers your last category and brings up a number pad on iOS',
+      'Expenses are grouped by month, with older months collapsed out of the way',
+      'A quick "Welcome" tour appears the first time you open the app',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

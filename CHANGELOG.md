@@ -8,6 +8,27 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-01 — Confirm-before-delete, home dashboard glance, faster expense entry
+
+- Every "Delete" button in the app now confirms first — previously only
+  Goals, Grocery List, and Recipes did; Expenses, Events, Rent/Mortgage,
+  Documents, and Personal to-dos deleted immediately on tap. See the new
+  convention note in
+  [`docs/14-ui-patterns.md`](docs/14-ui-patterns.md).
+- Home now shows the expense "who owes who" balance (previously only on
+  Money → Expenses) and a new "On your plate" section linking to the
+  Grocery List and My To-dos with a live item count.
+- The Add expense form puts Amount first, remembers the last category you
+  picked instead of always resetting to the first one, and every money
+  field in the app now brings up a numeric keypad on iOS
+  (`inputmode="decimal"`).
+- Expenses are now grouped into collapsible month sections (current month
+  open, older months collapsed) instead of one long flat list — see
+  [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md).
+- A one-time "Welcome" dialog now explains the five tabs and where the
+  invite code lives, shown once per browser on first load, right before
+  the existing "What's new" dialog.
+
 ## 2026-10-01 — New document category: Sophie
 
 - Added `sophie` to `DOCUMENT_CATEGORIES` in `app/js/documents.js` — shows

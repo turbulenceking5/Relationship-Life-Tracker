@@ -90,7 +90,7 @@ export async function render(container, ctx) {
           onclick: async () => { await updateRow(TABLE, row.id, { is_done: !row.is_done }); render(container, ctx); },
         }, row.is_done ? 'Mark active' : 'Mark done'),
         h('button', { class: 'btn secondary small', onclick: () => openEditSheet(row, container, ctx) }, 'Edit'),
-        h('button', { class: 'btn danger-text small', onclick: async () => { await deleteRow(TABLE, row.id); render(container, ctx); } }, 'Delete'),
+        h('button', { class: 'btn danger-text small', onclick: async () => { if (!confirm('Delete this reminder?')) return; await deleteRow(TABLE, row.id); render(container, ctx); } }, 'Delete'),
       ]),
     ]);
   }

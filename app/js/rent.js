@@ -39,7 +39,7 @@ async function renderPaymentSection(currentEl, historyEl, ctx, config) {
     const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
     const labelInput = h('input', { type: 'text', value: row.property_label || '' });
     const dueDateInput = h('input', { type: 'date', required: true, value: row.due_date });
-    const amountInput = h('input', { type: 'number', step: '0.01', min: '0', required: true, value: row.amount });
+    const amountInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0', required: true, value: row.amount });
     const customIntervalInput = h('input', { type: 'number', min: '1', placeholder: 'Days', value: row.interval_days, style: isPreset ? 'display:none' : 'display:block' });
     const intervalSelect = h('select', {
       onchange: () => { customIntervalInput.style.display = intervalSelect.value === 'custom' ? 'block' : 'none'; },
@@ -115,7 +115,7 @@ async function renderPaymentSection(currentEl, historyEl, ctx, config) {
           },
         }, paidVerb),
         h('button', { class: 'btn secondary small', onclick: () => openEditSheet(row) }, 'Edit'),
-        h('button', { class: 'btn danger-text small', onclick: async () => { await deleteRow(table, row.id); renderPaymentSection(currentEl, historyEl, ctx, config); } }, 'Delete'),
+        h('button', { class: 'btn danger-text small', onclick: async () => { if (!confirm(`Delete this ${config.noun}?`)) return; await deleteRow(table, row.id); renderPaymentSection(currentEl, historyEl, ctx, config); } }, 'Delete'),
       ]),
     ]);
   }
@@ -124,7 +124,7 @@ async function renderPaymentSection(currentEl, historyEl, ctx, config) {
   const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
   const labelInput = h('input', { type: 'text', placeholder: 'e.g. BrackenRidge' });
   const dueDateInput = h('input', { type: 'date', required: true, value: todayStr() });
-  const amountInput = h('input', { type: 'number', step: '0.01', min: '0', required: true, placeholder: '0.00' });
+  const amountInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0', required: true, placeholder: '0.00' });
   const customIntervalInput = h('input', { type: 'number', min: '1', placeholder: 'Days', style: 'display:none' });
   const intervalSelect = h('select', {
     onchange: () => { customIntervalInput.style.display = intervalSelect.value === 'custom' ? 'block' : 'none'; },
