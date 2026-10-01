@@ -178,6 +178,14 @@ export const CHANGELOG_ENTRIES = [
       'Anything not recognized falls back to Other, with the category dropdown always there to pick the right one by hand',
     ],
   },
+  {
+    id: 19,
+    date: '2026-10-02',
+    title: 'My To-dos reminders now fire at the right time',
+    items: [
+      'A reminder set for a specific time (e.g. 6:30am) now notifies then, not just whenever the once-daily check happened to run',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

@@ -1,9 +1,14 @@
 // Scheduled by pg_cron (see supabase/migrations/0004_schedule_notifications.sql,
-// retimed in 0005_localize_australia.sql) once a day at 08:00 Australia/
-// Brisbane. Scans every live due-date source and pushes one notification per
-// due/overdue item, per household. See docs/11-push-notifications.md for the
-// overall design and docs/19-notification-sources.md for exactly what's
-// scanned and why.
+// retimed in 0005_localize_australia.sql, moved to a 15-minute poll in
+// 0027_notify_poll_frequency.sql) every 15 minutes. Scans every live
+// due-date source and pushes one notification per due/overdue item, per
+// household. See docs/11-push-notifications.md for the overall design
+// and docs/19-notification-sources.md for exactly what's scanned and why.
+//
+// Running every 15 minutes (rather than once a day) exists specifically
+// so personal_todos' own remind_time can be honored precisely — see the
+// DAILY_CHECK_TIME/pastDailyCheck gate below for why every other source
+// still only fires once a day, at 08:00, despite the more frequent poll.
 //
 // Auth: this function does NOT use Supabase JWT verification (it's
 // deployed with verify_jwt = false) because its only caller is the
@@ -19,6 +24,19 @@ import webpush from "npm:web-push@3.6.7";
 // correct if that ever changes.
 function brisbaneTodayStr(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Brisbane" }).format(new Date());
+}
+
+// "HH:MM" in 24-hour time, for comparing against a personal_todo's own
+// remind_time (stored as "HH:MM:SS") and against DAILY_CHECK_TIME below.
+// Plain string comparison works for same-day times since both are
+// zero-padded "HH:MM".
+function brisbaneTimeStr(): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Australia/Brisbane",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date());
 }
 
 function daysUntil(dateStr: string, today: string): number {
@@ -89,11 +107,19 @@ Deno.serve(async (req: Request) => {
   webpush.setVapidDetails(secrets.vapid_subject, secrets.vapid_public_key, secrets.vapid_private_key);
 
   const today = brisbaneTodayStr();
+  const currentTime = brisbaneTimeStr();
+  // Rent/mortgage/events/goals/documents have no time-of-day component of
+  // their own (just a due *date*), so they keep firing once a day at this
+  // fixed time, same as before the poll got more frequent — this gate is
+  // what stops every 15-minute run from re-triggering them the instant the
+  // date rolls over at midnight. personal_todos is the one source that
+  // uses its own remind_time instead of this gate (see below), which is
+  // the whole reason the poll runs every 15 minutes now rather than once
+  // a day.
+  const DAILY_CHECK_TIME = "08:00";
+  const pastDailyCheck = currentTime >= DAILY_CHECK_TIME;
   const notifications: Notification[] = [];
 
-  // Rent/mortgage: due today or overdue, not already notified today. Stays
-  // "overdue" (and keeps notifying daily) until marked paid, same as the
-  // in-app "Overdue" pill (dueStatus() in format.js).
   const [{ data: rent }, { data: mortgage }, { data: events }, { data: goals }, { data: documents }, { data: todos }] =
     await Promise.all([
       admin.from("rent_payments").select("id, household_id, due_date, property_label, last_notified_date").eq("paid", false),
@@ -101,102 +127,107 @@ Deno.serve(async (req: Request) => {
       admin.from("events").select("id, household_id, title, event_date, recurring, recurring_interval, completed_occurrence, last_notified_date"),
       admin.from("custom_goals").select("id, household_id, title, target_date, target_amount, last_notified_date").not("target_date", "is", null),
       admin.from("documents").select("id, household_id, title, expiry_date, last_notified_date").not("expiry_date", "is", null),
-      admin.from("personal_todos").select("id, household_id, user_id, prompt, remind_date, repeat_frequency, last_notified_date").eq("is_done", false),
+      admin.from("personal_todos").select("id, household_id, user_id, prompt, remind_date, remind_time, repeat_frequency, last_notified_date").eq("is_done", false),
     ]);
 
-  for (const r of rent ?? []) {
-    if (r.last_notified_date === today) continue;
-    if (daysUntil(r.due_date, today) > 0) continue;
-    notifications.push({
-      household_id: r.household_id,
-      title: "Rent due",
-      body: `${r.property_label || "BrackenRidge"} rent was due ${r.due_date === today ? "today" : "on " + r.due_date}.`,
-      table: "rent_payments",
-      id: r.id,
-    });
-  }
-
-  for (const m of mortgage ?? []) {
-    if (m.last_notified_date === today) continue;
-    if (daysUntil(m.due_date, today) > 0) continue;
-    notifications.push({
-      household_id: m.household_id,
-      title: "Mortgage due",
-      body: `${m.property_label || "BrackenRidge"} mortgage was due ${m.due_date === today ? "today" : "on " + m.due_date}.`,
-      table: "mortgage_payments",
-      id: m.id,
-    });
-  }
-
-  // Events (birthdays/anniversaries and one-off dates alike): only on the
-  // day itself — unlike a bill, a past event date isn't something to keep
-  // chasing, so this doesn't escalate like rent/mortgage/goals do. Also
-  // skipped if someone's already marked today's occurrence done by hand
-  // (see docs/03-feature-events.md) — no point notifying about something
-  // already handled.
-  for (const e of events ?? []) {
-    if (e.last_notified_date === today) continue;
-    const occurrence = currentOccurrence(e.event_date, e.recurring, e.recurring_interval, today);
-    if (occurrence !== today) continue;
-    if (e.completed_occurrence === occurrence) continue;
-    notifications.push({
-      household_id: e.household_id,
-      title: "Event today",
-      body: `${e.title} is today.`,
-      table: "events",
-      id: e.id,
-    });
-  }
-
-  // Goals: due today or overdue by target_date, same escalation as
-  // rent/mortgage, but skipped once the goal is already fully funded
-  // (remaining <= 0) — matches the "Saved so far" progress shown in the
-  // Goals tab (goals.js), so a goal that's met before its date stops
-  // nagging instead of notifying forever.
-  const goalIds = (goals ?? []).map((g) => g.id);
-  const savedByGoal = new Map<string, number>();
-  if (goalIds.length) {
-    const { data: txns } = await admin
-      .from("goal_transactions")
-      .select("goal_id, amount")
-      .eq("type", "saved")
-      .in("goal_id", goalIds);
-    for (const t of txns ?? []) {
-      savedByGoal.set(t.goal_id, (savedByGoal.get(t.goal_id) || 0) + Number(t.amount));
+  // Rent/mortgage: due today or overdue, not already notified today. Stays
+  // "overdue" (and keeps notifying daily) until marked paid, same as the
+  // in-app "Overdue" pill (dueStatus() in format.js).
+  if (pastDailyCheck) {
+    for (const r of rent ?? []) {
+      if (r.last_notified_date === today) continue;
+      if (daysUntil(r.due_date, today) > 0) continue;
+      notifications.push({
+        household_id: r.household_id,
+        title: "Rent due",
+        body: `${r.property_label || "BrackenRidge"} rent was due ${r.due_date === today ? "today" : "on " + r.due_date}.`,
+        table: "rent_payments",
+        id: r.id,
+      });
     }
-  }
 
-  for (const g of goals ?? []) {
-    if (g.last_notified_date === today) continue;
-    if (daysUntil(g.target_date, today) > 0) continue;
-    if (g.target_amount != null) {
-      const saved = savedByGoal.get(g.id) || 0;
-      if (saved >= Number(g.target_amount)) continue;
+    for (const m of mortgage ?? []) {
+      if (m.last_notified_date === today) continue;
+      if (daysUntil(m.due_date, today) > 0) continue;
+      notifications.push({
+        household_id: m.household_id,
+        title: "Mortgage due",
+        body: `${m.property_label || "BrackenRidge"} mortgage was due ${m.due_date === today ? "today" : "on " + m.due_date}.`,
+        table: "mortgage_payments",
+        id: m.id,
+      });
     }
-    notifications.push({
-      household_id: g.household_id,
-      title: "Goal date due",
-      body: `"${g.title}" was due ${g.target_date === today ? "today" : "on " + g.target_date}.`,
-      table: "custom_goals",
-      id: g.id,
-    });
-  }
 
-  // Documents: expiry treated the same as a bill's due date (due
-  // today/overdue, escalating daily) rather than the 14-day "due soon"
-  // window the in-app status pill shows — the pill already gives advance
-  // warning when the app is opened; the push notification is the "this
-  // has actually lapsed" nudge.
-  for (const d of documents ?? []) {
-    if (d.last_notified_date === today) continue;
-    if (daysUntil(d.expiry_date, today) > 0) continue;
-    notifications.push({
-      household_id: d.household_id,
-      title: "Document expired",
-      body: `"${d.title}" ${d.expiry_date === today ? "expires today" : "expired on " + d.expiry_date}.`,
-      table: "documents",
-      id: d.id,
-    });
+    // Events (birthdays/anniversaries and one-off dates alike): only on the
+    // day itself — unlike a bill, a past event date isn't something to keep
+    // chasing, so this doesn't escalate like rent/mortgage/goals do. Also
+    // skipped if someone's already marked today's occurrence done by hand
+    // (see docs/03-feature-events.md) — no point notifying about something
+    // already handled.
+    for (const e of events ?? []) {
+      if (e.last_notified_date === today) continue;
+      const occurrence = currentOccurrence(e.event_date, e.recurring, e.recurring_interval, today);
+      if (occurrence !== today) continue;
+      if (e.completed_occurrence === occurrence) continue;
+      notifications.push({
+        household_id: e.household_id,
+        title: "Event today",
+        body: `${e.title} is today.`,
+        table: "events",
+        id: e.id,
+      });
+    }
+
+    // Goals: due today or overdue by target_date, same escalation as
+    // rent/mortgage, but skipped once the goal is already fully funded
+    // (remaining <= 0) — matches the "Saved so far" progress shown in the
+    // Goals tab (goals.js), so a goal that's met before its date stops
+    // nagging instead of notifying forever.
+    const goalIds = (goals ?? []).map((g) => g.id);
+    const savedByGoal = new Map<string, number>();
+    if (goalIds.length) {
+      const { data: txns } = await admin
+        .from("goal_transactions")
+        .select("goal_id, amount")
+        .eq("type", "saved")
+        .in("goal_id", goalIds);
+      for (const t of txns ?? []) {
+        savedByGoal.set(t.goal_id, (savedByGoal.get(t.goal_id) || 0) + Number(t.amount));
+      }
+    }
+
+    for (const g of goals ?? []) {
+      if (g.last_notified_date === today) continue;
+      if (daysUntil(g.target_date, today) > 0) continue;
+      if (g.target_amount != null) {
+        const saved = savedByGoal.get(g.id) || 0;
+        if (saved >= Number(g.target_amount)) continue;
+      }
+      notifications.push({
+        household_id: g.household_id,
+        title: "Goal date due",
+        body: `"${g.title}" was due ${g.target_date === today ? "today" : "on " + g.target_date}.`,
+        table: "custom_goals",
+        id: g.id,
+      });
+    }
+
+    // Documents: expiry treated the same as a bill's due date (due
+    // today/overdue, escalating daily) rather than the 14-day "due soon"
+    // window the in-app status pill shows — the pill already gives advance
+    // warning when the app is opened; the push notification is the "this
+    // has actually lapsed" nudge.
+    for (const d of documents ?? []) {
+      if (d.last_notified_date === today) continue;
+      if (daysUntil(d.expiry_date, today) > 0) continue;
+      notifications.push({
+        household_id: d.household_id,
+        title: "Document expired",
+        body: `"${d.title}" ${d.expiry_date === today ? "expires today" : "expired on " + d.expiry_date}.`,
+        table: "documents",
+        id: d.id,
+      });
+    }
   }
 
   // Personal to-dos: due today or overdue, private to their own user_id —
@@ -204,14 +235,19 @@ Deno.serve(async (req: Request) => {
   // own devices, not the whole household (see push_subscriptions lookup
   // below). A one-off reminder (repeat_frequency 'none') is marked done
   // once it fires, same as ticking it off by hand; a repeating one instead
-  // advances remind_date to its next occurrence and stays active. There's
-  // no way to honor the row's own remind_time precisely — this daily
-  // check only runs once, at 08:00 Australia/Brisbane — see
-  // docs/20-feature-personal-todos.md for that limitation.
+  // advances remind_date to its next occurrence and stays active.
+  //
+  // Unlike the sources above, this one isn't gated by pastDailyCheck — it
+  // uses its own remind_time instead, checked every 15-minute run: an
+  // overdue reminder (remind_date in the past) still fires on the very
+  // next run regardless of time, same "escalates immediately" behavior as
+  // before, but one due exactly today waits until the clock reaches its
+  // own remind_time before firing, rather than always waiting for 08:00.
   const todoUpdates: { id: string; patch: Record<string, unknown> }[] = [];
   for (const t of todos ?? []) {
     if (t.last_notified_date === today) continue;
     if (daysUntil(t.remind_date, today) > 0) continue;
+    if (t.remind_date === today && currentTime < t.remind_time.slice(0, 5)) continue;
     notifications.push({
       household_id: t.household_id,
       user_id: t.user_id,

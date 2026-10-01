@@ -55,15 +55,19 @@ What happens after it fires depends on `repeat_frequency`:
   as `currentOccurrence()` in `app/js/format.js`) and the reminder stays
   active.
 
-**Known limitation**: `remind_time` is stored and shown in the UI, but
-nothing currently delivers a notification at that specific time of day.
-`notify-due-items` only runs once daily, at 08:00 Australia/Brisbane (see
-[`11-push-notifications.md`](11-push-notifications.md)) — every due
-reminder fires at that single check regardless of the time it was set
-for. Precise time-of-day delivery would need either a much more frequent
-cron (checking every 15–30 minutes, say) or a per-reminder scheduled
-trigger, neither of which exists yet. `remind_time` is still useful today
-for sorting the Active list and for a plan to build that later.
+`remind_time` is honored precisely: `notify-due-items` polls every 15
+minutes (see [`11-push-notifications.md`](11-push-notifications.md)) and
+fires a reminder due today only once the clock reaches its own
+`remind_time`, rather than always waiting for a fixed daily check — a
+6:30am reminder notifies at 6:30am (within the 15-minute poll
+granularity), not whenever the next shared daily check happens to run.
+An overdue reminder (from a previous day) still fires on the very next
+poll regardless of time of day, same escalate-immediately behavior as
+rent/mortgage/goals/documents. Every other source keeps firing once a
+day at a fixed 08:00 Australia/Brisbane despite the poll running more
+often — see `DAILY_CHECK_TIME`/`pastDailyCheck` in
+`supabase/functions/notify-due-items/index.ts` for how that's gated,
+since only `personal_todos` has a time-of-day of its own to honor.
 
 ## Data
 See `personal_todos` table in [`02-data-model.md`](02-data-model.md).

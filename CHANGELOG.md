@@ -8,6 +8,23 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-02 — Personal to-do reminders now fire at their own set time
+
+- `notify-due-items` used to run once a day, at a fixed 08:00 Australia/
+  Brisbane, so a My To-dos reminder set for e.g. 6:30am still only ever
+  notified at 8am along with everything else — a known, documented
+  limitation (see `docs/20-feature-personal-todos.md`).
+- The pg_cron schedule (`0027_notify_poll_frequency.sql`) now polls every
+  15 minutes instead of once a day. `personal_todos` is checked against
+  its own `remind_time` on every poll; every other source
+  (rent/mortgage/goals/documents/events) still only fires once a day, at
+  a fixed 08:00, via a new `DAILY_CHECK_TIME`/`pastDailyCheck` gate added
+  to `supabase/functions/notify-due-items/index.ts` so the more frequent
+  poll doesn't change their behavior.
+- An overdue personal to-do (from a previous day) still fires on the very
+  next poll regardless of time, same escalate-immediately behavior as
+  before — only a reminder due *today* now waits for its own set time.
+
 ## 2026-10-01 — Auto-categorize grocery items
 
 - Typing an item's name on the Add grocery item form now guesses its

@@ -22,15 +22,17 @@ without a native app.
 ## How it works
 
 ```
-pg_cron (daily, 22:00 UTC = 08:00 Australia/Brisbane)
+pg_cron (every 15 minutes)
    │  net.http_post, with a shared secret header pulled from Vault
    ▼
 Edge Function: notify-due-items
    │  1. Reads its own VAPID keys + the shared secret from Vault
    │     (via the SECURITY DEFINER function get_edge_secrets(), which
    │     only service_role may call)
-   │  2. Scans rent/mortgage/goals/documents/events for anything due —
-   │     see 19-notification-sources.md for the exact rules
+   │  2. Scans rent/mortgage/goals/documents/events (gated to once a day,
+   │     at 08:00 Brisbane) and personal_todos (checked every poll
+   │     against its own remind_time) for anything due — see
+   │     19-notification-sources.md for the exact rules
    │  3. Looks up push_subscriptions for each affected household
    │  4. Sends a Web Push message to each subscription (npm:web-push)
    │  5. Marks last_notified_date (on the source row) and drops dead
@@ -41,12 +43,20 @@ Service worker (app/service-worker.js)
    │  'notificationclick' → focuses or opens the app
 ```
 
+The poll runs every 15 minutes rather than once a day specifically so
+`personal_todos`' own `remind_time` can be honored — see
+[`20-feature-personal-todos.md`](20-feature-personal-todos.md). Every
+other source still only notifies once a day, at a fixed 08:00
+Brisbane — the edge function gates those behind a
+`DAILY_CHECK_TIME`/`pastDailyCheck` check so the more frequent poll
+doesn't re-trigger them at every run.
+
 ## Pieces, file by file
 
 | Piece | Where |
 |---|---|
 | `push_subscriptions` table, `last_notified_date` columns, `get_edge_secrets()` | `supabase/migrations/0003_push_notifications.sql` |
-| Daily cron schedule | `supabase/migrations/0004_schedule_notifications.sql`, retimed to Brisbane in `0005_localize_australia.sql` |
+| Cron schedule | `supabase/migrations/0004_schedule_notifications.sql`, retimed to Brisbane in `0005_localize_australia.sql`, moved to a 15-minute poll in `0027_notify_poll_frequency.sql` |
 | The actual send/scan logic | `supabase/functions/notify-due-items/index.ts` |
 | Subscribe/unsubscribe from the browser | `app/js/notifications.js` |
 | Notification permission UI | Account sheet in `app/js/app.js` |
@@ -73,13 +83,17 @@ rather than Supabase JWT verification, because its only caller is
 
 ## Notification behavior
 
-- Checked once a day, at 08:00 Australia/Brisbane time (22:00 UTC —
-  Queensland has no daylight saving, so this offset is fixed year-round;
-  see `0005_localize_australia.sql`). An item due today or overdue
-  triggers a notification; `last_notified_date` prevents sending more than
-  once per calendar day for the same item, but an item that's still
-  overdue tomorrow notifies again — a simple daily "escalation" while
-  overdue, matching the Phase 2 roadmap item.
+- The edge function is polled every 15 minutes, but rent/mortgage/goals/
+  documents/events only actually notify once that run, checked once a
+  day at a fixed 08:00 Australia/Brisbane time (Queensland has no
+  daylight saving, so this offset is fixed year-round; see
+  `0005_localize_australia.sql`). An item due today or overdue triggers a
+  notification; `last_notified_date` prevents sending more than once per
+  calendar day for the same item, but an item that's still overdue
+  tomorrow notifies again — a simple daily "escalation" while overdue,
+  matching the Phase 2 roadmap item. `personal_todos` is the one
+  exception — it notifies at its own `remind_time` instead of 08:00, see
+  [`20-feature-personal-todos.md`](20-feature-personal-todos.md).
 - "Due today" is evaluated against each device's own local calendar date
   (see `todayStr()` in `app/js/format.js`), so it lines up with what the
   person looking at their phone would call "today" — this matters because
