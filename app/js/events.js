@@ -63,6 +63,14 @@ function openEditSheet(row, container, ctx) {
   openSheet(dialog);
 }
 
+// True once this cycle's occurrence has passed, OR once someone's
+// manually marked it done (completed_occurrence matching the current
+// occurrence — see the migration comment on why that's a date, not a
+// boolean, and how it auto-resets for a recurring event's next cycle).
+function isEventDone(row, today) {
+  return row._occurrence < today || row.completed_occurrence === row._occurrence;
+}
+
 export async function render(container, ctx) {
   const rows = await fetchRows(TABLE, ctx.household.id, 'event_date', true);
   const today = todayStr();
@@ -71,22 +79,34 @@ export async function render(container, ctx) {
   // Done rather than being mixed into Upcoming under a misleading future
   // date.
   const withOccurrence = rows.map((r) => ({ ...r, _occurrence: currentOccurrence(r.event_date, r.recurring, r.recurring_interval) }));
-  const upcoming = withOccurrence.filter((r) => r._occurrence >= today).sort((a, b) => (a._occurrence < b._occurrence ? -1 : 1));
-  const done = withOccurrence.filter((r) => r._occurrence < today).sort((a, b) => (a._occurrence < b._occurrence ? 1 : -1));
+  const upcoming = withOccurrence.filter((r) => !isEventDone(r, today)).sort((a, b) => (a._occurrence < b._occurrence ? -1 : 1));
+  const done = withOccurrence.filter((r) => isEventDone(r, today)).sort((a, b) => (a._occurrence < b._occurrence ? 1 : -1));
 
   function card(row, isDone) {
     const dateLabel = row.recurring
       ? `${isDone ? '' : 'Next: '}${formatDate(row._occurrence)} · repeats ${row.recurring_interval}`
       : formatDate(row.event_date);
+    // Once the occurrence's date has actually passed, "undo" has nothing
+    // to revert to — it'd just land back in Done next render anyway (the
+    // date comparison in isEventDone() still holds). Only a manually
+    // completed, not-yet-due event can be un-done; a naturally overdue
+    // one only gets the one-way "Mark done" action removed, not an
+    // always-present toggle that's sometimes a no-op.
+    const canToggle = !isDone || row._occurrence >= today;
+    const toggleDone = async () => {
+      await updateRow(TABLE, row.id, { completed_occurrence: isDone ? null : row._occurrence });
+      render(container, ctx);
+    };
     return h('div', { class: 'card' }, [
       h('div', { class: 'card-row' }, [
         h('div', {}, [
-          h('h3', {}, row.title),
+          h('h3', { style: isDone ? 'text-decoration:line-through;color:var(--text-muted)' : '' }, row.title),
           h('div', { class: 'meta' }, `${dateLabel}${row.category ? ' · ' + row.category : ''}`),
           row.description ? h('div', { class: 'meta', style: 'margin-top:4px' }, row.description) : null,
         ]),
       ]),
       h('div', { class: 'actions-row' }, [
+        canToggle ? h('button', { class: 'btn secondary small', onclick: toggleDone }, isDone ? 'Mark not done' : 'Mark done') : null,
         h('button', { class: 'btn secondary small', onclick: () => openEditSheet(row, container, ctx) }, 'Edit'),
         h('button', { class: 'btn danger-text small', onclick: async () => { if (!confirm('Delete this event?')) return; await deleteRow(TABLE, row.id); render(container, ctx); } }, 'Delete'),
       ]),

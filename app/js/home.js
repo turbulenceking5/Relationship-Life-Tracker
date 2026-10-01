@@ -41,10 +41,11 @@ export async function render(container, ctx, navigate) {
   // dashboard instead of reappearing early with its next occurrence's
   // date — same "has it happened yet this cycle" logic as the Events
   // tab's Upcoming/Done split, just without a Done section to move it
-  // into here.
+  // into here. Also drops one someone's manually marked done early (see
+  // docs/03-feature-events.md) even though its date hasn't arrived yet.
   const soonEvents = events
     .map((e) => ({ ...e, _next: currentOccurrence(e.event_date, e.recurring, e.recurring_interval) }))
-    .filter((e) => e._next >= today)
+    .filter((e) => e._next >= today && e.completed_occurrence !== e._next)
     .sort((a, b) => (a._next < b._next ? -1 : 1))
     .slice(0, 3);
   // Merged and sorted by due date, not grouped by type — otherwise every
