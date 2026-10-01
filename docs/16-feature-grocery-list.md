@@ -32,6 +32,16 @@ shopping. `category` is plain text with no CHECK constraint (same as
 `documents.category`), so adding another category later is a one-line app
 change, no migration needed.
 
+As the item name is typed on the add form, `guessCategory()` matches it
+against a keyword list (`CATEGORY_KEYWORDS`, both in `app/js/grocery.js`)
+and auto-fills the category dropdown — "Milk" lands on Dairy, "Chicken
+breast" on Meat, with no need to touch the dropdown. Anything the keyword
+list doesn't recognize just stays on **Other**, the normal catch-all
+category, with the dropdown sitting right there to pick the right one by
+hand — auto-categorizing is a convenience on top of manual picking, not a
+replacement for it. Picking a category manually stops the guess from
+overwriting it on further typing, so a deliberate choice always sticks.
+
 ## Data
 See `grocery_items` table in [`02-data-model.md`](02-data-model.md).
 

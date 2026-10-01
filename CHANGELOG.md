@@ -8,6 +8,18 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-01 — Auto-categorize grocery items
+
+- Typing an item's name on the Add grocery item form now guesses its
+  category automatically via a keyword match (`guessCategory()` /
+  `CATEGORY_KEYWORDS` in `app/js/grocery.js`) — "Milk" lands on Dairy,
+  "Chicken breast" on Meat, etc.
+- Anything the keyword list doesn't recognize falls back to (and stays on)
+  `other`; the category dropdown is always there, editable, so picking the
+  right category for an unrecognized item is one tap away. Picking a
+  category by hand stops the auto-guess from overwriting it on further
+  typing. See [`docs/16-feature-grocery-list.md`](docs/16-feature-grocery-list.md).
+
 ## 2026-10-01 — Grocery list categories
 
 - New `category` column on `grocery_items` (plain text, default `'other'`,

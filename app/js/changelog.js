@@ -169,6 +169,15 @@ export const CHANGELOG_ENTRIES = [
       'The "To buy" list is grouped into sections by category, in shop-aisle order',
     ],
   },
+  {
+    id: 18,
+    date: '2026-10-01',
+    title: 'Grocery items categorize themselves',
+    items: [
+      'Typing a grocery item now guesses its category automatically — "Milk" picks Dairy, "Chicken" picks Meat, and so on',
+      'Anything not recognized falls back to Other, with the category dropdown always there to pick the right one by hand',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';
