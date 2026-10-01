@@ -8,6 +8,12 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-01 — New document category: Sophie
+
+- Added `sophie` to `DOCUMENT_CATEGORIES` in `app/js/documents.js` — shows
+  up in the add/edit category select and the filter chips automatically,
+  since all three read from that one list.
+
 ## 2026-09-30 — Document category filter chips + Drive filename prefix
 
 - New category filter chips (All/Warranty/Contract/Receipt/ID/Other)

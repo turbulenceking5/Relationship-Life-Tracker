@@ -6,7 +6,7 @@ import { isConfigured, isDriveConnected, hasLocalDriveAccess, uploadFileToDrive,
 
 export const DOCUMENT_TABLE = 'documents';
 export const DOCUMENT_BUCKET = 'documents';
-export const DOCUMENT_CATEGORIES = ['warranty', 'contract', 'receipt', 'id', 'other'];
+export const DOCUMENT_CATEGORIES = ['warranty', 'contract', 'receipt', 'id', 'sophie', 'other'];
 
 // 'id' capitalizes to 'ID', not 'Id' — every other category just needs a
 // leading capital. Used both for the category filter chips below and to

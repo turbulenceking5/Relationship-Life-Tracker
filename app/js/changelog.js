@@ -131,6 +131,14 @@ export const CHANGELOG_ENTRIES = [
       'New Drive uploads are also prefixed with their category (e.g. "[Warranty] Boiler warranty.pdf") if you ever browse the shared folder directly in Drive',
     ],
   },
+  {
+    id: 14,
+    date: '2026-10-01',
+    title: 'New document category: Sophie',
+    items: [
+      'Added as a document category — shows up when adding/editing a document and in the filter chips',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';
