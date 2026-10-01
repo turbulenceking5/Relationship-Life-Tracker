@@ -14,7 +14,7 @@ running daily and sending nothing.
 | `mortgage_payments` (unpaid rows) | `due_date` today or in the past | Yes |
 | `custom_goals` (with a `target_date`) | `target_date` today or in the past, **and** not already fully saved (`saved >= target_amount`, when a target amount is set) | Yes, until the goal is fully funded |
 | `documents` (with an `expiry_date`) | `expiry_date` today or in the past | Yes |
-| `events` | `currentOccurrence(event_date, recurring, recurring_interval)` falls exactly on today | No — a birthday that's passed isn't "overdue," so this fires once, on the day, not daily afterward |
+| `events` | `currentOccurrence(event_date, recurring, recurring_interval)` falls exactly on today, and `completed_occurrence` doesn't already match that occurrence | No — a birthday that's passed isn't "overdue," so this fires once, on the day, not daily afterward |
 | `personal_todos` (not done) | `remind_date` today or in the past | Yes, until marked done — see [`20-feature-personal-todos.md`](20-feature-personal-todos.md) for how a repeating one advances instead of escalating forever |
 
 Every source except `events` reuses the same "due today or overdue"

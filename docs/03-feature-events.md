@@ -39,6 +39,27 @@ rolled forward to its next occurrence's date:
   next occurrence's date. It reappears there once the next cycle actually
   arrives and `currentOccurrence()` recomputes against it.
 
+## Mark done (shipped)
+An event can be marked done by hand, independent of its date — for a
+future-dated event handled early, or to dismiss an overdue one-off without
+deleting it. `events.completed_occurrence` stores the *occurrence* date
+that was marked done (not a plain boolean): comparing it against the
+freshly-computed `currentOccurrence()` each render means a recurring
+event's "done" state is tied to one specific cycle and naturally reverts
+to "not done" once the next cycle begins, with no reset logic needed. A
+non-recurring event has only one occurrence (`event_date` itself), so the
+same mechanism works for it too.
+
+The toggle only appears when it's meaningful: once an occurrence's date
+has actually passed, there's nothing left to "undo" to (the date
+comparison alone already puts it in Done), so only a manually-completed,
+not-yet-due event shows "Mark not done" — a naturally overdue one just
+loses the one-way "Mark done" action instead of showing an always-present
+toggle that'd sometimes be a no-op. The home dashboard's "Coming up" feed
+and the `notify-due-items` push notification both skip an event whose
+current occurrence has been marked done, even if the date hasn't arrived
+yet.
+
 ## Phase 1
 - Category filter chips (birthday / anniversary / appointment / other).
 

@@ -98,7 +98,7 @@ Deno.serve(async (req: Request) => {
     await Promise.all([
       admin.from("rent_payments").select("id, household_id, due_date, property_label, last_notified_date").eq("paid", false),
       admin.from("mortgage_payments").select("id, household_id, due_date, property_label, last_notified_date").eq("paid", false),
-      admin.from("events").select("id, household_id, title, event_date, recurring, recurring_interval, last_notified_date"),
+      admin.from("events").select("id, household_id, title, event_date, recurring, recurring_interval, completed_occurrence, last_notified_date"),
       admin.from("custom_goals").select("id, household_id, title, target_date, target_amount, last_notified_date").not("target_date", "is", null),
       admin.from("documents").select("id, household_id, title, expiry_date, last_notified_date").not("expiry_date", "is", null),
       admin.from("personal_todos").select("id, household_id, user_id, prompt, remind_date, repeat_frequency, last_notified_date").eq("is_done", false),
@@ -130,11 +130,15 @@ Deno.serve(async (req: Request) => {
 
   // Events (birthdays/anniversaries and one-off dates alike): only on the
   // day itself — unlike a bill, a past event date isn't something to keep
-  // chasing, so this doesn't escalate like rent/mortgage/goals do.
+  // chasing, so this doesn't escalate like rent/mortgage/goals do. Also
+  // skipped if someone's already marked today's occurrence done by hand
+  // (see docs/03-feature-events.md) — no point notifying about something
+  // already handled.
   for (const e of events ?? []) {
     if (e.last_notified_date === today) continue;
     const occurrence = currentOccurrence(e.event_date, e.recurring, e.recurring_interval, today);
     if (occurrence !== today) continue;
+    if (e.completed_occurrence === occurrence) continue;
     notifications.push({
       household_id: e.household_id,
       title: "Event today",

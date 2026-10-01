@@ -8,6 +8,37 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-01 — Grocery list categories
+
+- New `category` column on `grocery_items` (plain text, default `'other'`,
+  no CHECK constraint — same pattern as `documents.category`), picked from
+  a fixed list in `app/js/grocery.js`: produce, meat, dairy, bakery,
+  frozen, pantry, household, other.
+- The "To buy" list is now grouped into a section per category, in that
+  same shop-aisle order, instead of one flat list in add-order. "In cart"
+  stays flat, since it's just a holding area before "Clear bought items".
+  See [`docs/16-feature-grocery-list.md`](docs/16-feature-grocery-list.md).
+
+## 2026-10-01 — Mark events as done
+
+- Any event (recurring or one-off) can now be marked done by hand from its
+  card in the Events tab, independent of whether its own date has passed —
+  useful for a future-dated event handled early, or to dismiss an overdue
+  one-off without deleting it.
+- New `events.completed_occurrence` column (date, nullable) stores the
+  *occurrence* that was marked done rather than a plain boolean, so a
+  recurring event's "done" status is tied to one specific cycle and
+  naturally reverts to "not done" once `currentOccurrence()` moves on to
+  the next cycle — no reset logic needed. See
+  [`docs/03-feature-events.md`](docs/03-feature-events.md).
+- The "Mark not done" toggle only appears when undoing it would actually
+  do something — once an occurrence's date has genuinely passed, only the
+  one-way "Mark done" action is removed rather than showing an
+  always-present toggle that'd sometimes be a no-op.
+- The home dashboard's "Upcoming events" feed and the `notify-due-items`
+  push notification both skip an event already marked done for its
+  current occurrence, even if the date hasn't arrived yet.
+
 ## 2026-10-01 — Confirm-before-delete, home dashboard glance, faster expense entry
 
 - Every "Delete" button in the app now confirms first — previously only

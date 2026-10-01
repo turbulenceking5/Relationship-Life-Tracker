@@ -9,9 +9,9 @@ shopping sits alongside expenses/rent rather than as its own top-level
 tab — same tab-bar-crowding reasoning).
 
 ## How it works
-- Add an item: a title and an optional free-text quantity (e.g. "2L",
-  "x3") — no separate quantity/unit fields, since a grocery list entry
-  is read once at the shop and then thrown away, not analyzed later.
+- Add an item: a title, an optional free-text quantity (e.g. "2L", "x3"),
+  and a category — no separate quantity/unit fields, since a grocery list
+  entry is read once at the shop and then thrown away, not analyzed later.
 - Checking an item's checkbox marks it bought (`is_done`) and moves it
   from **To buy** into **In cart**, struck through.
 - **Clear bought items** (shown only once something's checked off) bulk-
@@ -19,6 +19,18 @@ tab — same tab-bar-crowding reasoning).
   after a shop, rather than deleting items one at a time.
 - No edit flow — same reasoning as `goal_tasks`: fixing a typo on a
   one-line item is a delete-and-re-add, not worth a whole edit sheet.
+
+## Categories (shipped)
+Each item gets a category from a fixed list in `GROCERY_CATEGORIES`
+(`app/js/grocery.js`): produce, meat, dairy, bakery, frozen, pantry,
+household, other. "To buy" is grouped into a section per category, in that
+same shop-aisle order (not alphabetical), so the list reads the way you'd
+actually walk the store rather than in whatever order items were added.
+"In cart" stays a flat list below — it's just a holding area before
+**Clear bought items**, not something read section-by-section while
+shopping. `category` is plain text with no CHECK constraint (same as
+`documents.category`), so adding another category later is a one-line app
+change, no migration needed.
 
 ## Data
 See `grocery_items` table in [`02-data-model.md`](02-data-model.md).

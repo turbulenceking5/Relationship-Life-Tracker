@@ -1,0 +1,11 @@
+-- Lets an event be marked done manually, independent of its date --
+-- useful for a future-dated event handled early, or to dismiss an
+-- overdue one-off without deleting it. Stores the *occurrence* date that
+-- was marked done, not a plain boolean, so a recurring event's "done"
+-- state is tied to a specific cycle: once currentOccurrence() (see
+-- app/js/format.js) moves on to the next cycle, the stored value no
+-- longer matches and the event naturally reverts to "not done" without
+-- any extra reset logic. For a non-recurring event there's only ever one
+-- occurrence (event_date itself), so this works the same way there too.
+-- See docs/03-feature-events.md.
+alter table public.events add column completed_occurrence date;

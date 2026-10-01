@@ -82,6 +82,7 @@ embed failed with "Could not find a relationship."
 | `event_date` | date | required — kept as the original/historical date even for recurring events |
 | `recurring` | boolean | default false; repeats on `recurring_interval` if true — see [`03-feature-events.md`](03-feature-events.md) |
 | `recurring_interval` | text | `weekly` \| `fortnightly` \| `monthly` \| `yearly`; default `yearly`. Only meaningful when `recurring` is true — a stray value on a non-recurring row is harmless and ignored |
+| `completed_occurrence` | date, nullable | the occurrence date manually marked done, compared against `currentOccurrence()` each render — see [`03-feature-events.md`](03-feature-events.md) |
 | `last_notified_date` | date | last day `notify-due-items` sent a push for this row — see [`19-notification-sources.md`](19-notification-sources.md) |
 | `created_by` | uuid → auth.users | |
 | `created_at` / `updated_at` | timestamptz | |
@@ -309,6 +310,7 @@ same shape as `goal_tasks`, just not scoped to a goal.
 | `household_id` | uuid → households | |
 | `title` | text | required, e.g. "Milk" |
 | `quantity` | text | optional, free text (e.g. "2L", "x3") |
+| `category` | text | default `'other'`; one of `GROCERY_CATEGORIES` in `app/js/grocery.js` — groups the "To buy" list into sections — see [`16-feature-grocery-list.md`](16-feature-grocery-list.md) |
 | `is_done` | boolean | default false; checked off once bought |
 | `created_by` | uuid → auth.users | |
 | `created_at` | timestamptz | |

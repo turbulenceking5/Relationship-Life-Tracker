@@ -151,6 +151,24 @@ export const CHANGELOG_ENTRIES = [
       'A quick "Welcome" tour appears the first time you open the app',
     ],
   },
+  {
+    id: 16,
+    date: '2026-10-01',
+    title: 'Mark events as done',
+    items: [
+      'Any event can now be marked done by hand, whether or not its date has passed yet',
+      'A recurring event’s "done" status is tied to its current occurrence, so it automatically resets once the next one comes around',
+    ],
+  },
+  {
+    id: 17,
+    date: '2026-10-01',
+    title: 'Grocery list categories',
+    items: [
+      'Grocery items now get a category (Produce, Meat, Dairy, Bakery, Frozen, Pantry, Household, Other)',
+      'The "To buy" list is grouped into sections by category, in shop-aisle order',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';
