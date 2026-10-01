@@ -84,10 +84,33 @@ position in the `CATEGORIES` list, not sort order, so it stays the same
 color month to month even as which categories have spending changes.
 Hidden entirely when there's no spending this month yet.
 
+## Sort/group by month (shipped)
+The expense list groups into collapsible per-month sections (`<details
+class="goal-section">`, same pattern as Goals/Recipes) instead of one
+flat reverse-chronological list — the current calendar month starts open,
+every other month starts collapsed, each section's summary shows its
+count and subtotal. Search still filters across all months first; every
+month with a surviving match forces itself open (a hit shouldn't hide
+inside a collapsed month). Category and payer sort weren't added on top:
+a month is the grouping people actually reach for ("what did we spend in
+March"), and the search box plus the "This month" category breakdown
+above the list already cover filtering by category or who paid.
+
+## Smart add-expense defaults (shipped)
+Amount is now the first field in the Add/Edit expense sheet (ahead of
+Title) — see "Adding an expense should be the lowest-friction action in
+the app" below. The category select defaults to whatever was picked on
+this household's last add, not always the first entry in `CATEGORIES`,
+via a plain `localStorage` key (`lastExpenseCategory:<household_id>`,
+set in `app/js/expenses.js`) — no new table, same tolerance for storage
+being unavailable as `theme.js`/`changelog.js`. "Remember last payer"
+wasn't added: it already defaults to "you" (`ctx.user.id`), which is
+right far more often than whoever paid last time.
+
 ## Phase 1 (remaining)
-- Filter by category and by date range (this month / last month / custom).
-- Smart defaults on the add form: last-used category, today's date
-  pre-filled, remember last payer.
+- Filter by category and by date range (this month / last month / custom)
+  — the "This month" breakdown and new month grouping cover the common
+  case; an explicit filter is still open for a custom range.
 
 ## Recurring expenses (shipped)
 A collapsible "Recurring expenses" section (open by default once it has

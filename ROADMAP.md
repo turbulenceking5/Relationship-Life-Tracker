@@ -170,6 +170,24 @@ status. Check items off as they land.
       that made PDFs/other files effectively unreachable) — it now
       accepts any file type. Existing documents keep working unchanged.
       See [`docs/21-google-drive-documents.md`](docs/21-google-drive-documents.md).
+- [x] **Confirm before delete, everywhere**: expenses, settlements,
+      recurring expenses, events, rent/mortgage periods, documents, and
+      personal to-dos now all ask "Delete this ___?" before deleting —
+      previously only Goals, Grocery List, and Recipes did, so a mis-tap
+      on any other tab deleted a record immediately with no way back.
+- [x] **Lower-friction add-expense form**: Amount now comes first in the
+      Add/Edit expense sheet (ahead of Title), the category defaults to
+      whatever was picked last time instead of always resetting to the
+      first category, and every money amount field across the app
+      (expenses, rent/mortgage, goals, settle-up) sets
+      `inputmode="decimal"` so iOS shows a numeric keypad instead of the
+      full keyboard. See [`04-feature-expenses.md`](docs/04-feature-expenses.md).
+- [x] **Home dashboard surfaces the expense balance and checklists**: the
+      "who owes who" balance (previously only visible on Money → Expenses)
+      now also shows at the top of Home when unsettled, and a new "On your
+      plate" section links to the Grocery List and My To-dos with a live
+      count, so those two checklist-shaped segments aren't invisible from
+      the one screen people actually open daily.
 - [x] **Document category filter chips + Drive filename prefix**: chips
       (All/Warranty/Contract/Receipt/ID/Other) on the Docs tab alongside
       search; new Drive uploads get a category prefix in the filename
@@ -207,11 +225,20 @@ schema.
       boiler warranty" as well as a chip row would). See
       [`04-feature-expenses.md`](docs/04-feature-expenses.md) and
       [`07-feature-documents.md`](docs/07-feature-documents.md).
-- [ ] Sort/group expenses by month, category, who paid
+- [x] Sort/group expenses by month, category, who paid — expenses now
+      group into collapsible per-month sections (current month open,
+      older months collapsed), same pattern as Goals/Recipes. Category
+      and payer sort weren't added on top — a month is the grouping
+      people actually look for ("what did we spend in March"), and
+      search/the per-category "This month" breakdown already cover the
+      other two. See [`04-feature-expenses.md`](docs/04-feature-expenses.md).
 - [x] Basic monthly spend total + per-category breakdown — a "This
       month" card with a contribution-bar/legend visual on the Expenses
       tab. See [`04-feature-expenses.md`](docs/04-feature-expenses.md).
-- [ ] Empty-state and onboarding polish (first-run tour)
+- [x] Empty-state and onboarding polish (first-run tour) — a one-time
+      "Welcome" dialog (`app/js/onboarding.js`) explains the five tabs and
+      where the invite code lives, shown once per browser before the
+      "What's new" dialog on first load.
 
 ## Phase 2 — Reminders that actually reach you
 

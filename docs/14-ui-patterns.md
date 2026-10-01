@@ -62,6 +62,14 @@ multiple such modules rather than being one themselves.
   `overdue` (see `styles.css` for the color mapping).
 - Destructive actions ("Delete") use `.btn.danger-text.small`; secondary
   actions ("Mark as paid", "Mark as received") use `.btn.secondary.small`.
+- **A "Delete" button's `onclick` always starts with a `confirm('Delete
+  this ___?')` guard**, returning early if it's cancelled, before calling
+  `deleteRow()`. There's no undo anywhere in the app, so this is the only
+  thing standing between a mis-tap on a phone and a permanently lost
+  record. This was inconsistent for a while — Goals/Grocery List/Recipes
+  had it, Expenses/Events/Rent/Documents/Personal to-dos didn't — before
+  being made consistent everywhere; keep new delete buttons on this side
+  of that line.
 
 ## Collapsible sections: `<details class="goal-section">`
 

@@ -2,6 +2,8 @@ import { h, mount } from './dom.js';
 import { fetchRows } from './crud.js';
 import { formatDate, formatMoney, dueStatus, daysUntil, todayStr, currentOccurrence } from './format.js';
 import { expiryStatus } from './documents.js';
+import { getHouseholdMembers } from './household.js';
+import { computeBalance } from './balance.js';
 
 const CATEGORY_ICONS = { birthday: '🎂', anniversary: '💍', appointment: '📅', other: '📌' };
 const GRADIENT_CLASSES = ['grad-a', 'grad-b', 'grad-c', 'grad-d', 'grad-e'];
@@ -13,13 +15,25 @@ function gradientClass(seed) {
 }
 
 export async function render(container, ctx, navigate) {
-  const [events, rentPayments, mortgagePayments, documents, goals] = await Promise.all([
+  const [events, rentPayments, mortgagePayments, documents, goals, expenses, settlements, members, groceryItems, personalTodos] = await Promise.all([
     fetchRows('events', ctx.household.id, 'event_date', true),
     fetchRows('rent_payments', ctx.household.id, 'due_date', true),
     fetchRows('mortgage_payments', ctx.household.id, 'due_date', true),
     fetchRows('documents', ctx.household.id, 'expiry_date', true),
     fetchRows('custom_goals', ctx.household.id, 'target_date', true),
+    fetchRows('expenses', ctx.household.id, 'expense_date', false),
+    fetchRows('settlements', ctx.household.id, 'settlement_date', false),
+    getHouseholdMembers(ctx.household.id),
+    fetchRows('grocery_items', ctx.household.id, 'created_at', true),
+    fetchRows('personal_todos', ctx.household.id, 'remind_date', true),
   ]);
+  const memberName = (id) => members.find((m) => m.user_id === id)?.display_name || 'Someone';
+  const balance = computeBalance(expenses, settlements, members);
+  const groceryToBuyCount = groceryItems.filter((g) => !g.is_done).length;
+  // RLS already restricts personal_todos to the signed-in user's own rows
+  // (see docs/20-feature-personal-todos.md), so this count is private by
+  // construction, same as the My To-dos segment itself.
+  const activeTodoCount = personalTodos.filter((t) => !t.is_done).length;
 
   const today = todayStr();
   // currentOccurrence (never rolling forward to the next cycle) so a
@@ -93,7 +107,31 @@ export async function render(container, ctx, navigate) {
     return row('🎯', g.title, formatDate(g.target_date), h('span', { class: 'pill upcoming' }, label), () => navigate('goals'));
   });
 
+  // The expense balance already exists on Money → Expenses
+  // (balance.js/computeBalance), but it's buried two taps deep from the
+  // screen people actually open daily — surface it here too, same banner
+  // style, tapping through to settle up.
+  const balanceBanner = balance && !balance.settled
+    ? h('div', { class: 'total-banner', onclick: () => navigate('expenses'), style: 'cursor:pointer' }, [
+        h('span', {}, `${memberName(balance.owedBy)} owes ${memberName(balance.owedTo)}`),
+        h('span', { class: 'value' }, formatMoney(balance.amount, ctx.household.default_currency || 'AUD')),
+      ])
+    : null;
+
+  // A quick glance at the two checklist-shaped segments that otherwise
+  // have no presence on the home dashboard at all — just a count and a
+  // tap-through, not a duplicate of their own lists.
+  const onYourPlate = (groceryToBuyCount > 0 || activeTodoCount > 0)
+    ? h('div', {}, [
+        h('div', { class: 'section-title' }, 'On your plate'),
+        groceryToBuyCount > 0 ? row('🛒', 'Grocery list', `${groceryToBuyCount} item${groceryToBuyCount === 1 ? '' : 's'} to buy`, null, () => navigate('groceries')) : null,
+        activeTodoCount > 0 ? row('📝', 'Your to-dos', `${activeTodoCount} active reminder${activeTodoCount === 1 ? '' : 's'}`, null, () => navigate('todos')) : null,
+      ])
+    : null;
+
   mount(container, [
+    balanceBanner,
+
     h('div', { class: 'section-title' }, "What's due"),
     ...(dueItems.length ? dueItems : [h('div', { class: 'empty-state' }, [h('div', { class: 'glow-check' }, '✓'), 'All caught up!'])]),
 
@@ -102,5 +140,7 @@ export async function render(container, ctx, navigate) {
 
     h('div', { class: 'section-title' }, 'Upcoming goals'),
     ...(upcomingGoals.length ? upcomingGoals : [h('div', { class: 'empty-state' }, 'No goals with a target date coming up.')]),
+
+    onYourPlate,
   ]);
 }

@@ -15,6 +15,31 @@ const RECURRING_INTERVAL_PRESETS = [
   { label: 'Custom', days: null },
 ];
 
+// Remembers the last category picked on the Add expense form, per
+// household, so the next entry starts on whatever was used most recently
+// (groceries then groceries then bills, say) instead of always resetting
+// to the first entry in CATEGORIES. Falls back silently if storage is
+// unavailable — same tolerance as theme.js/changelog.js.
+function lastCategoryKey(householdId) {
+  return `lastExpenseCategory:${householdId}`;
+}
+function getLastCategory(householdId) {
+  try {
+    const stored = localStorage.getItem(lastCategoryKey(householdId));
+    return CATEGORIES.includes(stored) ? stored : CATEGORIES[0];
+  } catch {
+    return CATEGORIES[0];
+  }
+}
+function setLastCategory(householdId, category) {
+  try {
+    localStorage.setItem(lastCategoryKey(householdId), category);
+  } catch {
+    // Won't persist across reloads — the form just falls back to the
+    // first category next time, a harmless degradation.
+  }
+}
+
 // "This month" total + category breakdown — same contribution-bar/
 // legend visual as the goal contributor breakdown in goals.js
 // (contributionBreakdown()), just grouping by category instead of by
@@ -110,7 +135,7 @@ function openSettleUpSheet(balance, members, container, ctx) {
   dialog.addEventListener('close', () => dialog.remove());
 
   const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
-  const amountInput = h('input', { type: 'number', step: '0.01', min: '0.01', required: true, value: balance.amount });
+  const amountInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0.01', required: true, value: balance.amount });
   const dateInput = h('input', { type: 'date', required: true, value: todayStr() });
   const notesInput = h('textarea', { rows: '2', placeholder: 'Optional notes' });
 
@@ -157,7 +182,7 @@ function openEditSheet(row, members, container, ctx) {
 
   const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
   const titleInput = h('input', { type: 'text', required: true, value: row.title });
-  const amountInput = h('input', { type: 'number', step: '0.01', min: '0', required: true, value: row.amount });
+  const amountInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0', required: true, value: row.amount });
   const currencyInput = h('input', { type: 'text', value: row.currency, maxlength: '3', style: 'text-transform:uppercase' });
   const categorySelect = h('select', {}, CATEGORIES.map((c) => h('option', { value: c, selected: c === row.category }, c)));
   const paidBySelect = h('select', {}, members.map((m) => h('option', { value: m.user_id, selected: m.user_id === row.paid_by }, m.display_name)));
@@ -215,7 +240,7 @@ function openEditRecurringSheet(row, members, container, ctx) {
   const isPreset = RECURRING_INTERVAL_PRESETS.some((p) => p.days === row.interval_days);
   const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
   const titleInput = h('input', { type: 'text', required: true, value: row.title });
-  const amountInput = h('input', { type: 'number', step: '0.01', min: '0', required: true, value: row.amount });
+  const amountInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0', required: true, value: row.amount });
   const currencyInput = h('input', { type: 'text', value: row.currency, maxlength: '3', style: 'text-transform:uppercase' });
   const categorySelect = h('select', {}, CATEGORIES.map((c) => h('option', { value: c, selected: c === row.category }, c)));
   const paidBySelect = h('select', {}, members.map((m) => h('option', { value: m.user_id, selected: m.user_id === row.paid_by }, m.display_name)));
@@ -305,7 +330,7 @@ export async function render(container, ctx) {
         h('div', { class: 'amount' }, formatMoney(s.amount, s.currency)),
       ]),
       h('div', { class: 'actions-row' }, [
-        h('button', { class: 'btn danger-text small', onclick: async () => { await deleteRow(SETTLEMENTS_TABLE, s.id); render(container, ctx); } }, 'Delete'),
+        h('button', { class: 'btn danger-text small', onclick: async () => { if (!confirm('Delete this settlement record?')) return; await deleteRow(SETTLEMENTS_TABLE, s.id); render(container, ctx); } }, 'Delete'),
       ]),
     ]);
   }
@@ -330,7 +355,7 @@ export async function render(container, ctx) {
       ]),
       h('div', { class: 'actions-row' }, [
         h('button', { class: 'btn secondary small', onclick: () => openEditSheet(row, members, container, ctx) }, 'Edit'),
-        h('button', { class: 'btn danger-text small', onclick: async () => { await deleteRow(TABLE, row.id); render(container, ctx); } }, 'Delete'),
+        h('button', { class: 'btn danger-text small', onclick: async () => { if (!confirm('Delete this expense?')) return; await deleteRow(TABLE, row.id); render(container, ctx); } }, 'Delete'),
       ]),
     ]);
   }
@@ -353,7 +378,7 @@ export async function render(container, ctx) {
           onclick: async () => { await updateRow(RECURRING_TABLE, row.id, { active: !row.active }); render(container, ctx); },
         }, row.active ? 'Pause' : 'Resume'),
         h('button', { class: 'btn secondary small', onclick: () => openEditRecurringSheet(row, members, container, ctx) }, 'Edit'),
-        h('button', { class: 'btn danger-text small', onclick: async () => { await deleteRow(RECURRING_TABLE, row.id); render(container, ctx); } }, 'Delete'),
+        h('button', { class: 'btn danger-text small', onclick: async () => { if (!confirm('Delete this recurring expense? Future charges will stop being logged.')) return; await deleteRow(RECURRING_TABLE, row.id); render(container, ctx); } }, 'Delete'),
       ]),
     ]);
   }
@@ -361,7 +386,7 @@ export async function render(container, ctx) {
   const { dialog: recurringDialog, body: recurringBody } = makeSheet('Add recurring expense');
   const recurringErrorEl = h('div', { class: 'error-msg', style: 'display:none' });
   const recurringTitleInput = h('input', { type: 'text', required: true, placeholder: 'e.g. Netflix' });
-  const recurringAmountInput = h('input', { type: 'number', step: '0.01', min: '0', required: true, placeholder: '0.00' });
+  const recurringAmountInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0', required: true, placeholder: '0.00' });
   const recurringCurrencyInput = h('input', { type: 'text', value: ctx.household.default_currency || 'AUD', maxlength: '3', style: 'text-transform:uppercase' });
   const recurringCategorySelect = h('select', {}, CATEGORIES.map((c) => h('option', { value: c }, c)));
   const recurringPaidBySelect = h('select', {}, members.map((m) => h('option', { value: m.user_id, selected: m.user_id === ctx.user.id }, m.display_name)));
@@ -427,9 +452,10 @@ export async function render(container, ctx) {
   const { dialog, body } = makeSheet('Add expense');
   const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
   const titleInput = h('input', { type: 'text', required: true, placeholder: 'e.g. Weekly shop' });
-  const amountInput = h('input', { type: 'number', step: '0.01', min: '0', required: true, placeholder: '0.00' });
+  const amountInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0', required: true, placeholder: '0.00' });
   const currencyInput = h('input', { type: 'text', value: ctx.household.default_currency || 'AUD', maxlength: '3', style: 'text-transform:uppercase' });
-  const categorySelect = h('select', {}, CATEGORIES.map((c) => h('option', { value: c }, c)));
+  const lastCategory = getLastCategory(ctx.household.id);
+  const categorySelect = h('select', {}, CATEGORIES.map((c) => h('option', { value: c, selected: c === lastCategory }, c)));
   const paidBySelect = h('select', {}, members.map((m) => h('option', { value: m.user_id, selected: m.user_id === ctx.user.id }, m.display_name)));
   const dateInput = h('input', { type: 'date', required: true, value: todayStr() });
   const notesInput = h('textarea', { rows: '2', placeholder: 'Optional notes' });
@@ -452,6 +478,7 @@ export async function render(container, ctx) {
           created_by: ctx.user.id,
           ...(addSplit ? addSplit.getOverride() : {}),
         });
+        setLastCategory(ctx.household.id, categorySelect.value);
         closeSheet(dialog);
         render(container, ctx);
       } catch (err) {
@@ -460,11 +487,11 @@ export async function render(container, ctx) {
       }
     },
   }, [
-    h('div', { class: 'field' }, [h('label', {}, 'Title'), titleInput]),
     h('div', { class: 'field-row' }, [
       h('div', { class: 'field' }, [h('label', {}, 'Amount'), amountInput]),
       h('div', { class: 'field' }, [h('label', {}, 'Currency'), currencyInput]),
     ]),
+    h('div', { class: 'field' }, [h('label', {}, 'Title'), titleInput]),
     h('div', { class: 'field-row' }, [
       h('div', { class: 'field' }, [h('label', {}, 'Category'), categorySelect]),
       h('div', { class: 'field' }, [h('label', {}, 'Paid by'), paidBySelect]),
@@ -479,12 +506,40 @@ export async function render(container, ctx) {
 
   const searchInput = h('input', { type: 'search', placeholder: 'Search expenses…' });
   const listContainer = h('div', {});
+  const currentMonthKey = todayStr().slice(0, 7);
+  // Grouped by month (newest first) via the same collapsible-card pattern
+  // as Goals/Recipes, instead of one long flat list — a household with a
+  // few months of history otherwise means scrolling past everything to
+  // find an old entry. The current month starts open; everything else
+  // starts collapsed. While searching, every group with a match opens
+  // (a hit shouldn't hide inside a collapsed month), and groups with no
+  // match just don't appear.
+  function monthLabel(key) {
+    return new Date(`${key}-01T00:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  }
   function renderList() {
     const query = searchInput.value.trim();
     const filtered = rows.filter((r) => matchesSearch(r, memberName, query));
-    mount(listContainer, filtered.length
-      ? filtered.map(card)
-      : [h('div', { class: 'empty-state' }, query ? 'No expenses match your search.' : 'No expenses logged yet.')]);
+    if (!filtered.length) {
+      mount(listContainer, [h('div', { class: 'empty-state' }, query ? 'No expenses match your search.' : 'No expenses logged yet.')]);
+      return;
+    }
+    const groups = new Map();
+    for (const r of filtered) {
+      const key = r.expense_date.slice(0, 7);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(r);
+    }
+    const sections = [...groups.entries()]
+      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+      .map(([key, groupRows]) => {
+        const groupTotal = groupRows.reduce((sum, r) => sum + Number(r.amount), 0);
+        return h('details', { class: 'goal-section', open: query ? true : key === currentMonthKey }, [
+          h('summary', {}, `${monthLabel(key)} (${groupRows.length}) · ${formatMoney(groupTotal, ctx.household.default_currency || 'AUD')}`),
+          h('div', { class: 'goal-section-body' }, groupRows.map(card)),
+        ]);
+      });
+    mount(listContainer, sections);
   }
   searchInput.addEventListener('input', renderList);
   renderList();

@@ -203,7 +203,7 @@ export async function render(container, ctx) {
       h('div', { class: 'actions-row' }, [
         h('button', { class: 'btn secondary small', onclick: () => viewDocument(row) }, 'View'),
         h('button', { class: 'btn secondary small', onclick: () => openEditDocumentSheet(row, () => render(container, ctx)) }, 'Edit'),
-        h('button', { class: 'btn danger-text small', onclick: async () => { await removeDocument(row); render(container, ctx); } }, 'Delete'),
+        h('button', { class: 'btn danger-text small', onclick: async () => { if (!confirm('Delete this document? This can’t be undone.')) return; await removeDocument(row); render(container, ctx); } }, 'Delete'),
       ]),
     ]);
   }

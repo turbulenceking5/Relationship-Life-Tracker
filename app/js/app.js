@@ -5,6 +5,7 @@ import { renderHouseholdScreen, getMyHousehold, renderInviteInfo, getHouseholdMe
 import { isStandalone, isPushSupported, getSubscriptionStatus, enablePush, disablePush } from './notifications.js';
 import { getTheme, setTheme } from './theme.js';
 import { getUnseenEntries, markChangelogSeen } from './changelog.js';
+import { shouldShowOnboarding, markOnboardingSeen } from './onboarding.js';
 import { formatDate } from './format.js';
 import {
   isConfigured as isDriveConfigured,
@@ -54,7 +55,36 @@ async function afterAuth(user) {
 
   ctx = { user, household };
   renderMainApp();
-  showChangelogIfUnseen();
+  showOnboardingIfNeeded(showChangelogIfUnseen);
+}
+
+// Shown once ever per browser, before the changelog dialog (chained via
+// its close handler so only one dialog is ever open at a time) — a brief
+// orientation for someone who's just created or joined a household and
+// has no idea what the five tabs are or where the invite code lives.
+function showOnboardingIfNeeded(onDone) {
+  if (!shouldShowOnboarding()) {
+    onDone();
+    return;
+  }
+
+  const { dialog, body } = makeSheet('Welcome');
+  mount(body, [
+    h('p', {}, `Everything you add here is shared with your partner once they've joined "${ctx.household.name}" — one source of truth instead of split notes and group chats.`),
+    h('div', { class: 'section-title' }, 'Where things live'),
+    h('ul', { class: 'recipe-list' }, [
+      h('li', {}, [h('strong', {}, 'Home'), ' — what needs attention today: due bills, upcoming events and goals.']),
+      h('li', {}, [h('strong', {}, 'Events'), ' — birthdays, anniversaries, appointments.']),
+      h('li', {}, [h('strong', {}, 'Money'), ' — expenses, BrackenRidge rent/mortgage, groceries, recipes, and your private to-dos.']),
+      h('li', {}, [h('strong', {}, 'Goals'), ' — savings/spending trackers with their own tasks and documents.']),
+      h('li', {}, [h('strong', {}, 'Docs'), ' — warranties, contracts and receipts.']),
+    ]),
+    h('p', { class: 'meta' }, 'Invite your partner any time from ⚙️ Account & household — your invite code is there.'),
+    h('button', { class: 'btn primary', onclick: () => closeSheet(dialog) }, 'Got it'),
+  ]);
+  document.body.appendChild(dialog);
+  dialog.addEventListener('close', () => { markOnboardingSeen(); dialog.remove(); onDone(); });
+  openSheet(dialog);
 }
 
 // Runs once per app load (from afterAuth, not from every tab switch or
@@ -113,7 +143,7 @@ async function renderMainApp() {
   try {
     if (tab.key === 'home') {
       await mod.render(main, ctx, async (key) => {
-        if (key === 'expenses' || key === 'rent') {
+        if (key === 'expenses' || key === 'rent' || key === 'groceries' || key === 'todos') {
           const moneyMod = await import('./money.js');
           moneyMod.setActiveSub(key);
           currentTab = 'money';

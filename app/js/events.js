@@ -88,7 +88,7 @@ export async function render(container, ctx) {
       ]),
       h('div', { class: 'actions-row' }, [
         h('button', { class: 'btn secondary small', onclick: () => openEditSheet(row, container, ctx) }, 'Edit'),
-        h('button', { class: 'btn danger-text small', onclick: async () => { await deleteRow(TABLE, row.id); render(container, ctx); } }, 'Delete'),
+        h('button', { class: 'btn danger-text small', onclick: async () => { if (!confirm('Delete this event?')) return; await deleteRow(TABLE, row.id); render(container, ctx); } }, 'Delete'),
       ]),
     ]);
   }
