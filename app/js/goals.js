@@ -1,4 +1,4 @@
-import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
+import { h, mount, openSheet, closeSheet, makeSheet, withBusyLabel } from './dom.js';
 import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
 import { formatDate, formatMoney, daysUntil, todayStr } from './format.js';
 import { viewDocument, removeDocument, openEditDocumentSheet, openUploadDocumentSheet } from './documents.js';
@@ -28,10 +28,12 @@ export async function render(container, ctx) {
   const titleInput = h('input', { type: 'text', required: true, placeholder: 'e.g. Holiday fund' });
   const targetInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0', placeholder: '0.00 (optional)' });
   const dateInput = h('input', { type: 'date' });
+  const addGoalSubmitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save');
   const addGoalForm = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       addErrorEl.style.display = 'none';
+      const restore = withBusyLabel(addGoalSubmitBtn, 'Saving…');
       try {
         await insertRow(GOALS_TABLE, {
           household_id: ctx.household.id,
@@ -46,6 +48,7 @@ export async function render(container, ctx) {
       } catch (err) {
         addErrorEl.textContent = err.message;
         addErrorEl.style.display = 'block';
+        restore();
       }
     },
   }, [
@@ -55,7 +58,7 @@ export async function render(container, ctx) {
       h('div', { class: 'field' }, [h('label', {}, 'Target date (optional)'), dateInput]),
     ]),
     addErrorEl,
-    h('button', { class: 'btn primary', type: 'submit' }, 'Save'),
+    addGoalSubmitBtn,
   ]);
   mount(addGoalBody, addGoalForm);
 
@@ -129,10 +132,12 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
     const editTitleInput = h('input', { type: 'text', required: true, value: goal.title });
     const editDateInput = h('input', { type: 'date', value: goal.target_date || '' });
     const editTargetInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0', placeholder: '0.00', value: target !== null ? target : '' });
+    const submitBtn = h('button', { class: 'btn primary small', type: 'submit' }, 'Save');
     const form = h('form', {
       onsubmit: async (e) => {
         e.preventDefault();
         errorEl.style.display = 'none';
+        const restore = withBusyLabel(submitBtn, 'Saving…');
         try {
           await updateRow(GOALS_TABLE, goal.id, {
             title: editTitleInput.value.trim(),
@@ -147,6 +152,7 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
         } catch (err) {
           errorEl.textContent = err.message;
           errorEl.style.display = 'block';
+          restore();
         }
       },
     }, [
@@ -157,7 +163,7 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
       ]),
       errorEl,
       h('div', { class: 'actions-row' }, [
-        h('button', { class: 'btn primary small', type: 'submit' }, 'Save'),
+        submitBtn,
         h('button', { class: 'btn secondary small', type: 'button', onclick: () => renderGoalBody(section, ctx, goal, members, false, onDeleted) }, 'Cancel'),
       ]),
       h('button', {
@@ -187,10 +193,12 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
     const editAmountInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0', required: true, value: t.amount });
     const editDateInput = h('input', { type: 'date', required: true, value: t.transaction_date });
     const editNotesInput = h('textarea', { rows: '2', placeholder: 'Optional notes' }, t.notes || '');
+    const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save changes');
     const editForm = h('form', {
       onsubmit: async (e) => {
         e.preventDefault();
         errorEl.style.display = 'none';
+        const restore = withBusyLabel(submitBtn, 'Saving…');
         try {
           await updateRow(TXN_TABLE, t.id, {
             type: editTypeSelect.value,
@@ -204,6 +212,7 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
         } catch (err) {
           errorEl.textContent = err.message;
           errorEl.style.display = 'block';
+          restore();
         }
       },
     }, [
@@ -215,7 +224,7 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
       ]),
       h('div', { class: 'field' }, [h('label', {}, 'Notes'), editNotesInput]),
       errorEl,
-      h('button', { class: 'btn primary', type: 'submit' }, 'Save changes'),
+      submitBtn,
     ]);
     mount(editBody, editForm);
     openSheet(editDialog);
@@ -231,10 +240,12 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
   const amountInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0', required: true, placeholder: '0.00' });
   const txnDateInput = h('input', { type: 'date', required: true, value: todayStr() });
   const notesInput = h('textarea', { rows: '2', placeholder: 'Optional notes' });
+  const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save');
   const form = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       errorEl.style.display = 'none';
+      const restore = withBusyLabel(submitBtn, 'Saving…');
       try {
         await insertRow(TXN_TABLE, {
           goal_id: goal.id,
@@ -251,6 +262,7 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
+        restore();
       }
     },
   }, [
@@ -262,7 +274,7 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
     ]),
     h('div', { class: 'field' }, [h('label', {}, 'Notes'), notesInput]),
     errorEl,
-    h('button', { class: 'btn primary', type: 'submit' }, 'Save'),
+    submitBtn,
   ]);
   mount(body, form);
 
@@ -288,10 +300,12 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
   const { dialog: taskDialog, body: taskBody } = makeSheet(`Add task — ${goal.title}`);
   const taskErrorEl = h('div', { class: 'error-msg', style: 'display:none' });
   const taskTitleInput = h('input', { type: 'text', required: true, placeholder: 'e.g. Book venue' });
+  const taskSubmitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save');
   const taskForm = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       taskErrorEl.style.display = 'none';
+      const restore = withBusyLabel(taskSubmitBtn, 'Saving…');
       try {
         await insertRow(TASKS_TABLE, {
           goal_id: goal.id,
@@ -304,12 +318,13 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
       } catch (err) {
         taskErrorEl.textContent = err.message;
         taskErrorEl.style.display = 'block';
+        restore();
       }
     },
   }, [
     h('div', { class: 'field' }, [h('label', {}, 'Task'), taskTitleInput]),
     taskErrorEl,
-    h('button', { class: 'btn primary', type: 'submit' }, 'Save'),
+    taskSubmitBtn,
   ]);
   mount(taskBody, taskForm);
 

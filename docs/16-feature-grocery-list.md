@@ -17,8 +17,15 @@ tab — same tab-bar-crowding reasoning).
 - **Clear bought items** (shown only once something's checked off) bulk-
   deletes everything in "In cart" — the normal way to reset the list
   after a shop, rather than deleting items one at a time.
-- No edit flow — same reasoning as `goal_tasks`: fixing a typo on a
-  one-line item is a delete-and-re-add, not worth a whole edit sheet.
+- Edit an item (title, quantity, category) via the same sheet pattern
+  every other list uses. This list used to be the one exception — "no
+  edit flow, delete-and-re-add" — but that meant fixing a typo also threw
+  away the auto-guessed category, which wasn't worth the "keep it light"
+  tradeoff once weighed against every other list already having one.
+- A search box (shown once there's at least one item) filters by title or
+  quantity, matching the Expenses/Documents/Recipes pattern.
+- Each item shows who added it (`created_by`) when a household has more
+  than one member's items mixed in.
 
 ## Categories (shipped)
 Each item gets a category from a fixed list in `GROCERY_CATEGORIES`
@@ -41,6 +48,16 @@ category, with the dropdown sitting right there to pick the right one by
 hand — auto-categorizing is a convenience on top of manual picking, not a
 replacement for it. Picking a category manually stops the guess from
 overwriting it on further typing, so a deliberate choice always sticks.
+
+## Importing from a recipe (shipped)
+A recipe's "+ Add ingredients to Grocery List" button (see
+[`17-feature-recipes.md`](17-feature-recipes.md)) inserts every
+ingredient line as its own grocery item, run through `guessCategory()`
+(exported from this module) exactly as if it had been typed into the add
+form — so "500g beef mince" lands under Meat automatically. Each line
+goes in as the item's whole title (quantity and all) rather than trying
+to split it into a separate quantity field, since a recipe line is
+already written the way you'd want it to read on the shopping list.
 
 ## Data
 See `grocery_items` table in [`02-data-model.md`](02-data-model.md).

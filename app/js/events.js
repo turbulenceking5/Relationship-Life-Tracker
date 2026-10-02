@@ -1,6 +1,7 @@
-import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
+import { h, mount, openSheet, closeSheet, makeSheet, withBusyLabel } from './dom.js';
 import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
 import { formatDate, todayStr, currentOccurrence } from './format.js';
+import { getHouseholdMembers } from './household.js';
 
 const TABLE = 'events';
 const CATEGORIES = ['birthday', 'anniversary', 'appointment', 'other'];
@@ -27,11 +28,13 @@ function openEditSheet(row, container, ctx) {
   }, o.label)));
   const categorySelect = h('select', {}, CATEGORIES.map((c) => h('option', { value: c, selected: c === row.category }, c)));
   const descInput = h('textarea', { rows: '2', placeholder: 'Optional notes' }, row.description || '');
+  const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save changes');
 
   const form = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       errorEl.style.display = 'none';
+      const restore = withBusyLabel(submitBtn, 'Saving…');
       try {
         await updateRow(TABLE, row.id, {
           title: titleInput.value.trim(),
@@ -46,6 +49,7 @@ function openEditSheet(row, container, ctx) {
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
+        restore();
       }
     },
   }, [
@@ -57,7 +61,7 @@ function openEditSheet(row, container, ctx) {
     h('div', { class: 'field' }, [h('label', {}, 'Repeats'), repeatSelect]),
     h('div', { class: 'field' }, [h('label', {}, 'Description'), descInput]),
     errorEl,
-    h('button', { class: 'btn primary', type: 'submit' }, 'Save changes'),
+    submitBtn,
   ]);
   mount(body, form);
   openSheet(dialog);
@@ -72,7 +76,11 @@ function isEventDone(row, today) {
 }
 
 export async function render(container, ctx) {
-  const rows = await fetchRows(TABLE, ctx.household.id, 'event_date', true);
+  const [rows, members] = await Promise.all([
+    fetchRows(TABLE, ctx.household.id, 'event_date', true),
+    getHouseholdMembers(ctx.household.id),
+  ]);
+  const memberName = (id) => members.find((m) => m.user_id === id)?.display_name;
   const today = todayStr();
   // currentOccurrence never rolls a recurring event forward into its next
   // cycle, so one whose occurrence has already passed this cycle lands in
@@ -86,6 +94,7 @@ export async function render(container, ctx) {
     const dateLabel = row.recurring
       ? `${isDone ? '' : 'Next: '}${formatDate(row._occurrence)} · repeats ${row.recurring_interval}`
       : formatDate(row.event_date);
+    const addedBy = memberName(row.created_by);
     // Once the occurrence's date has actually passed, "undo" has nothing
     // to revert to — it'd just land back in Done next render anyway (the
     // date comparison in isEventDone() still holds). Only a manually
@@ -101,7 +110,7 @@ export async function render(container, ctx) {
       h('div', { class: 'card-row' }, [
         h('div', {}, [
           h('h3', { style: isDone ? 'text-decoration:line-through;color:var(--text-muted)' : '' }, row.title),
-          h('div', { class: 'meta' }, `${dateLabel}${row.category ? ' · ' + row.category : ''}`),
+          h('div', { class: 'meta' }, `${dateLabel}${row.category ? ' · ' + row.category : ''}${addedBy ? ' · added by ' + addedBy : ''}`),
           row.description ? h('div', { class: 'meta', style: 'margin-top:4px' }, row.description) : null,
         ]),
       ]),
@@ -125,11 +134,13 @@ export async function render(container, ctx) {
     onchange: () => { repeatSelect.value = DEFAULT_RECURRING_CATEGORIES.includes(categorySelect.value) ? 'yearly' : 'never'; },
   }, CATEGORIES.map((c) => h('option', { value: c }, c)));
   const descInput = h('textarea', { rows: '2', placeholder: 'Optional notes' });
+  const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save event');
 
   const form = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       errorEl.style.display = 'none';
+      const restore = withBusyLabel(submitBtn, 'Saving…');
       try {
         await insertRow(TABLE, {
           household_id: ctx.household.id,
@@ -146,6 +157,7 @@ export async function render(container, ctx) {
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
+        restore();
       }
     },
   }, [
@@ -157,7 +169,7 @@ export async function render(container, ctx) {
     h('div', { class: 'field' }, [h('label', {}, 'Repeats'), repeatSelect]),
     h('div', { class: 'field' }, [h('label', {}, 'Description'), descInput]),
     errorEl,
-    h('button', { class: 'btn primary', type: 'submit' }, 'Save event'),
+    submitBtn,
   ]);
   mount(body, form);
 

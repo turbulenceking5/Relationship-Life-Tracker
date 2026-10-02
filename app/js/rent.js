@@ -1,4 +1,4 @@
-import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
+import { h, mount, openSheet, closeSheet, makeSheet, withBusyLabel } from './dom.js';
 import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
 import { formatDate, formatMoney, dueStatus, todayStr } from './format.js';
 
@@ -40,16 +40,18 @@ async function renderPaymentSection(currentEl, historyEl, ctx, config) {
     const labelInput = h('input', { type: 'text', value: row.property_label || '' });
     const dueDateInput = h('input', { type: 'date', required: true, value: row.due_date });
     const amountInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0', required: true, value: row.amount });
-    const customIntervalInput = h('input', { type: 'number', min: '1', placeholder: 'Days', value: row.interval_days, style: isPreset ? 'display:none' : 'display:block' });
+    const customIntervalInput = h('input', { type: 'number', inputmode: 'numeric', min: '1', placeholder: 'Days', value: row.interval_days, style: isPreset ? 'display:none' : 'display:block' });
     const intervalSelect = h('select', {
       onchange: () => { customIntervalInput.style.display = intervalSelect.value === 'custom' ? 'block' : 'none'; },
     }, INTERVAL_PRESETS.map((p) => h('option', { value: p.days === null ? 'custom' : String(p.days), selected: isPreset ? p.days === row.interval_days : p.days === null }, p.label)));
+    const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save changes');
 
     const form = h('form', {
       onsubmit: async (e) => {
         e.preventDefault();
         errorEl.style.display = 'none';
         const intervalDays = intervalSelect.value === 'custom' ? parseInt(customIntervalInput.value, 10) : parseInt(intervalSelect.value, 10);
+        const restore = withBusyLabel(submitBtn, 'Saving…');
         try {
           await updateRow(table, row.id, {
             property_label: labelInput.value.trim() || null,
@@ -62,6 +64,7 @@ async function renderPaymentSection(currentEl, historyEl, ctx, config) {
         } catch (err) {
           errorEl.textContent = err.message;
           errorEl.style.display = 'block';
+          restore();
         }
       },
     }, [
@@ -72,7 +75,7 @@ async function renderPaymentSection(currentEl, historyEl, ctx, config) {
       ]),
       h('div', { class: 'field' }, [h('label', {}, 'How often?'), intervalSelect, customIntervalInput]),
       errorEl,
-      h('button', { class: 'btn primary', type: 'submit' }, 'Save changes'),
+      submitBtn,
     ]);
     mount(body, form);
     openSheet(dialog);
@@ -125,15 +128,17 @@ async function renderPaymentSection(currentEl, historyEl, ctx, config) {
   const labelInput = h('input', { type: 'text', placeholder: 'e.g. BrackenRidge' });
   const dueDateInput = h('input', { type: 'date', required: true, value: todayStr() });
   const amountInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0', required: true, placeholder: '0.00' });
-  const customIntervalInput = h('input', { type: 'number', min: '1', placeholder: 'Days', style: 'display:none' });
+  const customIntervalInput = h('input', { type: 'number', inputmode: 'numeric', min: '1', placeholder: 'Days', style: 'display:none' });
   const intervalSelect = h('select', {
     onchange: () => { customIntervalInput.style.display = intervalSelect.value === 'custom' ? 'block' : 'none'; },
   }, INTERVAL_PRESETS.map((p) => h('option', { value: p.days === null ? 'custom' : String(p.days), selected: p.days === defaultIntervalDays }, p.label)));
+  const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save');
   const form = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       errorEl.style.display = 'none';
       const intervalDays = intervalSelect.value === 'custom' ? parseInt(customIntervalInput.value, 10) : parseInt(intervalSelect.value, 10);
+      const restore = withBusyLabel(submitBtn, 'Saving…');
       try {
         await insertRow(table, {
           household_id: ctx.household.id,
@@ -149,6 +154,7 @@ async function renderPaymentSection(currentEl, historyEl, ctx, config) {
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
+        restore();
       }
     },
   }, [
@@ -159,7 +165,7 @@ async function renderPaymentSection(currentEl, historyEl, ctx, config) {
     ]),
     h('div', { class: 'field' }, [h('label', {}, 'How often?'), intervalSelect, customIntervalInput]),
     errorEl,
-    h('button', { class: 'btn primary', type: 'submit' }, 'Save'),
+    submitBtn,
   ]);
   mount(body, form);
 

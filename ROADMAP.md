@@ -241,6 +241,23 @@ schema.
       "Welcome" dialog (`app/js/onboarding.js`) explains the five tabs and
       where the invite code lives, shown once per browser before the
       "What's new" dialog on first load.
+- [x] **UX audit fixes batch**: grocery items can now be edited (title,
+      quantity, category) instead of delete-and-re-add, and gained a
+      search box; a recipe's ingredients can be pushed straight onto the
+      Grocery List with one tap, auto-categorized; a repeating personal
+      to-do marked done by hand now correctly advances to its next
+      occurrence instead of stopping permanently (it used to behave
+      differently from the same reminder firing via push); every form's
+      submit button now disables with a "Saving…" state during its
+      request; expense/grocery/event cards show who added them
+      (`created_by`) when that differs from who it's otherwise
+      attributed to — directly the "show who added/paid for things"
+      suggestion above; and `.actions-row` tap targets got bigger, with
+      extra spacing before Delete specifically. See
+      [`docs/16-feature-grocery-list.md`](docs/16-feature-grocery-list.md),
+      [`docs/17-feature-recipes.md`](docs/17-feature-recipes.md),
+      [`docs/20-feature-personal-todos.md`](docs/20-feature-personal-todos.md),
+      and [`docs/14-ui-patterns.md`](docs/14-ui-patterns.md).
 
 ## Phase 2 — Reminders that actually reach you
 

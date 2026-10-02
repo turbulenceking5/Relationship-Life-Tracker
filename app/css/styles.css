@@ -497,13 +497,22 @@ dialog::backdrop { background: rgba(0,0,0,0.45); }
 .btn.secondary { background: var(--surface-2); color: var(--text); width: 100%; }
 .btn.text { background: none; color: var(--accent); padding: 6px 4px; }
 .btn.danger-text { background: none; color: var(--danger); padding: 6px 4px; }
-.btn.small { padding: 6px 12px; font-size: 0.8rem; width: auto; }
+/* 10px vertical padding + 0.85rem line-height lands close to the ~44px
+   tap-target guideline without visually bloating a row of three actions
+   on one card — a flat 44px min-height here would make every card's
+   action row noticeably taller than its content warrants. */
+.btn.small { padding: 10px 14px; font-size: 0.85rem; width: auto; }
 
 .actions-row {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   margin-top: 10px;
 }
+
+/* A little extra breathing room before a destructive action specifically
+   — Edit/Delete sitting edge-to-edge at this size was the easiest of the
+   three actions to mis-tap. */
+.actions-row .btn.danger-text { margin-left: 4px; }
 
 .auth-screen, .household-screen {
   max-width: 420px;

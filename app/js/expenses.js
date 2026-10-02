@@ -1,4 +1,4 @@
-import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
+import { h, mount, openSheet, closeSheet, makeSheet, withBusyLabel } from './dom.js';
 import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
 import { formatDate, formatMoney, todayStr } from './format.js';
 import { getHouseholdMembers } from './household.js';
@@ -101,8 +101,8 @@ function buildSplitField(members, initial) {
     ? a.split_percent
     : (initial.split_percent_user_id === a.user_id ? Number(initial.split_percent) : 100 - Number(initial.split_percent));
 
-  const percentA = h('input', { type: 'number', min: '0', max: '100', step: '1', value: initialPercentA });
-  const percentB = h('input', { type: 'number', min: '0', max: '100', step: '1', value: Math.round((100 - initialPercentA) * 100) / 100, disabled: true });
+  const percentA = h('input', { type: 'number', inputmode: 'decimal', min: '0', max: '100', step: '1', value: initialPercentA });
+  const percentB = h('input', { type: 'number', inputmode: 'decimal', min: '0', max: '100', step: '1', value: Math.round((100 - initialPercentA) * 100) / 100, disabled: true });
   percentA.addEventListener('input', () => {
     const val = Math.max(0, Math.min(100, parseFloat(percentA.value) || 0));
     percentB.value = Math.round((100 - val) * 100) / 100;
@@ -138,11 +138,13 @@ function openSettleUpSheet(balance, members, container, ctx) {
   const amountInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0.01', required: true, value: balance.amount });
   const dateInput = h('input', { type: 'date', required: true, value: todayStr() });
   const notesInput = h('textarea', { rows: '2', placeholder: 'Optional notes' });
+  const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Record payment');
 
   const form = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       errorEl.style.display = 'none';
+      const restore = withBusyLabel(submitBtn, 'Saving…');
       try {
         await insertRow(SETTLEMENTS_TABLE, {
           household_id: ctx.household.id,
@@ -159,6 +161,7 @@ function openSettleUpSheet(balance, members, container, ctx) {
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
+        restore();
       }
     },
   }, [
@@ -169,7 +172,7 @@ function openSettleUpSheet(balance, members, container, ctx) {
     ]),
     h('div', { class: 'field' }, [h('label', {}, 'Notes'), notesInput]),
     errorEl,
-    h('button', { class: 'btn primary', type: 'submit' }, 'Record payment'),
+    submitBtn,
   ]);
   mount(body, form);
   openSheet(dialog);
@@ -189,11 +192,13 @@ function openEditSheet(row, members, container, ctx) {
   const dateInput = h('input', { type: 'date', required: true, value: row.expense_date });
   const notesInput = h('textarea', { rows: '2', placeholder: 'Optional notes' }, row.notes || '');
   const split = buildSplitField(members, row);
+  const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save changes');
 
   const form = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       errorEl.style.display = 'none';
+      const restore = withBusyLabel(submitBtn, 'Saving…');
       try {
         await updateRow(TABLE, row.id, {
           title: titleInput.value.trim(),
@@ -210,6 +215,7 @@ function openEditSheet(row, members, container, ctx) {
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
+        restore();
       }
     },
   }, [
@@ -226,7 +232,7 @@ function openEditSheet(row, members, container, ctx) {
     split ? split.field : null,
     h('div', { class: 'field' }, [h('label', {}, 'Notes'), notesInput]),
     errorEl,
-    h('button', { class: 'btn primary', type: 'submit' }, 'Save changes'),
+    submitBtn,
   ]);
   mount(body, form);
   openSheet(dialog);
@@ -245,17 +251,19 @@ function openEditRecurringSheet(row, members, container, ctx) {
   const categorySelect = h('select', {}, CATEGORIES.map((c) => h('option', { value: c, selected: c === row.category }, c)));
   const paidBySelect = h('select', {}, members.map((m) => h('option', { value: m.user_id, selected: m.user_id === row.paid_by }, m.display_name)));
   const nextDueInput = h('input', { type: 'date', required: true, value: row.next_due_date });
-  const customIntervalInput = h('input', { type: 'number', min: '1', placeholder: 'Days', value: row.interval_days, style: isPreset ? 'display:none' : 'display:block' });
+  const customIntervalInput = h('input', { type: 'number', inputmode: 'numeric', min: '1', placeholder: 'Days', value: row.interval_days, style: isPreset ? 'display:none' : 'display:block' });
   const intervalSelect = h('select', {
     onchange: () => { customIntervalInput.style.display = intervalSelect.value === 'custom' ? 'block' : 'none'; },
   }, RECURRING_INTERVAL_PRESETS.map((p) => h('option', { value: p.days === null ? 'custom' : String(p.days), selected: isPreset ? p.days === row.interval_days : p.days === null }, p.label)));
   const notesInput = h('textarea', { rows: '2', placeholder: 'Optional notes' }, row.notes || '');
+  const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save changes');
 
   const form = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       errorEl.style.display = 'none';
       const intervalDays = intervalSelect.value === 'custom' ? parseInt(customIntervalInput.value, 10) : parseInt(intervalSelect.value, 10);
+      const restore = withBusyLabel(submitBtn, 'Saving…');
       try {
         await updateRow(RECURRING_TABLE, row.id, {
           title: titleInput.value.trim(),
@@ -272,6 +280,7 @@ function openEditRecurringSheet(row, members, container, ctx) {
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
+        restore();
       }
     },
   }, [
@@ -288,7 +297,7 @@ function openEditRecurringSheet(row, members, container, ctx) {
     h('div', { class: 'field' }, [h('label', {}, 'How often?'), intervalSelect, customIntervalInput]),
     h('div', { class: 'field' }, [h('label', {}, 'Notes'), notesInput]),
     errorEl,
-    h('button', { class: 'btn primary', type: 'submit' }, 'Save changes'),
+    submitBtn,
   ]);
   mount(body, form);
   openSheet(dialog);
@@ -343,11 +352,16 @@ export async function render(container, ctx) {
           const pctA = row.split_percent_user_id === a.user_id ? Number(row.split_percent) : 100 - Number(row.split_percent);
           return ` · split ${a.display_name} ${Math.round(pctA)}/${b.display_name} ${Math.round(100 - pctA)}`;
         })();
+    // Only shown when it differs from "paid by" — usually the same
+    // person, so repeating it ("paid by Alex · added by Alex") would just
+    // be noise; it's informative only for the case someone logs an
+    // expense their partner actually paid for.
+    const addedByNote = row.created_by && row.created_by !== row.paid_by ? ` · added by ${memberName(row.created_by)}` : '';
     return h('div', { class: 'card' }, [
       h('div', { class: 'card-row' }, [
         h('div', {}, [
           h('h3', {}, row.title),
-          h('div', { class: 'meta' }, `${formatDate(row.expense_date)} · ${row.category || 'uncategorized'} · paid by ${memberName(row.paid_by)}${splitNote}`),
+          h('div', { class: 'meta' }, `${formatDate(row.expense_date)} · ${row.category || 'uncategorized'} · paid by ${memberName(row.paid_by)}${splitNote}${addedByNote}`),
         ]),
         h('div', { style: 'text-align:right' }, [
           h('div', { class: 'amount' }, formatMoney(row.amount, row.currency)),
@@ -391,17 +405,19 @@ export async function render(container, ctx) {
   const recurringCategorySelect = h('select', {}, CATEGORIES.map((c) => h('option', { value: c }, c)));
   const recurringPaidBySelect = h('select', {}, members.map((m) => h('option', { value: m.user_id, selected: m.user_id === ctx.user.id }, m.display_name)));
   const recurringNextDueInput = h('input', { type: 'date', required: true, value: todayStr() });
-  const recurringCustomIntervalInput = h('input', { type: 'number', min: '1', placeholder: 'Days', style: 'display:none' });
+  const recurringCustomIntervalInput = h('input', { type: 'number', inputmode: 'numeric', min: '1', placeholder: 'Days', style: 'display:none' });
   const recurringIntervalSelect = h('select', {
     onchange: () => { recurringCustomIntervalInput.style.display = recurringIntervalSelect.value === 'custom' ? 'block' : 'none'; },
   }, RECURRING_INTERVAL_PRESETS.map((p) => h('option', { value: p.days === null ? 'custom' : String(p.days), selected: p.days === 30 }, p.label)));
   const recurringNotesInput = h('textarea', { rows: '2', placeholder: 'Optional notes' });
+  const recurringSubmitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save');
 
   const recurringForm = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       recurringErrorEl.style.display = 'none';
       const intervalDays = recurringIntervalSelect.value === 'custom' ? parseInt(recurringCustomIntervalInput.value, 10) : parseInt(recurringIntervalSelect.value, 10);
+      const restore = withBusyLabel(recurringSubmitBtn, 'Saving…');
       try {
         await insertRow(RECURRING_TABLE, {
           household_id: ctx.household.id,
@@ -420,6 +436,7 @@ export async function render(container, ctx) {
       } catch (err) {
         recurringErrorEl.textContent = err.message;
         recurringErrorEl.style.display = 'block';
+        restore();
       }
     },
   }, [
@@ -436,7 +453,7 @@ export async function render(container, ctx) {
     h('div', { class: 'field' }, [h('label', {}, 'How often?'), recurringIntervalSelect, recurringCustomIntervalInput]),
     h('div', { class: 'field' }, [h('label', {}, 'Notes'), recurringNotesInput]),
     recurringErrorEl,
-    h('button', { class: 'btn primary', type: 'submit' }, 'Save'),
+    recurringSubmitBtn,
   ]);
   mount(recurringBody, recurringForm);
 
@@ -460,11 +477,13 @@ export async function render(container, ctx) {
   const dateInput = h('input', { type: 'date', required: true, value: todayStr() });
   const notesInput = h('textarea', { rows: '2', placeholder: 'Optional notes' });
   const addSplit = buildSplitField(members, null);
+  const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save expense');
 
   const form = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       errorEl.style.display = 'none';
+      const restore = withBusyLabel(submitBtn, 'Saving…');
       try {
         await insertRow(TABLE, {
           household_id: ctx.household.id,
@@ -484,6 +503,7 @@ export async function render(container, ctx) {
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
+        restore();
       }
     },
   }, [
@@ -500,7 +520,7 @@ export async function render(container, ctx) {
     addSplit ? addSplit.field : null,
     h('div', { class: 'field' }, [h('label', {}, 'Notes'), notesInput]),
     errorEl,
-    h('button', { class: 'btn primary', type: 'submit' }, 'Save expense'),
+    submitBtn,
   ]);
   mount(body, form);
 

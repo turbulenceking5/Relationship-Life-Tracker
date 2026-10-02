@@ -8,6 +8,49 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-02 — Grocery edit flow, recipe import, submit-disable, added-by labels
+
+A batch of UX-audit fixes, implemented together:
+
+- **Grocery item edit flow**: `grocery.js` gained an edit sheet (title,
+  quantity, category) — previously the only list without one, meaning a
+  typo meant delete-and-re-add (and losing the auto-guessed category).
+  Also added a search box, matching Expenses/Documents/Recipes.
+- **Recipe → Grocery List import**: a new "+ Add ingredients to Grocery
+  List" button on each recipe inserts every ingredient line as a grocery
+  item, run through the existing `guessCategory()` keyword-matcher so
+  "500g beef mince" lands under Meat automatically. See
+  [`docs/17-feature-recipes.md`](docs/17-feature-recipes.md) and
+  [`docs/16-feature-grocery-list.md`](docs/16-feature-grocery-list.md).
+- **Fixed personal to-do "Mark done" on a repeating reminder**: it was
+  calling `{ is_done: true }` unconditionally, permanently stopping a
+  daily/weekly/monthly reminder — the advance-to-next-occurrence logic
+  only existed server-side in `notify-due-items`, so a reminder ticked
+  off by hand behaved differently from one the push notification fired.
+  `personal-todos.js` now mirrors that logic client-side
+  (`nextOccurrencePatch()`); the button reads "Done for now" instead of
+  "Mark done" for a repeating reminder, to signal the difference. See
+  [`docs/20-feature-personal-todos.md`](docs/20-feature-personal-todos.md).
+- **Submit-disable on every form**: added the disable-button-during-submit
+  pattern (`withBusyLabel()`, new in `dom.js`) to every form that was
+  missing it — events, expenses (all 5 forms), goals (all 5 forms),
+  rent/mortgage (both), grocery, recipes, personal-todos — matching what
+  `documents.js`/`household.js` already did. Prevents a double-tap on a
+  slow connection from double-inserting a row.
+- **"Added by" attribution**: expense, grocery, and event cards now show
+  who added the row (`created_by`) when that differs from who it's
+  otherwise attributed to (`paid_by` for expenses) — previously only
+  Goals' contribution breakdown showed this, despite every table already
+  capturing it.
+- **Bigger tap targets**: `.btn.small` padding increased (6px/12px →
+  10px/14px) and `.actions-row` gap widened, with extra spacing before a
+  destructive action specifically — the Edit/Mark-done/Delete row on
+  every card was under the ~44px touch-target guideline and easy to
+  mis-tap, especially near Delete.
+- **Numeric keypad fixes**: the per-expense split-percent inputs and the
+  custom recurrence "Days" inputs never got `inputmode` set, so editing
+  either still popped the full iOS keyboard instead of a numeric one.
+
 ## 2026-10-02 — Personal to-do reminders now fire at their own set time
 
 - `notify-due-items` used to run once a day, at a fixed 08:00 Australia/

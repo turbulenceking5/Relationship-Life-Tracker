@@ -14,7 +14,9 @@ user.
   repeats (doesn't repeat / daily / weekly / monthly).
 - Edit a reminder (all fields).
 - Mark a reminder done/active again, without deleting it (so a completed
-  one-off reminder stays visible in Done rather than disappearing).
+  one-off reminder stays visible in Done rather than disappearing). For a
+  repeating reminder this instead advances it to its next occurrence and
+  keeps it active — see "Marking done by hand" below.
 - Delete a reminder.
 - Surfaced as a "My To-dos" segment in the Money tab's sub-nav — see
   "Why it lives in the Money tab" below.
@@ -69,13 +71,32 @@ often — see `DAILY_CHECK_TIME`/`pastDailyCheck` in
 `supabase/functions/notify-due-items/index.ts` for how that's gated,
 since only `personal_todos` has a time-of-day of its own to honor.
 
+## Marking done by hand (fixed)
+The "Mark done" button used to call `updateRow(TABLE, row.id, { is_done:
+true })` unconditionally — for a repeating reminder that permanently
+stopped it, while letting the push notification fire it instead
+correctly advanced `remind_date` and kept it active (see "Push
+notifications" above). Same button, two different outcomes depending on
+who/what triggered it.
+
+`personal-todos.js` now mirrors `notify-due-items`' own
+`nextOccurrencePatch()` logic client-side: ticking off a repeating
+reminder advances `remind_date` (daily +1 day, weekly +7 days, monthly to
+next month clamped to its last day) and leaves it in Active, exactly as
+if the push notification had fired it. Only a non-repeating
+(`repeat_frequency === 'none'`) reminder actually becomes `is_done`. The
+button itself reads "Done for now" rather than "Mark done" when the
+reminder repeats, so the different (non-permanent) behavior is signaled
+rather than silently assumed.
+
 ## Data
 See `personal_todos` table in [`02-data-model.md`](02-data-model.md).
 
 ## UI notes
 - No due-status pill once a reminder is done — the strikethrough on its
   prompt already signals that.
-- The Active/Done split and "Mark done"/"Mark active" toggle mirror the
-  Grocery List's To buy/In cart pattern (`app/js/grocery.js`) — same
-  underlying shape (an `is_done` boolean list), just with a due date and
-  repeat cadence added on top.
+- The Active/Done split mirrors the Grocery List's To buy/In cart pattern
+  (`app/js/grocery.js`) — same underlying shape (an `is_done` boolean
+  list), just with a due date and repeat cadence added on top. Unlike
+  Grocery List, though, a repeating reminder never actually reaches
+  `is_done` by hand — see "Marking done by hand" above.

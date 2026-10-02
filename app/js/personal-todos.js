@@ -1,4 +1,4 @@
-import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
+import { h, mount, openSheet, closeSheet, makeSheet, withBusyLabel } from './dom.js';
 import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
 import { formatDate, todayStr, dueStatus } from './format.js';
 
@@ -9,6 +9,34 @@ const REPEAT_OPTIONS = [
   { value: 'weekly', label: 'Weekly' },
   { value: 'monthly', label: 'Monthly' },
 ];
+
+// Mirrors the advance-to-next-occurrence logic in
+// supabase/functions/notify-due-items/index.ts (addDaysUTC/
+// addOneMonthUTC there) — a repeating reminder ticked off by hand should
+// behave exactly like one the push notification fires: advance to its
+// next occurrence and stay active, not get permanently marked done. Only
+// a non-repeating ('none') reminder actually becomes done when checked.
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+function addOneMonth(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const ny = m === 12 ? y + 1 : y;
+  const nm = m === 12 ? 1 : m + 1;
+  const daysInMonth = new Date(ny, nm, 0).getDate();
+  return `${ny}-${String(nm).padStart(2, '0')}-${String(Math.min(d, daysInMonth)).padStart(2, '0')}`;
+}
+function nextOccurrencePatch(row) {
+  if (row.repeat_frequency === 'daily') return { remind_date: addDays(row.remind_date, 1) };
+  if (row.repeat_frequency === 'weekly') return { remind_date: addDays(row.remind_date, 7) };
+  if (row.repeat_frequency === 'monthly') return { remind_date: addOneMonth(row.remind_date) };
+  return { is_done: true };
+}
 
 // Formats a "HH:MM:SS" (or "HH:MM") time-of-day column value as a plain
 // 12-hour clock string, without pulling in a Date object (a bare time has
@@ -31,11 +59,13 @@ function openEditSheet(row, container, ctx) {
   const dateInput = h('input', { type: 'date', required: true, value: row.remind_date });
   const timeInput = h('input', { type: 'time', required: true, value: row.remind_time.slice(0, 5) });
   const repeatSelect = h('select', {}, REPEAT_OPTIONS.map((o) => h('option', { value: o.value, selected: o.value === row.repeat_frequency }, o.label)));
+  const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save changes');
 
   const form = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       errorEl.style.display = 'none';
+      const restore = withBusyLabel(submitBtn, 'Saving…');
       try {
         await updateRow(TABLE, row.id, {
           prompt: promptInput.value.trim(),
@@ -48,6 +78,7 @@ function openEditSheet(row, container, ctx) {
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
+        restore();
       }
     },
   }, [
@@ -58,7 +89,7 @@ function openEditSheet(row, container, ctx) {
     ]),
     h('div', { class: 'field' }, [h('label', {}, 'Repeats'), repeatSelect]),
     errorEl,
-    h('button', { class: 'btn primary', type: 'submit' }, 'Save changes'),
+    submitBtn,
   ]);
   mount(body, form);
   openSheet(dialog);
@@ -87,8 +118,16 @@ export async function render(container, ctx) {
       h('div', { class: 'actions-row' }, [
         h('button', {
           class: 'btn secondary small',
-          onclick: async () => { await updateRow(TABLE, row.id, { is_done: !row.is_done }); render(container, ctx); },
-        }, row.is_done ? 'Mark active' : 'Mark done'),
+          // Mirrors notify-due-items' own behavior exactly: a repeating
+          // reminder advances to its next occurrence and stays active
+          // instead of being permanently marked done (see
+          // nextOccurrencePatch() above) — only a non-repeating one
+          // actually becomes done, the same case "Mark active" undoes.
+          onclick: async () => {
+            await updateRow(TABLE, row.id, row.is_done ? { is_done: false } : nextOccurrencePatch(row));
+            render(container, ctx);
+          },
+        }, row.is_done ? 'Mark active' : (row.repeat_frequency === 'none' ? 'Mark done' : 'Done for now')),
         h('button', { class: 'btn secondary small', onclick: () => openEditSheet(row, container, ctx) }, 'Edit'),
         h('button', { class: 'btn danger-text small', onclick: async () => { if (!confirm('Delete this reminder?')) return; await deleteRow(TABLE, row.id); render(container, ctx); } }, 'Delete'),
       ]),
@@ -101,11 +140,13 @@ export async function render(container, ctx) {
   const dateInput = h('input', { type: 'date', required: true, value: todayStr() });
   const timeInput = h('input', { type: 'time', required: true, value: '09:00' });
   const repeatSelect = h('select', {}, REPEAT_OPTIONS.map((o) => h('option', { value: o.value }, o.label)));
+  const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save reminder');
 
   const form = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       errorEl.style.display = 'none';
+      const restore = withBusyLabel(submitBtn, 'Saving…');
       try {
         await insertRow(TABLE, {
           household_id: ctx.household.id,
@@ -120,6 +161,7 @@ export async function render(container, ctx) {
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
+        restore();
       }
     },
   }, [
@@ -130,7 +172,7 @@ export async function render(container, ctx) {
     ]),
     h('div', { class: 'field' }, [h('label', {}, 'Repeats'), repeatSelect]),
     errorEl,
-    h('button', { class: 'btn primary', type: 'submit' }, 'Save reminder'),
+    submitBtn,
   ]);
   mount(body, form);
 

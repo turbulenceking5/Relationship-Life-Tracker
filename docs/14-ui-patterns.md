@@ -70,6 +70,41 @@ multiple such modules rather than being one themselves.
   had it, Expenses/Events/Rent/Documents/Personal to-dos didn't — before
   being made consistent everywhere; keep new delete buttons on this side
   of that line.
+- `.actions-row` buttons use `.btn.small` (10px/14px padding, 0.85rem
+  font — close to the ~44px tap-target guideline without visually
+  bloating a row of three actions on one card) with a 10px gap, plus a
+  little extra `margin-left` before `.btn.danger-text` specifically —
+  Edit/Mark-done/Delete sitting edge-to-edge at a smaller size used to be
+  an easy mis-tap, Delete especially.
+
+## Submit buttons: always disable during the async request
+
+**Every form's submit button disables itself and swaps to a "Saving…"
+label for the duration of its `insertRow`/`updateRow` call**, via
+`withBusyLabel(button, label)` in `app/js/dom.js`:
+
+```js
+const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save');
+// ...
+onsubmit: async (e) => {
+  e.preventDefault();
+  const restore = withBusyLabel(submitBtn, 'Saving…');
+  try {
+    await insertRow(...);
+    closeSheet(dialog); // success — no need to call restore(), the sheet's gone
+  } catch (err) {
+    // show errorEl...
+    restore();
+  }
+},
+```
+
+This was inconsistent for a while too — `documents.js`'s upload form and
+`household.js`'s create/join forms had it, nothing else did — before
+being made consistent everywhere. Without it, a double-tap on a flaky
+connection fires the same insert/update twice before the first request
+even resolves. Keep new forms on this side of that line, same as the
+confirm-before-delete convention above.
 
 ## Collapsible sections: `<details class="goal-section">`
 

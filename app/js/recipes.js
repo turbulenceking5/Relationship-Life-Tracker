@@ -1,7 +1,9 @@
-import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
+import { h, mount, openSheet, closeSheet, makeSheet, withBusyLabel } from './dom.js';
 import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
+import { guessCategory } from './grocery.js';
 
 const TABLE = 'recipes';
+const GROCERY_TABLE = 'grocery_items';
 
 function parseLines(text) {
   return text.split('\n').map((s) => s.trim()).filter(Boolean);
@@ -13,10 +15,12 @@ function renderRecipeBody(section, ctx, recipe, editing, onChanged) {
     const editTitleInput = h('input', { type: 'text', required: true, value: recipe.title });
     const editIngredientsInput = h('textarea', { rows: '5' }, (recipe.ingredients || []).join('\n'));
     const editInstructionsInput = h('textarea', { rows: '5' }, (recipe.instructions || []).join('\n'));
+    const submitBtn = h('button', { class: 'btn primary small', type: 'submit' }, 'Save');
     const form = h('form', {
       onsubmit: async (e) => {
         e.preventDefault();
         errorEl.style.display = 'none';
+        const restore = withBusyLabel(submitBtn, 'Saving…');
         try {
           const patch = {
             title: editTitleInput.value.trim(),
@@ -33,6 +37,7 @@ function renderRecipeBody(section, ctx, recipe, editing, onChanged) {
         } catch (err) {
           errorEl.textContent = err.message;
           errorEl.style.display = 'block';
+          restore();
         }
       },
     }, [
@@ -41,7 +46,7 @@ function renderRecipeBody(section, ctx, recipe, editing, onChanged) {
       h('div', { class: 'field' }, [h('label', {}, 'Instructions (one step per line)'), editInstructionsInput]),
       errorEl,
       h('div', { class: 'actions-row' }, [
-        h('button', { class: 'btn primary small', type: 'submit' }, 'Save'),
+        submitBtn,
         h('button', { class: 'btn secondary small', type: 'button', onclick: () => renderRecipeBody(section, ctx, recipe, false, onChanged) }, 'Cancel'),
       ]),
       h('button', {
@@ -57,6 +62,32 @@ function renderRecipeBody(section, ctx, recipe, editing, onChanged) {
     return h('div', { class: 'card' }, form);
   }
 
+  // Pushes every ingredient line into the Grocery List's To Buy section,
+  // running each through the same guessCategory() keyword-matcher the
+  // Grocery List's own add form uses — so "500g beef mince" lands under
+  // Meat automatically, same as typing it there by hand. Whole lines go
+  // in as the item title (quantity and all) rather than trying to split
+  // "500g beef mince" into a separate quantity field — a recipe line is
+  // already exactly how you'd want it to read on the shopping list.
+  async function addIngredientsToGroceryList(button) {
+    const ingredients = recipe.ingredients || [];
+    if (!ingredients.length) return;
+    const restore = withBusyLabel(button, 'Adding…');
+    try {
+      await Promise.all(ingredients.map((line) => insertRow(GROCERY_TABLE, {
+        household_id: ctx.household.id,
+        title: line,
+        category: guessCategory(line) || 'other',
+        created_by: ctx.user.id,
+      })));
+      button.textContent = `Added ${ingredients.length} item${ingredients.length === 1 ? '' : 's'} ✓`;
+      setTimeout(restore, 2000);
+    } catch (err) {
+      restore();
+      alert(err.message);
+    }
+  }
+
   const content = [];
   if (editing) {
     content.push(editForm());
@@ -65,6 +96,13 @@ function renderRecipeBody(section, ctx, recipe, editing, onChanged) {
     content.push(recipe.ingredients && recipe.ingredients.length
       ? h('ul', { class: 'recipe-list' }, recipe.ingredients.map((i) => h('li', {}, i)))
       : h('div', { class: 'empty-state' }, 'No ingredients listed.'));
+    if (recipe.ingredients && recipe.ingredients.length) {
+      content.push(h('button', {
+        class: 'btn secondary small',
+        style: 'margin-bottom:10px',
+        onclick: (e) => addIngredientsToGroceryList(e.currentTarget),
+      }, '+ Add ingredients to Grocery List'));
+    }
 
     content.push(h('div', { class: 'section-title' }, 'Instructions'));
     content.push(recipe.instructions && recipe.instructions.length
@@ -84,10 +122,12 @@ export async function render(container, ctx) {
   const titleInput = h('input', { type: 'text', required: true, placeholder: 'e.g. Spaghetti Bolognese' });
   const ingredientsInput = h('textarea', { rows: '5', placeholder: 'One ingredient per line, e.g.\n500g beef mince\n1 onion, diced' });
   const instructionsInput = h('textarea', { rows: '5', placeholder: 'One step per line, e.g.\nBrown the mince\nAdd onion and cook until soft' });
+  const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save recipe');
   const form = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       errorEl.style.display = 'none';
+      const restore = withBusyLabel(submitBtn, 'Saving…');
       try {
         await insertRow(TABLE, {
           household_id: ctx.household.id,
@@ -101,6 +141,7 @@ export async function render(container, ctx) {
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
+        restore();
       }
     },
   }, [
@@ -108,23 +149,33 @@ export async function render(container, ctx) {
     h('div', { class: 'field' }, [h('label', {}, 'Ingredients (one per line)'), ingredientsInput]),
     h('div', { class: 'field' }, [h('label', {}, 'Instructions (one step per line)'), instructionsInput]),
     errorEl,
-    h('button', { class: 'btn primary', type: 'submit' }, 'Save recipe'),
+    submitBtn,
   ]);
   mount(body, form);
 
-  mount(container, [
-    h('button', { class: 'btn secondary small', style: 'margin-bottom:14px', onclick: () => openSheet(dialog) }, '+ Add recipe'),
-    recipes.length
-      ? h('div', {}, recipes.map((r) => h('details', { class: 'goal-section', open: recipes.length === 1 }, [
+  const searchInput = h('input', { type: 'search', placeholder: 'Search recipes…' });
+  const listContainer = h('div', {});
+  function renderList() {
+    const query = searchInput.value.trim().toLowerCase();
+    const filtered = query ? recipes.filter((r) => r.title.toLowerCase().includes(query)) : recipes;
+    mount(listContainer, filtered.length
+      ? filtered.map((r) => h('details', { class: 'goal-section', open: filtered.length === 1 }, [
           h('summary', {}, r.title),
           h('div', { class: 'goal-section-body', id: `recipe-body-${r.id}` }, h('div', { class: 'empty-state' }, 'Loading…')),
-        ])))
-      : h('div', { class: 'empty-state' }, 'No recipes yet — add one to start your collection.'),
+        ]))
+      : [h('div', { class: 'empty-state' }, query ? 'No recipes match your search.' : 'No recipes yet — add one to start your collection.')]);
+    for (const recipe of filtered) {
+      const section = listContainer.querySelector(`#recipe-body-${recipe.id}`);
+      if (section) renderRecipeBody(section, ctx, recipe, false, () => render(container, ctx));
+    }
+  }
+  searchInput.addEventListener('input', renderList);
+  renderList();
+
+  mount(container, [
+    h('button', { class: 'btn secondary small', style: 'margin-bottom:14px', onclick: () => openSheet(dialog) }, '+ Add recipe'),
+    recipes.length ? h('div', { class: 'field' }, searchInput) : null,
+    listContainer,
     dialog,
   ]);
-
-  for (const recipe of recipes) {
-    const section = container.querySelector(`#recipe-body-${recipe.id}`);
-    if (section) renderRecipeBody(section, ctx, recipe, false, () => render(container, ctx));
-  }
 }

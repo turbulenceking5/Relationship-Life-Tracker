@@ -186,6 +186,18 @@ export const CHANGELOG_ENTRIES = [
       'A reminder set for a specific time (e.g. 6:30am) now notifies then, not just whenever the once-daily check happened to run',
     ],
   },
+  {
+    id: 20,
+    date: '2026-10-02',
+    title: 'Grocery items can now be edited, and recipes can fill your list',
+    items: [
+      'Grocery items can now be edited (title, quantity, category) instead of delete-and-re-add, and the list gets its own search box',
+      'A new "Add ingredients to Grocery List" button on any recipe pushes its ingredients straight onto your To Buy list, auto-categorized',
+      'A repeating My To-dos reminder marked done by hand now correctly moves to its next occurrence instead of disappearing for good',
+      'Expense, grocery, and event cards now show who added them when that differs from who’s otherwise shown',
+      'Every "Save" button now shows a brief "Saving…" state so a slow connection can’t cause a double-submit',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';
