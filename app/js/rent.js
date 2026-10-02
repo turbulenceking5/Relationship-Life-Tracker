@@ -85,6 +85,23 @@ async function renderPaymentSection(currentEl, historyEl, ctx, config) {
   const unpaid = rows.filter((r) => !r.paid);
   const paid = rows.filter((r) => r.paid).slice(0, 20);
 
+  // "Paid on time N periods running" — a quiet, non-competitive momentum
+  // signal derived entirely from existing paid_date/due_date history, no
+  // new input. Deliberately has no "streak at risk" countdown or
+  // per-partner score (the habit-app research this is drawn from flags
+  // that framing as an anxiety/obligation trap) — just a shared, low-key
+  // nudge, and only shown once it's actually a streak (2+), not for 0/1
+  // which would just be noise.
+  const onTimeStreak = (() => {
+    const mostRecentFirst = [...paid].sort((a, b) => (a.due_date < b.due_date ? 1 : -1));
+    let n = 0;
+    for (const r of mostRecentFirst) {
+      if (!r.paid_date || r.paid_date > r.due_date) break;
+      n++;
+    }
+    return n;
+  })();
+
   function card(row) {
     const status = row.paid
       ? { label: `${statusPaidLabel} ${formatDate(row.paid_date)}`, cls: 'ok' }
@@ -170,6 +187,7 @@ async function renderPaymentSection(currentEl, historyEl, ctx, config) {
   mount(body, form);
 
   mount(currentEl, [
+    onTimeStreak >= 2 ? h('div', { class: 'meta', style: 'margin-bottom:8px' }, `✓ Paid on time ${onTimeStreak} periods running`) : null,
     h('button', { class: 'btn secondary small', style: 'margin-bottom:10px', onclick: () => openSheet(dialog) }, `+ Add ${config.noun}`),
     unpaid.length ? h('div', {}, unpaid.map(card)) : h('div', { class: 'empty-state' }, config.emptyText),
     dialog,

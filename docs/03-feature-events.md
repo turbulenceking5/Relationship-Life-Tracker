@@ -60,6 +60,28 @@ and the `notify-due-items` push notification both skip an event whose
 current occurrence has been marked done, even if the date hasn't arrived
 yet.
 
+## Chore rotation (shipped)
+A recurring event can alternate between the two household members each
+occurrence instead of always showing the same person — useful for bin
+day, taking out recycling, etc. Toggled via "Alternate between us" on the
+add/edit form, only offered when the event repeats and the household has
+exactly two members. `events.rotate_assignee` (boolean) +
+`events.assignee_user_id` (the anchor assignee) is all that's stored — no
+per-occurrence row. Whose turn it is right now is computed client-side
+(`turnLabel()` in `events.js`) from `occurrenceCycleCount()` in
+`format.js`, a companion to `currentOccurrence()` that returns the number
+of full cycles elapsed since the anchor date instead of mapping onto a
+date: an even cycle count stays with the anchor assignee, odd flips to
+the other member. Shown on the card as "It's _Name_'s turn", suppressed
+once the occurrence is done (nothing to rotate on a completed one).
+
+## Link an event to a goal (shipped)
+`events.related_goal_id` (`on delete set null`, same pattern as
+`documents.related_type/related_id`) optionally links an event to one of
+the household's goals — e.g. an "Anniversary dinner" event linked to a
+Wedding Fund goal. Picked from a "Link to a goal" select on the add/edit
+form; shown on the card as "linked to _Goal title_" when set.
+
 ## Phase 1
 - Category filter chips (birthday / anniversary / appointment / other).
 

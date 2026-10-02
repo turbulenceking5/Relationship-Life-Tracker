@@ -17,6 +17,32 @@ function goalCountdown(dateStr) {
   return `${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} ago`;
 }
 
+function celebratedKey(goalId) {
+  return `goalCelebrated:${goalId}`;
+}
+
+// A brief, purely cosmetic confetti burst (CSS animation, no library) the
+// first time a goal's saved total is seen crossing its target — a cheap
+// dopamine hit borrowed from habit-app research, kept low-pressure (no
+// sound, no modal, auto-removes itself) to fit this app's tone. Plays
+// once per goal per browser (tracked in localStorage, same tolerance
+// pattern as theme.js/changelog.js — a replay on a cleared browser is a
+// harmless degradation, not a bug worth guarding further).
+function maybeCelebrate(goalId, cardEl) {
+  try {
+    if (localStorage.getItem(celebratedKey(goalId))) return;
+    localStorage.setItem(celebratedKey(goalId), '1');
+  } catch {
+    // Storage unavailable — just skip the one-time animation rather than
+    // risk replaying it on every render.
+    return;
+  }
+  const burst = h('div', { class: 'confetti-burst' }, ['🎉', '🎊', '✨', '🎉', '🎊'].map((e, i) =>
+    h('span', { style: `--i:${i}` }, e)));
+  cardEl.appendChild(burst);
+  setTimeout(() => burst.remove(), 1600);
+}
+
 export async function render(container, ctx) {
   const [goals, members] = await Promise.all([
     fetchRows(GOALS_TABLE, ctx.household.id, 'created_at', false),
@@ -375,12 +401,16 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
         h('span', { class: 'value' }, formatDate(goal.target_date)),
       ]));
     }
-    content.push(h('div', { class: 'card' }, [
+    const goalReached = target !== null && saved >= target;
+    const summaryCard = h('div', { class: 'card', style: 'position:relative;overflow:hidden' }, [
+      goalReached ? h('div', { style: 'font-weight:600;margin-bottom:6px' }, '🎉 Goal reached!') : null,
       target !== null ? h('div', { class: 'card-row' }, [h('span', {}, 'Target'), h('span', { class: 'amount' }, formatMoney(target, currency))]) : null,
       h('div', { class: 'card-row', style: 'margin-top:6px' }, [h('span', {}, 'Saved so far'), h('span', { class: 'amount positive' }, formatMoney(saved, currency))]),
       h('div', { class: 'card-row', style: 'margin-top:6px' }, [h('span', {}, 'Spent so far'), h('span', { class: 'amount negative' }, formatMoney(spent, currency))]),
       remaining !== null ? h('div', { class: 'card-row', style: 'margin-top:6px' }, [h('span', {}, 'Remaining to save'), h('span', { class: 'amount' }, formatMoney(remaining, currency))]) : null,
-    ]));
+    ]);
+    content.push(summaryCard);
+    if (goalReached) maybeCelebrate(goal.id, summaryCard);
     content.push(h('button', { class: 'btn text', onclick: () => renderGoalBody(section, ctx, goal, members, true, onDeleted) }, 'Edit goal'));
   }
 

@@ -677,3 +677,29 @@ dialog::backdrop { background: rgba(0,0,0,0.45); }
   color: var(--text-muted);
   z-index: 100;
 }
+
+/* Brief one-time confetti burst when a goal's saved total crosses its
+   target (see maybeCelebrate() in goals.js) — a handful of emoji spans
+   drop and fade over ~1.5s, then the whole element is removed from the
+   DOM. Pure CSS, no animation library, kept subtle (short duration, no
+   sound) to match this app's low-pressure tone. */
+.confetti-burst {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.confetti-burst span {
+  position: absolute;
+  top: -10%;
+  left: calc(10% + (var(--i) * 18%));
+  font-size: 1.4rem;
+  animation: confetti-fall 1.4s ease-in forwards;
+  animation-delay: calc(var(--i) * 80ms);
+}
+
+@keyframes confetti-fall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(90px) rotate(45deg); opacity: 0; }
+}

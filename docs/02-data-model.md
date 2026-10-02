@@ -53,6 +53,7 @@ this" instead of a raw UUID.
 | `drive_folder_id` | text | optional, Google Drive folder id for shared document storage — see [`21-google-drive-documents.md`](21-google-drive-documents.md) |
 | `drive_folder_name` | text | optional, that folder's display name |
 | `drive_connected_by` | uuid → auth.users | optional, whichever partner ran the initial connect and owns the folder in their own Drive |
+| `shared_note` | text | optional, free-text sticky note shown on Home, editable by either partner — see [`22-feature-home-dashboard.md`](22-feature-home-dashboard.md) |
 
 ### `household_members`
 | column | type | notes |
@@ -84,6 +85,9 @@ embed failed with "Could not find a relationship."
 | `recurring_interval` | text | `weekly` \| `fortnightly` \| `monthly` \| `yearly`; default `yearly`. Only meaningful when `recurring` is true — a stray value on a non-recurring row is harmless and ignored |
 | `completed_occurrence` | date, nullable | the occurrence date manually marked done, compared against `currentOccurrence()` each render — see [`03-feature-events.md`](03-feature-events.md) |
 | `last_notified_date` | date | last day `notify-due-items` sent a push for this row — see [`19-notification-sources.md`](19-notification-sources.md) |
+| `rotate_assignee` | boolean | default false; alternates `assignee_user_id` between the two household members each occurrence — see [`03-feature-events.md`](03-feature-events.md) |
+| `assignee_user_id` | uuid → auth.users, nullable, `on delete set null` | the anchor assignee that `rotate_assignee`'s parity is computed from |
+| `related_goal_id` | uuid → custom_goals, nullable, `on delete set null` | optional link to a goal — see [`03-feature-events.md`](03-feature-events.md) |
 | `created_by` | uuid → auth.users | |
 | `created_at` / `updated_at` | timestamptz | |
 
@@ -138,7 +142,7 @@ RLS policy is `user_id = auth.uid()`, not the usual
 | `user_id` | uuid → auth.users | the owner — the actual access boundary |
 | `prompt` | text | required, the reminder text |
 | `remind_date` | date | required |
-| `remind_time` | time | default `09:00`; shown in the UI but not currently honored precisely by push delivery — see [`20-feature-personal-todos.md`](20-feature-personal-todos.md) |
+| `remind_time` | time | default `09:00`; `notify-due-items` polls every 15 minutes and checks this against the current time, so it fires close to the minute it names — see [`20-feature-personal-todos.md`](20-feature-personal-todos.md) |
 | `repeat_frequency` | text | `none` \| `daily` \| `weekly` \| `monthly`; default `none` |
 | `is_done` | boolean | default false |
 | `last_notified_date` | date | last day `notify-due-items` sent a push for this row — see [`19-notification-sources.md`](19-notification-sources.md) |

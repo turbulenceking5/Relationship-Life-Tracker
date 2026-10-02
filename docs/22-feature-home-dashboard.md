@@ -3,10 +3,10 @@
 ## Purpose
 The first thing either partner sees on opening the app — a glance at
 what's due, what's coming up, and what's still on the list, each tapping
-straight through to the tab that handles it. It's a summary, not a
-feature in its own right: `home.js` reads from six other tables but never
-writes to any of them — every add/edit/delete action still lives on its
-own tab.
+straight through to the tab that handles it. It's mostly a summary, not a
+feature in its own right — every add/edit/delete action for the data it
+displays still lives on its own tab — with one exception: the shared
+sticky note (below) is actually edited here.
 
 ## How it works
 `render(container, ctx, navigate)` fires ten `fetchRows`/helper calls in
@@ -16,6 +16,16 @@ parallel (`events`, `rent_payments`, `mortgage_payments`, `documents`,
 bottom. Every section computes its own slice of that data independently —
 there's no shared "due items" concept spanning sections, just five
 separate questions asked of the same fetch.
+
+### Shared sticky note
+A single free-text note (`households.shared_note`) at the very top of the
+page, editable by either partner — for a quick household message that
+doesn't need its own expense/event/to-do row (e.g. "grabbed milk
+already"). The "Save note" button only appears once the textarea's
+content actually differs from what's saved, and `updateSharedNote()` (in
+`household.js`) mutates `ctx.household` in place after saving — same
+pattern `connectAsFirstPartner()` already uses for Google Drive — so the
+note persists across tab switches without a re-fetch.
 
 ### Balance banner
 Reuses `computeBalance()` from `balance.js` — the same "who owes who"

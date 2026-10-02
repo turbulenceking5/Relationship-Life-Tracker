@@ -8,6 +8,50 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-02 — Shared note, event-goal links, chore rotation, goal celebrations, rent streak
+
+Migration `0028_home_note_and_event_extras.sql` adds `households.shared_note`,
+`events.rotate_assignee`, `events.assignee_user_id`, and
+`events.related_goal_id`.
+
+- **Shared sticky note on Home**: a single free-text note
+  (`households.shared_note`) editable by either partner, shown at the top
+  of the Home tab — for quick household messages ("grabbed milk
+  already"). Saved via `updateSharedNote()` in `household.js`; the "Save
+  note" button only appears once the text has actually changed. Updates
+  `ctx.household` in place after saving (same pattern
+  `connectAsFirstPartner()` already used for Google Drive) so the note
+  persists across tab switches without a re-fetch.
+  While touching `getMyHousehold()`'s select for this, also fixed a
+  latent bug: it never selected the Drive columns
+  (`drive_folder_id`/`drive_folder_name`/`drive_connected_by`), so a page
+  reload after connecting Drive would lose that state and incorrectly
+  re-prompt to connect it again — it only worked within a session because
+  `connectAsFirstPartner()` mutates `ctx.household` in place.
+- **Chore rotation on recurring events**: a recurring event can now
+  alternate between exactly two household members each occurrence
+  (`rotate_assignee` boolean + `assignee_user_id` anchor), shown as "It's
+  _Name_'s turn" on its card, suppressed once the occurrence is marked
+  done. No per-occurrence storage — parity is computed client-side from
+  the new `occurrenceCycleCount()` helper in `format.js` (even cycles
+  since the anchor stay with the anchor assignee, odd cycles flip).
+  Rotation is only offered when the event repeats and the household has
+  exactly two members.
+- **Link an event to a goal**: `events.related_goal_id` (same
+  `on delete set null` pattern as `documents.related_type/related_id`),
+  surfaced as a "Link to a goal" select on the add/edit form and "linked
+  to _Goal_" text on the card.
+- **Goal milestone celebration**: a one-time confetti burst
+  (`.confetti-burst` in `styles.css`) when a goal's saved total first
+  reaches its target, gated by a `localStorage` flag per goal ID so it
+  plays once per goal per browser. The "🎉 Goal reached!" text itself
+  still shows every time the goal is at or past target, not just once.
+- **Rent/mortgage on-time streak**: a quiet "✓ Paid on time N periods
+  running" line in `rent.js`, computed from existing
+  `paid_date`/`due_date` history with no new input, shown only once
+  there's an actual streak (2+) to avoid noise. Deliberately has no "at
+  risk" countdown or per-partner scoring.
+
 ## 2026-10-02 — Grocery edit flow, recipe import, submit-disable, added-by labels
 
 A batch of UX-audit fixes, implemented together:

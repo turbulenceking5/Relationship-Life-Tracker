@@ -85,6 +85,37 @@ export function currentOccurrence(dateStr, recurring, interval) {
   return `${today.slice(0, 4)}-${month}-${day}`;
 }
 
+// Companion to currentOccurrence() above, for a recurring event with
+// rotate_assignee set (see docs/03-feature-events.md): how many full
+// cycles have elapsed since the event's own anchor date, used to
+// alternate the assignee (even cycle count = the anchor assignee, odd =
+// the other household member). Same per-interval cycle math as
+// currentOccurrence(), just returning the cycle count instead of mapping
+// it onto a date.
+export function occurrenceCycleCount(dateStr, recurring, interval) {
+  if (!dateStr || !recurring) return 0;
+  const today = todayStr();
+
+  if (interval === 'monthly') {
+    const [ay, am] = dateStr.split('-');
+    const [ty, tm] = today.split('-');
+    return Math.max(0, (Number(ty) - Number(ay)) * 12 + (Number(tm) - Number(am)));
+  }
+
+  if (interval === 'weekly' || interval === 'fortnightly') {
+    const stepDays = interval === 'weekly' ? 7 : 14;
+    const anchor = new Date(dateStr + 'T00:00:00');
+    const t = new Date(today + 'T00:00:00');
+    const diffDays = Math.round((t - anchor) / 86400000);
+    return diffDays < 0 ? 0 : Math.floor(diffDays / stepDays);
+  }
+
+  // yearly (default/fallback)
+  const [ay] = dateStr.split('-');
+  const [ty] = today.split('-');
+  return Math.max(0, Number(ty) - Number(ay));
+}
+
 export function dueStatus(dateStr) {
   const days = daysUntil(dateStr);
   if (days === null) return { label: '', cls: '' };

@@ -4,12 +4,27 @@ import { h, mount } from './dom.js';
 export async function getMyHousehold() {
   const { data, error } = await supabase
     .from('household_members')
-    .select('household_id, role, households ( id, name, invite_code, default_currency )')
+    .select('household_id, role, households ( id, name, invite_code, default_currency, shared_note, drive_folder_id, drive_folder_name, drive_connected_by )')
     .limit(1)
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
   return { ...data.households, myRole: data.role };
+}
+
+// A single freeform note either partner can edit, shown at the top of
+// the Home dashboard (see home.js) — the one thing in this app that
+// plausibly changes several times a day ("grabbed milk already"), which
+// is exactly what turns an app from "checked weekly" into "checked
+// daily." One household-scoped value, no new table; already covered by
+// the existing household UPDATE RLS policy (is_household_member(id),
+// column-agnostic).
+export async function updateSharedNote(householdId, note) {
+  const { error } = await supabase
+    .from('households')
+    .update({ shared_note: note })
+    .eq('id', householdId);
+  if (error) throw error;
 }
 
 export async function getHouseholdMembers(householdId) {

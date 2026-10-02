@@ -258,6 +258,24 @@ schema.
       [`docs/17-feature-recipes.md`](docs/17-feature-recipes.md),
       [`docs/20-feature-personal-todos.md`](docs/20-feature-personal-todos.md),
       and [`docs/14-ui-patterns.md`](docs/14-ui-patterns.md).
+- [x] **Shared note, event-goal links, chore rotation, goal celebrations,
+      rent streak**: a free-text sticky note on Home either partner can
+      edit (`households.shared_note`); a recurring event can alternate
+      between the two household members each occurrence instead of
+      always showing the same person (`events.rotate_assignee` +
+      `assignee_user_id`, parity computed client-side, no per-occurrence
+      storage); an event can link to a goal
+      (`events.related_goal_id`); reaching a savings goal plays a
+      one-time confetti celebration; and rent/mortgage shows a quiet
+      "paid on time N periods running" line once a streak actually
+      exists. Along the way, fixed a latent bug where
+      `getMyHousehold()` never selected the Google Drive columns, so a
+      page reload after connecting Drive incorrectly re-prompted to
+      connect it again. See
+      [`docs/03-feature-events.md`](docs/03-feature-events.md),
+      [`docs/12-feature-goals.md`](docs/12-feature-goals.md),
+      [`docs/22-feature-home-dashboard.md`](docs/22-feature-home-dashboard.md),
+      and [`docs/23-feature-rent-mortgage.md`](docs/23-feature-rent-mortgage.md).
 
 ## Phase 2 — Reminders that actually reach you
 

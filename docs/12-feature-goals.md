@@ -57,6 +57,15 @@ target and running ledger.
   with a day countdown, and drops off that feed once its target date has
   passed (it doesn't move to a "Done" list the way Events does — the
   goal itself, and its progress, still lives on the Goals tab).
+- An event can be linked to a goal (`events.related_goal_id`) — see
+  [`03-feature-events.md`](03-feature-events.md).
+- **Milestone celebration (shipped)**: the first time a goal's `saved`
+  total reaches its `target_amount`, its card plays a one-time CSS
+  confetti burst (`.confetti-burst` in `styles.css`). Gated by a
+  `localStorage` flag per goal ID (`maybeCelebrate()` in `goals.js`) so
+  it plays once per goal per browser, not on every render — the "🎉 Goal
+  reached!" text itself isn't one-time, it shows any time the goal is at
+  or past target.
 
 ## Data
 

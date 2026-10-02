@@ -198,6 +198,18 @@ export const CHANGELOG_ENTRIES = [
       'Every "Save" button now shows a brief "Saving…" state so a slow connection can’t cause a double-submit',
     ],
   },
+  {
+    id: 21,
+    date: '2026-10-02',
+    title: 'Shared note, event-goal links, chore rotation, and goal celebrations',
+    items: [
+      'A shared sticky note on Home for quick messages to each other — "grabbed milk already", that sort of thing',
+      'A recurring event can now alternate between the two of you each occurrence (e.g. bin day) instead of always showing the same person',
+      'An event can be linked to a goal, showing up on its card (e.g. "Anniversary dinner" linked to your Wedding Fund)',
+      'Reaching a savings goal now gets a one-time confetti celebration',
+      'Rent/mortgage shows a quiet "paid on time N periods running" streak once you\'ve built one up',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

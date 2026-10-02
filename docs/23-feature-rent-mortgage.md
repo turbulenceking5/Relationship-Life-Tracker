@@ -61,6 +61,16 @@ back to something generic. The label dropped "Rent" once the segment grew
 to cover the mortgage too — it's the property's tab now, not just its
 rent.
 
+## On-time streak
+Each `currentEl` section shows a quiet "✓ Paid on time N periods running"
+line above its "+ Add" button once there's an actual streak (2+) — fewer
+than that would just be noise. Computed entirely from existing
+`paid_date`/`due_date` history (no new column): walks paid periods
+most-recent-first and counts while `paid_date <= due_date`, stopping at
+the first late (or unpaid-turned-late) one. Deliberately has no "streak at
+risk" countdown and doesn't score the two partners against each other —
+just a shared, low-key nudge, not another thing to feel anxious about.
+
 ## Home dashboard
 Unpaid/overdue rent and mortgage periods both feed into the home
 dashboard's merged "What's due" list (sorted by date alongside expiring

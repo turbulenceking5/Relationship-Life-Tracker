@@ -1,8 +1,8 @@
-import { h, mount } from './dom.js';
+import { h, mount, withBusyLabel } from './dom.js';
 import { fetchRows } from './crud.js';
 import { formatDate, formatMoney, dueStatus, daysUntil, todayStr, currentOccurrence } from './format.js';
 import { expiryStatus } from './documents.js';
-import { getHouseholdMembers } from './household.js';
+import { getHouseholdMembers, updateSharedNote } from './household.js';
 import { computeBalance } from './balance.js';
 
 const CATEGORY_ICONS = { birthday: '🎂', anniversary: '💍', appointment: '📅', other: '📌' };
@@ -12,6 +12,40 @@ function gradientClass(seed) {
   let hash = 0;
   for (const ch of String(seed)) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
   return GRADIENT_CLASSES[hash % GRADIENT_CLASSES.length];
+}
+
+// A single freeform note either partner can edit, shown above everything
+// else — the one thing on this dashboard likely to change several times
+// a day ("grabbed milk already", "home late tonight"), which is exactly
+// what turns an app from "checked weekly" into "checked daily" (Cozi-
+// style shared message board). "Save" only appears once the text
+// actually differs from what's stored, so the common case (just reading
+// it) shows no button at all. Saving mutates `ctx.household.shared_note`
+// in place so it stays current across tab switches without a re-fetch —
+// same pattern `googleDrive.js`'s connect flow uses for `ctx.household`.
+function stickyNote(ctx) {
+  const textarea = h('textarea', { rows: '2', placeholder: "Leave a note for your partner… (e.g. \"grabbed milk already\")" }, ctx.household.shared_note || '');
+  const saveBtn = h('button', { class: 'btn secondary small', style: 'display:none;margin-top:8px' }, 'Save note');
+  const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
+  textarea.addEventListener('input', () => {
+    saveBtn.style.display = textarea.value !== (ctx.household.shared_note || '') ? 'inline-flex' : 'none';
+  });
+  saveBtn.addEventListener('click', async () => {
+    errorEl.style.display = 'none';
+    const restore = withBusyLabel(saveBtn, 'Saving…');
+    try {
+      const note = textarea.value.trim() || null;
+      await updateSharedNote(ctx.household.id, note);
+      ctx.household.shared_note = note;
+      saveBtn.style.display = 'none';
+      restore();
+    } catch (err) {
+      errorEl.textContent = err.message;
+      errorEl.style.display = 'block';
+      restore();
+    }
+  });
+  return h('div', { class: 'card' }, [textarea, saveBtn, errorEl]);
 }
 
 export async function render(container, ctx, navigate) {
@@ -131,6 +165,7 @@ export async function render(container, ctx, navigate) {
     : null;
 
   mount(container, [
+    stickyNote(ctx),
     balanceBanner,
 
     h('div', { class: 'section-title' }, "What's due"),
