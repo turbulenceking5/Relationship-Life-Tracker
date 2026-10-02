@@ -45,8 +45,13 @@ first. Each item reuses the same status pill logic as its own tab
 [`07-feature-documents.md`](07-feature-documents.md) and
 [`23-feature-rent-mortgage.md`](23-feature-rent-mortgage.md)). A rent or
 mortgage card navigates to `rent`; a document card navigates to
-`documents`. Empty state is a green checkmark "All caught up!" rather
-than a plain empty-state message, the only section styled that way.
+`documents`. Each card also gets a "🔔 Remind" button that pushes a
+one-line nudge to the other household member — see
+[`24-live-sync-and-nudges.md`](24-live-sync-and-nudges.md) — wrapped in
+its own `.actions-row` with `e.stopPropagation()` so tapping it doesn't
+also trigger the card's own navigate-away `onclick`. Empty state is a
+green checkmark "All caught up!" rather than a plain empty-state
+message, the only section styled that way.
 
 ### Upcoming events
 Maps every event onto its current-cycle occurrence via

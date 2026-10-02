@@ -276,6 +276,15 @@ schema.
       [`docs/12-feature-goals.md`](docs/12-feature-goals.md),
       [`docs/22-feature-home-dashboard.md`](docs/22-feature-home-dashboard.md),
       and [`docs/23-feature-rent-mortgage.md`](docs/23-feature-rent-mortgage.md).
+- [x] **Live sync across phones (Realtime) + a "🔔 Remind" nudge**: every
+      shared-list table now broadcasts changes via Supabase Realtime, so
+      an add/edit/delete on one phone shows up on the other without a
+      reload (`app/js/realtime.js`); and a "🔔 Remind" button on each
+      overdue "What's due" card sends a one-tap push to your partner
+      instead of texting them separately (new `remind-partner` edge
+      function — the first one in this app called directly by a user
+      rather than by `pg_cron`). See
+      [`docs/24-live-sync-and-nudges.md`](docs/24-live-sync-and-nudges.md).
 
 ## Phase 2 — Reminders that actually reach you
 
@@ -294,7 +303,12 @@ schema.
       pill, surfacing on the home dashboard's "What's due", and a push
       notification once actually expired. See
       [`07-feature-documents.md`](docs/07-feature-documents.md).
-- [ ] Digest option: a daily/weekly summary instead of per-item pings
+- [x] **Weekly digest**: a once-a-week "state of us" push (total spent,
+      total saved toward goals, events coming up) alongside the
+      per-item pings, not instead of them — see
+      [`24-live-sync-and-nudges.md`](docs/24-live-sync-and-nudges.md).
+      Not user-configurable yet (fixed Sunday evening, no opt-out beyond
+      disabling push entirely).
 
 ## Phase 3 — Money features worth having
 

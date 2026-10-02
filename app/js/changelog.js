@@ -210,6 +210,16 @@ export const CHANGELOG_ENTRIES = [
       'Rent/mortgage shows a quiet "paid on time N periods running" streak once you\'ve built one up',
     ],
   },
+  {
+    id: 22,
+    date: '2026-10-02',
+    title: 'Live sync, remind-your-partner, and a weekly digest',
+    items: [
+      'A change either of you makes — adding an expense, ticking off a grocery item, logging rent as paid — now shows up on the other person\'s phone automatically, no reload needed',
+      'A "🔔 Remind" button on any overdue item in "What\'s due" sends your partner a one-tap push nudge instead of texting them separately',
+      'A weekly push recaps the week — total spent, total saved toward goals, and what\'s coming up — sent once, every Sunday evening',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

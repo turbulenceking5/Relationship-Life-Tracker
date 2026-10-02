@@ -53,6 +53,20 @@ export async function enablePush(ctx) {
   if (error) throw error;
 }
 
+// One-tap nudge for an overdue item on the home dashboard — calls the
+// remind-partner edge function, which looks up the *other* household
+// member's push subscriptions server-side (RLS restricts
+// push_subscriptions to its own owner, so the client can't read a
+// partner's subscriptions directly) and sends them a push. See
+// supabase/functions/remind-partner/index.ts.
+export async function remindPartner(ctx, label) {
+  const { data, error } = await supabase.functions.invoke('remind-partner', {
+    body: { householdId: ctx.household.id, label },
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function disablePush(ctx) {
   const registration = await navigator.serviceWorker.ready;
   const subscription = await registration.pushManager.getSubscription();

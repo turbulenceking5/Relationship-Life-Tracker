@@ -4,6 +4,7 @@ import { formatDate, formatMoney, dueStatus, daysUntil, todayStr, currentOccurre
 import { expiryStatus } from './documents.js';
 import { getHouseholdMembers, updateSharedNote } from './household.js';
 import { computeBalance } from './balance.js';
+import { remindPartner } from './notifications.js';
 
 const CATEGORY_ICONS = { birthday: '🎂', anniversary: '💍', appointment: '📅', other: '📌' };
 const GRADIENT_CLASSES = ['grad-a', 'grad-b', 'grad-c', 'grad-d', 'grad-e'];
@@ -97,7 +98,7 @@ export async function render(container, ctx, navigate) {
   // no Done section to move them into.
   const goalsWithDates = goals.filter((g) => g.target_date && g.target_date >= today);
 
-  function row(icon, title, meta, pill, onClick) {
+  function row(icon, title, meta, pill, onClick, actions) {
     return h('div', { class: 'card', onclick: onClick, style: onClick ? 'cursor:pointer' : '' }, [
       h('div', { class: 'card-row' }, [
         h('div', { style: 'display:flex;gap:10px;align-items:center' }, [
@@ -106,22 +107,51 @@ export async function render(container, ctx, navigate) {
         ]),
         pill,
       ]),
+      actions ? h('div', { class: 'actions-row', onclick: (e) => e.stopPropagation() }, actions) : null,
     ]);
+  }
+
+  // A one-tap nudge for anything overdue enough to show up here, instead
+  // of texting your partner separately — see
+  // supabase/functions/remind-partner/index.ts. `e.stopPropagation()` on
+  // the surrounding `.actions-row` (above) keeps a tap on this button
+  // from also triggering the card's own onClick navigation.
+  function remindButton(label) {
+    const btn = h('button', { class: 'btn secondary small' }, '🔔 Remind');
+    let busy = false;
+    btn.addEventListener('click', async () => {
+      if (busy) return;
+      busy = true;
+      const restore = withBusyLabel(btn, 'Sending…');
+      try {
+        await remindPartner(ctx, label);
+        btn.disabled = true;
+        btn.textContent = 'Reminded ✓';
+        setTimeout(() => { btn.disabled = false; btn.textContent = '🔔 Remind'; busy = false; }, 4000);
+      } catch (err) {
+        restore();
+        busy = false;
+        alert(`Couldn't send reminder: ${err.message}`);
+      }
+    });
+    return btn;
   }
 
   const dueItems = dueItemsData.map((r) => {
     if (r._kind === 'document') {
       const s = expiryStatus(r._due);
-      return row('📄', r.title, `Expires ${formatDate(r.expiry_date)}`, h('span', { class: `pill ${s.cls}` }, s.label), () => navigate('documents'));
+      return row('📄', r.title, `Expires ${formatDate(r.expiry_date)}`, h('span', { class: `pill ${s.cls}` }, s.label), () => navigate('documents'), [remindButton(`"${r.title}" ${s.label.toLowerCase()}`)]);
     }
     const s = dueStatus(r._due);
     const isRent = r._kind === 'rent';
+    const label = r.property_label || (isRent ? 'BrackenRidge Rent' : 'BrackenRidge Mortgage');
     return row(
       isRent ? '🏠' : '🏦',
-      r.property_label || (isRent ? 'BrackenRidge Rent' : 'BrackenRidge Mortgage'),
+      label,
       `${isRent ? 'Rent' : 'Mortgage'} due · ${formatMoney(r.amount, r.currency)}`,
       h('span', { class: `pill ${s.cls}` }, s.label),
       () => navigate('rent'),
+      [remindButton(`${label} is ${s.label.toLowerCase()}`)],
     );
   });
 

@@ -12,6 +12,13 @@ document expiry, and events. See
 [`19-notification-sources.md`](19-notification-sources.md) for exactly
 what's scanned, the per-source trigger rule, and why.
 
+Two more push sources exist alongside this one: an on-demand "🔔 Remind"
+nudge a user triggers by hand (not cron-scheduled, JWT-authenticated
+rather than shared-secret), and a once-a-week digest. Both are covered
+in [`24-live-sync-and-nudges.md`](24-live-sync-and-nudges.md) rather than
+here, since neither shares this document's cron/shared-secret design —
+this page is specifically about `notify-due-items`.
+
 ## Why this exists
 
 A tracker that requires you to remember to open it defeats its own
@@ -137,5 +144,6 @@ generating your own keys:
 - Events only notify same-day, not with N days' advance warning (see
   [`03-feature-events.md`](03-feature-events.md)) — an advance-reminder
   offset per event isn't built.
-- No user-facing digest/quiet-hours settings yet (roadmap Phase 2 also
-  lists a digest option as a nice-to-have, not yet built).
+- No quiet-hours settings yet. A weekly digest now exists (see
+  [`24-live-sync-and-nudges.md`](24-live-sync-and-nudges.md)) but it's
+  fixed to once a week, Sunday evening — not user-configurable.

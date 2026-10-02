@@ -16,6 +16,7 @@ import {
   connectAsSecondPartner,
   shareFolderWithEmail,
 } from './googleDrive.js';
+import { subscribeHousehold, unsubscribeHousehold } from './realtime.js';
 
 const appEl = document.getElementById('app');
 
@@ -29,6 +30,30 @@ const TABS = [
 
 let currentTab = 'home';
 let ctx = null; // { user, household }
+let mainEl = null;
+let realtimeChannel = null;
+let refreshTimer = null;
+
+// A partner's change to a shared table re-renders the current tab so it
+// shows up without a manual reload — the whole point of a two-person
+// household sharing one data set. Debounced so a burst of changes (e.g.
+// recurring expenses logging several rows at once) triggers one
+// re-render, not one per row. Skipped while someone's actively typing in
+// an inline field (a search box — every add/edit form is a `<dialog>`
+// appended to `document.body`, outside `main`, so this never interrupts
+// filling one out) so a live update can't yank typed text out from
+// under them; the next own action picks up the change anyway.
+function scheduleRefresh(table, payload) {
+  if (table === 'households' && payload?.new) {
+    Object.assign(ctx.household, payload.new);
+  }
+  const active = document.activeElement;
+  if (mainEl && active && mainEl.contains(active) && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+    return;
+  }
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => renderMainApp(), 400);
+}
 
 async function boot() {
   const { data: { session } } = await supabase.auth.getSession();
@@ -56,6 +81,7 @@ async function afterAuth(user) {
   ctx = { user, household };
   renderMainApp();
   showOnboardingIfNeeded(showChangelogIfUnseen);
+  realtimeChannel = subscribeHousehold(household.id, scheduleRefresh);
 }
 
 // Shown once ever per browser, before the changelog dialog (chained via
@@ -133,6 +159,7 @@ async function renderMainApp() {
     }, [h('span', { class: 'tab-icon' }, t.icon), h('span', {}, t.label)])
   ));
 
+  mainEl = main;
   mount(appEl, [topbar, main, tabbar]);
 
   const tab = TABS.find((t) => t.key === currentTab);
@@ -391,6 +418,8 @@ async function renderNotificationsSection(container) {
 
 supabase.auth.onAuthStateChange((event, session) => {
   if (event === 'SIGNED_OUT') {
+    unsubscribeHousehold(realtimeChannel);
+    realtimeChannel = null;
     ctx = null;
     currentTab = 'home';
     mount(appEl, wrapScreen((el) => renderAuthScreen(el)));

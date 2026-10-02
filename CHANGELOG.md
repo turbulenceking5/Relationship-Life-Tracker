@@ -8,6 +8,45 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-02 — Live sync, remind-your-partner, and a weekly digest
+
+Migration `0029_enable_realtime_publication.sql` adds every shared-list
+table to the `supabase_realtime` publication. Migration
+`0030_schedule_weekly_digest.sql` schedules the new `weekly-digest` edge
+function. New edge function `remind-partner` (client-callable, JWT-verified,
+unlike every other edge function so far).
+
+- **Live refresh across phones (Realtime)**: `app/js/realtime.js` opens
+  one Supabase Realtime channel per household, listening for
+  `postgres_changes` on every shared table (`events`, `expenses`,
+  `recurring_expenses`, `custom_goals`, `goal_transactions`,
+  `goal_tasks`, `rent_payments`, `mortgage_payments`, `documents`,
+  `grocery_items`, `recipes`, `settlements`, `households`) filtered to
+  that household's id. `app.js` debounces incoming changes (400ms, to
+  collapse a burst into one re-render) and re-renders the current tab —
+  skipped while the cursor is in an inline search box (every add/edit
+  form is a `<dialog>` outside `main`, so this never interrupts filling
+  one out) so a live update can't yank typed text out from under
+  someone. `personal_todos` is deliberately excluded — it's private per
+  user, so there's nothing cross-partner to sync. RLS still gates what
+  each client actually receives; this only adds these tables to what
+  Realtime watches.
+- **"🔔 Remind" nudge on overdue items**: a button on each "What's due"
+  card on Home calls a new `remind-partner` edge function, which looks
+  up the *other* household member's push subscriptions (a user can only
+  read their own via RLS, so this needs the function's service-role
+  client) and sends them a one-line push — "BrackenRidge Rent is overdue
+  3d", etc. — instead of texting them separately. Membership in the
+  household being nudged is verified via a client scoped to the caller's
+  own JWT (so `household_members`' own RLS does the actual gatekeeping),
+  before the service-role client is used for anything.
+- **Weekly "state of us" digest**: a new `weekly-digest` edge function,
+  scheduled once a week (Sunday 18:00 Australia/Brisbane) via the same
+  `pg_cron` + shared-secret pattern as `notify-due-items`. One push per
+  household recapping the last 7 days — total spent, total saved toward
+  goals, events coming up in the next 7 — deliberately light and
+  non-competitive, same framing as the on-time streak badge.
+
 ## 2026-10-02 — Shared note, event-goal links, chore rotation, goal celebrations, rent streak
 
 Migration `0028_home_note_and_event_extras.sql` adds `households.shared_note`,
