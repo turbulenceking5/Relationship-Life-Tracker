@@ -67,14 +67,14 @@ split, just without a Done section to move it into here. Each card
 navigates to `events`.
 
 ### Upcoming goals
-Goals with a `target_date` that hasn't passed yet
-(`target_date >= today`), no cap. Unlike Events, there's no "Done"
-section for goals to move into here — a goal whose date has passed just
-drops off "Upcoming goals" entirely, since the home dashboard is a
-what's-next glance, not a record of what's happened (the Goals tab itself
-is where a goal's full history lives — see
-[`12-feature-goals.md`](12-feature-goals.md)). Each card navigates to
-`goals`.
+Goals with a `target_date` that hasn't passed yet (`target_date >=
+today`) and that haven't been closed by hand (`closed_at` not set — see
+[`12-feature-goals.md`](12-feature-goals.md)), no cap. Unlike Events,
+there's no "Done" section for goals to move into here — a goal whose
+date has passed just drops off "Upcoming goals" entirely, since the home
+dashboard is a what's-next glance, not a record of what's happened (the
+Goals tab itself is where a goal's full history lives). Each card
+navigates to `goals`.
 
 ### On your plate
 A one-line-each glance at the two checklist-shaped segments that

@@ -285,6 +285,14 @@ schema.
       function — the first one in this app called directly by a user
       rather than by `pg_cron`). See
       [`docs/24-live-sync-and-nudges.md`](docs/24-live-sync-and-nudges.md).
+- [x] **Finish/close a goal**: a "Finish goal"/"Reopen goal" button,
+      independent of hitting the target — previously a goal with no
+      target amount (a plain checklist-style goal) had no way to be
+      marked done, and even a goal with one stayed open forever once
+      reached unless deleted outright. Closed goals move into a
+      collapsed "Closed goals" section, same pattern as Events'
+      Upcoming/Done split. See
+      [`docs/12-feature-goals.md`](docs/12-feature-goals.md).
 
 ## Phase 2 — Reminders that actually reach you
 

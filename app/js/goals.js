@@ -88,14 +88,32 @@ export async function render(container, ctx) {
   ]);
   mount(addGoalBody, addGoalForm);
 
+  // Closed goals (see goal.closed_at) are pulled out of the main list
+  // into their own collapsed section at the bottom — same reasoning as
+  // Events' Upcoming/Done split and Rent's History section: a finished
+  // goal's numbers are still worth keeping around, but shouldn't push
+  // the goals you're actually working toward further down the tab.
+  const openGoals = goals.filter((g) => !g.closed_at);
+  const closedGoals = goals.filter((g) => g.closed_at);
+
+  function goalSection(goal, soleOpenGoal) {
+    return h('details', { class: 'goal-section', open: soleOpenGoal }, [
+      h('summary', {}, goal.title),
+      h('div', { class: 'goal-section-body', id: `goal-body-${goal.id}` }, h('div', { class: 'empty-state' }, 'Loading…')),
+    ]);
+  }
+
   mount(container, [
     h('button', { class: 'btn secondary small', style: 'margin-bottom:14px', onclick: () => openSheet(addGoalDialog) }, '+ Add goal'),
-    goals.length
-      ? h('div', {}, goals.map((goal) => h('details', { class: 'goal-section', open: goals.length === 1 }, [
-          h('summary', {}, goal.title),
-          h('div', { class: 'goal-section-body', id: `goal-body-${goal.id}` }, h('div', { class: 'empty-state' }, 'Loading…')),
-        ])))
+    openGoals.length
+      ? h('div', {}, openGoals.map((goal) => goalSection(goal, openGoals.length === 1)))
       : h('div', { class: 'empty-state' }, 'No goals yet — add one to start tracking it.'),
+    closedGoals.length
+      ? h('details', { class: 'goal-section' }, [
+          h('summary', {}, `Closed goals (${closedGoals.length})`),
+          h('div', { class: 'goal-section-body' }, closedGoals.map((goal) => goalSection(goal, false))),
+        ])
+      : null,
     addGoalDialog,
   ]);
 
@@ -403,6 +421,7 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
     }
     const goalReached = target !== null && saved >= target;
     const summaryCard = h('div', { class: 'card', style: 'position:relative;overflow:hidden' }, [
+      goal.closed_at ? h('div', { class: 'meta', style: 'margin-bottom:6px' }, `✓ Closed ${formatDate(goal.closed_at.slice(0, 10))}`) : null,
       goalReached ? h('div', { style: 'font-weight:600;margin-bottom:6px' }, '🎉 Goal reached!') : null,
       target !== null ? h('div', { class: 'card-row' }, [h('span', {}, 'Target'), h('span', { class: 'amount' }, formatMoney(target, currency))]) : null,
       h('div', { class: 'card-row', style: 'margin-top:6px' }, [h('span', {}, 'Saved so far'), h('span', { class: 'amount positive' }, formatMoney(saved, currency))]),
@@ -410,8 +429,19 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
       remaining !== null ? h('div', { class: 'card-row', style: 'margin-top:6px' }, [h('span', {}, 'Remaining to save'), h('span', { class: 'amount' }, formatMoney(remaining, currency))]) : null,
     ]);
     content.push(summaryCard);
-    if (goalReached) maybeCelebrate(goal.id, summaryCard);
-    content.push(h('button', { class: 'btn text', onclick: () => renderGoalBody(section, ctx, goal, members, true, onDeleted) }, 'Edit goal'));
+    if (goalReached && !goal.closed_at) maybeCelebrate(goal.id, summaryCard);
+    content.push(h('div', { class: 'actions-row' }, [
+      h('button', { class: 'btn text', onclick: () => renderGoalBody(section, ctx, goal, members, true, onDeleted) }, 'Edit goal'),
+      goal.closed_at
+        ? h('button', {
+            class: 'btn secondary small',
+            onclick: async () => { await updateRow(GOALS_TABLE, goal.id, { closed_at: null }); onDeleted(); },
+          }, 'Reopen goal')
+        : h('button', {
+            class: 'btn secondary small',
+            onclick: async () => { await updateRow(GOALS_TABLE, goal.id, { closed_at: new Date().toISOString() }); onDeleted(); },
+          }, 'Finish goal'),
+    ]));
   }
 
   content.push(h('div', { class: 'section-title' }, 'Transactions'));

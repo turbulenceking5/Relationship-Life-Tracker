@@ -259,6 +259,12 @@ amount and each is just a simple due/paid list. Only difference:
 | `created_at` / `updated_at` | timestamptz | |
 
 ### `custom_goals`
+`closed_at` (nullable timestamptz) marks a goal finished/closed by hand,
+independent of whether its target was ever hit — see
+[`12-feature-goals.md`](12-feature-goals.md). Nullable timestamp rather
+than a boolean, same reasoning as `events.completed_occurrence`: it
+doubles as the "closed on" date shown on the card.
+
 See [`12-feature-goals.md`](12-feature-goals.md). One row per user-created
 goal (any number per household — a wedding fund, a holiday fund, etc.).
 

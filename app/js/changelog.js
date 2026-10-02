@@ -220,6 +220,15 @@ export const CHANGELOG_ENTRIES = [
       'A weekly push recaps the week — total spent, total saved toward goals, and what\'s coming up — sent once, every Sunday evening',
     ],
   },
+  {
+    id: 23,
+    date: '2026-10-02',
+    title: 'Finish or close a goal',
+    items: [
+      'A goal can now be marked finished — useful once you\'ve hit the target, or for a plain checklist-style goal with no target amount that was never going to "complete" on its own',
+      'Finished goals move into a collapsed "Closed goals" section at the bottom of the tab, and can be reopened any time',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

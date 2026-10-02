@@ -57,6 +57,20 @@ target and running ledger.
   with a day countdown, and drops off that feed once its target date has
   passed (it doesn't move to a "Done" list the way Events does — the
   goal itself, and its progress, still lives on the Goals tab).
+- **Finish/close a goal (shipped)**: a "Finish goal"/"Reopen goal" button
+  (next to "Edit goal") sets or clears `custom_goals.closed_at`. Unlike
+  everything else on this tab, closing isn't tied to hitting the target —
+  a goal with no `target_amount` at all (a plain checklist-style goal)
+  had no way to be marked done before this, and a goal that *does* have
+  a target otherwise stays open forever once reached unless someone
+  deletes it outright (losing its history). A closed goal moves into its
+  own collapsed "Closed goals" section at the bottom of the tab — same
+  reasoning as Events' Upcoming/Done split and Rent's History section —
+  and drops off the home dashboard's "Upcoming goals" and
+  `notify-due-items`'s target-date escalation, same as a deleted goal
+  would, but without losing its transactions/tasks/documents. Still
+  fully viewable and editable while closed (Reopen undoes it), since
+  closing is just "filed away," not locked.
 - An event can be linked to a goal (`events.related_goal_id`) — see
   [`03-feature-events.md`](03-feature-events.md).
 - **Milestone celebration (shipped)**: the first time a goal's `saved`

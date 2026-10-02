@@ -8,6 +8,22 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-02 — Finish or close a goal
+
+Migration `0031_goal_closed_at.sql` adds `custom_goals.closed_at`.
+
+- **Finish/close a goal**: a "Finish goal"/"Reopen goal" button (next to
+  "Edit goal") sets or clears `closed_at`. Not tied to hitting the
+  target — a goal with no `target_amount` (a plain checklist-style goal)
+  had no way to be marked done at all before this, and a goal that does
+  have a target otherwise stays open forever once reached unless someone
+  deletes it outright and loses its history. A closed goal moves into
+  its own collapsed "Closed goals" section at the bottom of the Goals
+  tab (same pattern as Events' Upcoming/Done split and Rent's History
+  section), drops off the home dashboard's "Upcoming goals" and
+  `notify-due-items`'s target-date escalation, but stays fully viewable
+  and editable — Reopen undoes it any time.
+
 ## 2026-10-02 — Live sync, remind-your-partner, and a weekly digest
 
 Migration `0029_enable_realtime_publication.sql` adds every shared-list

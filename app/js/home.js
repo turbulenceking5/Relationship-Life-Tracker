@@ -96,7 +96,7 @@ export async function render(container, ctx, navigate) {
   // up" — unlike the Events tab's Upcoming/Done split, the home dashboard
   // is a "what's next" glance, not a record of what's happened, so there's
   // no Done section to move them into.
-  const goalsWithDates = goals.filter((g) => g.target_date && g.target_date >= today);
+  const goalsWithDates = goals.filter((g) => g.target_date && g.target_date >= today && !g.closed_at);
 
   function row(icon, title, meta, pill, onClick, actions) {
     return h('div', { class: 'card', onclick: onClick, style: onClick ? 'cursor:pointer' : '' }, [

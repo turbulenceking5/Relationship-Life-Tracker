@@ -125,7 +125,7 @@ Deno.serve(async (req: Request) => {
       admin.from("rent_payments").select("id, household_id, due_date, property_label, last_notified_date").eq("paid", false),
       admin.from("mortgage_payments").select("id, household_id, due_date, property_label, last_notified_date").eq("paid", false),
       admin.from("events").select("id, household_id, title, event_date, recurring, recurring_interval, completed_occurrence, last_notified_date"),
-      admin.from("custom_goals").select("id, household_id, title, target_date, target_amount, last_notified_date").not("target_date", "is", null),
+      admin.from("custom_goals").select("id, household_id, title, target_date, target_amount, last_notified_date").not("target_date", "is", null).is("closed_at", null),
       admin.from("documents").select("id, household_id, title, expiry_date, last_notified_date").not("expiry_date", "is", null),
       admin.from("personal_todos").select("id, household_id, user_id, prompt, remind_date, remind_time, repeat_frequency, last_notified_date").eq("is_done", false),
     ]);
@@ -182,7 +182,9 @@ Deno.serve(async (req: Request) => {
     // rent/mortgage, but skipped once the goal is already fully funded
     // (remaining <= 0) — matches the "Saved so far" progress shown in the
     // Goals tab (goals.js), so a goal that's met before its date stops
-    // nagging instead of notifying forever.
+    // nagging instead of notifying forever. Also skipped once closed_at is
+    // set — a goal finished/closed by hand (see docs/12-feature-goals.md)
+    // is filtered out of the query above entirely.
     const goalIds = (goals ?? []).map((g) => g.id);
     const savedByGoal = new Map<string, number>();
     if (goalIds.length) {
