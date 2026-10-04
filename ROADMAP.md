@@ -303,6 +303,14 @@ schema.
       while deduplicating a hand-rolled `addDays()` into `format.js`).
       Also: documents now show "added by," search boxes added to Events
       and My To-dos, and a per-household cooldown on the remind nudge.
+- [x] **Proactively ask to enable push notifications**: previously the
+      only way to turn them on was finding the toggle in ⚙️ Account &
+      household. Now asked once per browser, chained onto the existing
+      onboarding → changelog dialog sequence, but only when it's
+      actually one tap away (push supported, app installed to the home
+      screen, not already on) — declining isn't permanent, the manual
+      toggle still works either way. See
+      [`docs/11-push-notifications.md`](docs/11-push-notifications.md).
 
 ## Phase 2 — Reminders that actually reach you
 

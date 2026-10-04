@@ -240,6 +240,15 @@ export const CHANGELOG_ENTRIES = [
       'Documents now show who added them, like every other card type',
     ],
   },
+  {
+    id: 25,
+    date: '2026-10-04',
+    title: 'The app now asks if you want notifications',
+    items: [
+      'If you haven\'t turned on push notifications yet, the app now asks once — "Enable notifications" or "Not now"',
+      'Say "Not now" and it won\'t ask again, but you can still turn it on any time from ⚙️ Account & household',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

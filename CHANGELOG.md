@@ -8,6 +8,25 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-04 — Proactively ask to enable push notifications
+
+- **A one-time prompt for push notifications**: previously the only way
+  to turn on due-date push notifications was to find it in ⚙️ Account &
+  household — easy to never notice, and nothing ever asked. `app.js` now
+  chains a third dialog onto the existing onboarding → changelog sequence
+  on load (same "only one dialog open at once" pattern both already
+  use): once per browser, only when it's actually one tap away — push
+  supported, the app installed to the home screen (`isStandalone()`,
+  since `enablePush()` requires it), and not already enabled — it asks
+  "Enable notifications" or "Not now." `shouldShowPushPrompt()`/
+  `markPushPromptSeen()` in `notifications.js` track the once-per-browser
+  part the same way `onboarding.js`/`changelog.js` already do. Declining
+  isn't permanent; the manual toggle in the account sheet still works
+  either way. Deliberately doesn't nag anyone who hasn't installed the
+  app yet — that's a separate problem (a pre-signup "Add to Home Screen"
+  walkthrough would be the real fix), not one this prompt should paper
+  over.
+
 ## 2026-10-04 — Bug-fix batch from a 3-agent audit
 
 Three parallel research agents (security/RLS, code-quality/tech-debt,

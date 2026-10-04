@@ -29,6 +29,35 @@ export async function getSubscriptionStatus(ctx) {
   return data ? 'enabled' : 'disabled';
 }
 
+const PUSH_PROMPT_KEY = 'pushPromptSeen';
+
+// Whether to proactively ask about enabling push notifications — shown
+// once per browser (same seen-once tolerance pattern as
+// onboarding.js/changelog.js), and only when it's actually actionable
+// right now: push needs to be supported, the app installed to the home
+// screen (enablePush() requires this — see isStandalone() above), and
+// not already enabled. Dismissing it isn't permanent: notifications can
+// still be turned on later from ⚙️ Account & household.
+export function shouldShowPushPrompt(status) {
+  if (!isPushSupported() || !isStandalone() || status === 'enabled') return false;
+  try {
+    return localStorage.getItem(PUSH_PROMPT_KEY) !== '1';
+  } catch {
+    // Storage unavailable — treat as unseen rather than never asking,
+    // same tolerance as onboarding.js/changelog.js.
+    return true;
+  }
+}
+
+export function markPushPromptSeen() {
+  try {
+    localStorage.setItem(PUSH_PROMPT_KEY, '1');
+  } catch {
+    // Won't persist across reloads — the prompt just reappears next
+    // time, same harmless failure mode as onboarding/changelog.
+  }
+}
+
 export async function enablePush(ctx) {
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') throw new Error('Notification permission was not granted.');

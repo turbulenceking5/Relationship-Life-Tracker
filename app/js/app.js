@@ -1,8 +1,8 @@
 import { supabase } from './supabaseClient.js';
-import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
+import { h, mount, openSheet, closeSheet, makeSheet, withBusyLabel } from './dom.js';
 import { renderAuthScreen } from './auth.js';
 import { renderHouseholdScreen, getMyHousehold, renderInviteInfo, getHouseholdMembers, updateSplitPercents } from './household.js';
-import { isStandalone, isPushSupported, getSubscriptionStatus, enablePush, disablePush } from './notifications.js';
+import { isStandalone, isPushSupported, getSubscriptionStatus, enablePush, disablePush, shouldShowPushPrompt, markPushPromptSeen } from './notifications.js';
 import { getTheme, setTheme } from './theme.js';
 import { getUnseenEntries, markChangelogSeen } from './changelog.js';
 import { shouldShowOnboarding, markOnboardingSeen } from './onboarding.js';
@@ -106,7 +106,7 @@ async function afterAuth(user) {
 
   ctx = { user, household };
   renderMainApp();
-  showOnboardingIfNeeded(showChangelogIfUnseen);
+  showOnboardingIfNeeded(() => showChangelogIfUnseen(showPushPromptIfNeeded));
   realtimeChannel = subscribeHousehold(household.id, scheduleRefresh);
 }
 
@@ -141,10 +141,16 @@ function showOnboardingIfNeeded(onDone) {
 
 // Runs once per app load (from afterAuth, not from every tab switch or
 // account-sheet open) so "What's new" reflects what changed since this
-// browser last saw it, not since the current session started.
-function showChangelogIfUnseen() {
+// browser last saw it, not since the current session started. Chains
+// into onDone (the push-notification prompt below) the same way
+// showOnboardingIfNeeded() chains into this, so only one dialog is ever
+// open at once.
+function showChangelogIfUnseen(onDone) {
   const unseen = getUnseenEntries();
-  if (!unseen.length) return;
+  if (!unseen.length) {
+    onDone();
+    return;
+  }
 
   const { dialog, body } = makeSheet("What's new");
   mount(body, [
@@ -158,7 +164,53 @@ function showChangelogIfUnseen() {
   // Any way of closing (this button, the sheet's own ✕, tap-outside)
   // counts as "seen" — someone dismissing via the ✕ isn't asking to be
   // reminded later.
-  dialog.addEventListener('close', () => { markChangelogSeen(); dialog.remove(); });
+  dialog.addEventListener('close', () => { markChangelogSeen(); dialog.remove(); onDone(); });
+  openSheet(dialog);
+}
+
+// Last link in the onboarding → changelog → push-prompt chain — asks
+// once per browser whether to turn on due-date push notifications, for
+// anyone who hasn't already and could actually turn it on right now
+// (see shouldShowPushPrompt() in notifications.js: push supported, app
+// installed to the home screen, not already enabled). Needs an async
+// status check first, unlike the other two links, since "already
+// enabled" depends on a query rather than just a localStorage flag.
+async function showPushPromptIfNeeded() {
+  let status;
+  try {
+    status = await getSubscriptionStatus(ctx);
+  } catch {
+    return; // couldn't tell either way — don't nag if the check itself failed
+  }
+  if (!shouldShowPushPrompt(status)) return;
+
+  const { dialog, body } = makeSheet('Get notified');
+  const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
+  const enableBtn = h('button', { class: 'btn primary' }, 'Enable notifications');
+  enableBtn.addEventListener('click', async () => {
+    errorEl.style.display = 'none';
+    const restore = withBusyLabel(enableBtn, 'Enabling…');
+    try {
+      await enablePush(ctx);
+      closeSheet(dialog);
+    } catch (err) {
+      errorEl.textContent = err.message;
+      errorEl.style.display = 'block';
+      restore();
+    }
+  });
+  mount(body, [
+    h('p', {}, 'Get a push notification for due rent/mortgage payments, upcoming events, goal dates, and your own reminders — nothing to open and check, it just lets you know.'),
+    errorEl,
+    enableBtn,
+    h('button', { class: 'btn secondary', style: 'margin-top:8px', onclick: () => closeSheet(dialog) }, 'Not now'),
+  ]);
+  document.body.appendChild(dialog);
+  // Same "any way of closing counts as seen" rule as the changelog
+  // dialog above — declining via "Not now", the sheet's own ✕, or
+  // tap-outside are all treated the same, and notifications can still be
+  // turned on later from ⚙️ Account & household either way.
+  dialog.addEventListener('close', () => { markPushPromptSeen(); dialog.remove(); });
   openSheet(dialog);
 }
 

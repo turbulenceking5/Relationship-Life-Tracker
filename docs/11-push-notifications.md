@@ -66,7 +66,8 @@ doesn't re-trigger them at every run.
 | Cron schedule | `supabase/migrations/0004_schedule_notifications.sql`, retimed to Brisbane in `0005_localize_australia.sql`, moved to a 15-minute poll in `0027_notify_poll_frequency.sql` |
 | The actual send/scan logic | `supabase/functions/notify-due-items/index.ts` |
 | Subscribe/unsubscribe from the browser | `app/js/notifications.js` |
-| Notification permission UI | Account sheet in `app/js/app.js` |
+| Notification permission UI | Account sheet (`app/js/app.js`'s `renderNotificationsSection`) — manual enable/disable, always available |
+| Proactive one-time prompt | `app/js/app.js`'s `showPushPromptIfNeeded()`, chained after onboarding/changelog on load — see below |
 | Showing the notification, handling taps | `app/service-worker.js` (`push`, `notificationclick`) |
 | Public VAPID key (safe to ship) | `app/js/config.js` |
 
@@ -110,6 +111,28 @@ rather than Supabase JWT verification, because its only caller is
   every member.
 - A subscription that the push service reports as gone (HTTP 404/410,
   e.g. uninstalled app, cleared browser data) is deleted automatically.
+
+## Proactively asking to enable notifications
+
+Before this, the only way to turn on push notifications was to dig into
+⚙️ Account & household — easy to never notice. `app.js` now chains a
+third dialog onto the existing onboarding → changelog sequence (so only
+one dialog is ever open at once, same pattern both of those already
+use): once per browser, if push is supported, the app is installed to
+the home screen (`isStandalone()` — `enablePush()` doesn't work
+otherwise), and notifications aren't already on, it asks once with
+"Enable notifications" / "Not now." `shouldShowPushPrompt()` /
+`markPushPromptSeen()` in `notifications.js` track the "once per
+browser" part, the same seen-once `localStorage` pattern
+`onboarding.js`/`changelog.js` use. Declining isn't permanent — the
+manual toggle in the account sheet is unaffected and still there either
+way.
+
+Deliberately scoped to the case where it's actually one tap away: if the
+app isn't installed yet, no prompt is shown (nagging about notifications
+before someone can even enable them would be the wrong fix — getting
+them to install is a separate concern, the account sheet already handles
+explaining that when they do open it).
 
 ## Setting this up on your own fork
 
