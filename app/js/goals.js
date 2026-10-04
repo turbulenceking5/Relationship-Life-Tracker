@@ -220,7 +220,12 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
         },
       }, 'Delete goal'),
     ]);
-    return h('div', { class: 'card' }, form);
+    // data-editing flags this card to app.js's Realtime refresh guard
+    // (scheduleRefresh() in app.js) — a partner's unrelated change
+    // shouldn't silently rebuild `main` out from under an open inline
+    // edit form, since (unlike every other edit flow in this app) this
+    // one renders directly into the page instead of a <dialog>.
+    return h('div', { class: 'card', 'data-editing': 'true' }, form);
   }
 
   function openEditTxnSheet(t) {

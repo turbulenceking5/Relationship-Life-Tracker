@@ -53,6 +53,19 @@ Every feature module exports an async `render(container, ctx)` that:
 `app.js` and `money.js` are the two exceptions that route between
 multiple such modules rather than being one themselves.
 
+### Inline edit forms need `data-editing`
+
+Almost every edit flow is a `<dialog>` (via `makeSheet()`, above) — the
+two exceptions are Goals' and Recipes' "Edit ___" buttons, which swap a
+card's body for a form directly inside `main` rather than opening a
+sheet. Because Realtime live sync (`app.js`'s `scheduleRefresh()`, see
+[`24-live-sync-and-nudges.md`](24-live-sync-and-nudges.md)) can rebuild
+`main` at any time in response to a partner's unrelated change, mark
+that inline form's wrapper with `data-editing="true"` — the refresh
+guard checks for it and skips the rebuild while it's present, same as it
+already skips while a search box has focus. Skip this for anything that
+opens a `<dialog>` instead; those live outside `main` and are never at risk.
+
 ## Card + pill conventions
 
 - A list item is a `.card` containing a `.card-row` (title/meta on the

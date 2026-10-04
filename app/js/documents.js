@@ -1,8 +1,9 @@
-import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
+import { h, mount, openSheet, closeSheet, makeSheet, withBusyLabel } from './dom.js';
 import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
-import { formatDate, daysUntil } from './format.js';
+import { formatDate, daysUntil, dayThresholdStatus } from './format.js';
 import { supabase } from './supabaseClient.js';
 import { isConfigured, isDriveConnected, hasLocalDriveAccess, uploadFileToDrive, deleteDriveFile } from './googleDrive.js';
+import { getHouseholdMembers } from './household.js';
 
 export const DOCUMENT_TABLE = 'documents';
 export const DOCUMENT_BUCKET = 'documents';
@@ -19,14 +20,15 @@ function categoryLabel(category) {
   return category.charAt(0).toUpperCase() + category.slice(1);
 }
 
-// Same overdue/due-soon/ok day thresholds as dueStatus() in format.js
-// (used for rent/mortgage due dates), but with wording that fits an
-// expiry rather than a bill: a document "expires," it isn't "due."
+// Shares dueStatus()'s day-threshold bucketing (format.js's
+// dayThresholdStatus(), also used for rent/mortgage due dates) with
+// wording that fits an expiry rather than a bill: a document "expires,"
+// it isn't "due."
 export function expiryStatus(expiryDate) {
-  const days = daysUntil(expiryDate);
-  if (days < 0) return { label: `Expired ${Math.abs(days)}d ago`, cls: 'overdue' };
-  if (days <= 14) return { label: `Expires in ${days}d`, cls: 'due-soon' };
-  return { label: '', cls: 'ok' };
+  return dayThresholdStatus(daysUntil(expiryDate), {
+    overdue: (d) => `Expired ${d}d ago`,
+    soon: (d) => `Expires in ${d}d`,
+  });
 }
 
 export async function viewDocument(row) {
@@ -57,11 +59,13 @@ export function openEditDocumentSheet(row, onSaved) {
   const titleInput = h('input', { type: 'text', required: true, value: row.title });
   const categorySelect = h('select', {}, DOCUMENT_CATEGORIES.map((c) => h('option', { value: c, selected: c === row.category }, c)));
   const expiryInput = h('input', { type: 'date', value: row.expiry_date || '' });
+  const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save changes');
 
   const form = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       errorEl.style.display = 'none';
+      const restore = withBusyLabel(submitBtn, 'Saving…');
       try {
         await updateRow(DOCUMENT_TABLE, row.id, {
           title: titleInput.value.trim(),
@@ -73,6 +77,7 @@ export function openEditDocumentSheet(row, onSaved) {
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
+        restore();
       }
     },
   }, [
@@ -83,7 +88,7 @@ export function openEditDocumentSheet(row, onSaved) {
     ]),
     h('p', { class: 'meta' }, 'To replace the file itself, delete this and upload a new one.'),
     errorEl,
-    h('button', { class: 'btn primary', type: 'submit' }, 'Save changes'),
+    submitBtn,
   ]);
   mount(body, form);
   openSheet(dialog);
@@ -126,8 +131,7 @@ export function openUploadDocumentSheet(ctx, { sheetTitle = 'Add document', rela
       errorEl.style.display = 'none';
       const file = fileInput.files[0];
       if (!file) return;
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Uploading…';
+      const restore = withBusyLabel(submitBtn, 'Uploading…');
       try {
         const driveFileName = `[${categoryLabel(categorySelect.value)}] ${file.name}`;
         const uploaded = await uploadFileToDrive(ctx, file, driveFileName);
@@ -150,8 +154,7 @@ export function openUploadDocumentSheet(ctx, { sheetTitle = 'Add document', rela
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Upload document';
+        restore();
       }
     },
   }, [
@@ -183,20 +186,23 @@ function matchesSearch(row, goalTitle, query) {
 }
 
 export async function render(container, ctx) {
-  const [rows, goals] = await Promise.all([
+  const [rows, goals, members] = await Promise.all([
     fetchRows(DOCUMENT_TABLE, ctx.household.id, 'created_at', false),
     fetchRows('custom_goals', ctx.household.id, 'created_at', false),
+    getHouseholdMembers(ctx.household.id),
   ]);
   const goalTitle = (id) => goals.find((g) => g.id === id)?.title;
+  const memberName = (id) => members.find((m) => m.user_id === id)?.display_name;
 
   function card(row) {
     const linkedGoal = row.related_type === 'goal' ? goalTitle(row.related_id) : null;
     const status = row.expiry_date ? expiryStatus(row.expiry_date) : null;
+    const addedBy = memberName(row.uploaded_by);
     return h('div', { class: 'card' }, [
       h('div', { class: 'card-row' }, [
         h('div', {}, [
           h('h3', {}, row.title),
-          h('div', { class: 'meta' }, `${row.category || 'document'} · added ${formatDate(row.created_at.slice(0, 10))}${row.expiry_date ? ' · expires ' + formatDate(row.expiry_date) : ''}${linkedGoal ? ' · linked to ' + linkedGoal : ''}`),
+          h('div', { class: 'meta' }, `${row.category || 'document'} · added ${formatDate(row.created_at.slice(0, 10))}${addedBy ? ' by ' + addedBy : ''}${row.expiry_date ? ' · expires ' + formatDate(row.expiry_date) : ''}${linkedGoal ? ' · linked to ' + linkedGoal : ''}`),
         ]),
         status && status.cls !== 'ok' ? h('span', { class: `pill ${status.cls}` }, status.label) : null,
       ]),

@@ -1,6 +1,6 @@
 import { h, mount, openSheet, closeSheet, makeSheet, withBusyLabel } from './dom.js';
 import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
-import { formatDate, todayStr, dueStatus } from './format.js';
+import { formatDate, todayStr, dueStatus, addDays } from './format.js';
 
 const TABLE = 'personal_todos';
 const REPEAT_OPTIONS = [
@@ -16,14 +16,6 @@ const REPEAT_OPTIONS = [
 // behave exactly like one the push notification fires: advance to its
 // next occurrence and stay active, not get permanently marked done. Only
 // a non-repeating ('none') reminder actually becomes done when checked.
-function addDays(dateStr, n) {
-  const d = new Date(dateStr + 'T00:00:00');
-  d.setDate(d.getDate() + n);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
 function addOneMonth(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number);
   const ny = m === 12 ? y + 1 : y;
@@ -176,11 +168,26 @@ export async function render(container, ctx) {
   ]);
   mount(body, form);
 
+  const searchInput = h('input', { type: 'search', placeholder: 'Search reminders…' });
+  const listContainer = h('div', {});
+  function renderList() {
+    const query = searchInput.value.trim().toLowerCase();
+    const matches = (r) => !query || r.prompt.toLowerCase().includes(query);
+    const filteredActive = active.filter(matches);
+    const filteredDone = done.filter(matches);
+    mount(listContainer, [
+      h('div', { class: 'section-title' }, 'Active'),
+      filteredActive.length ? h('div', {}, filteredActive.map(card)) : h('div', { class: 'empty-state' }, query ? 'No reminders match your search.' : 'Nothing to remind you about yet.'),
+      ...(filteredDone.length ? [h('div', { class: 'section-title' }, 'Done'), h('div', {}, filteredDone.slice(0, 20).map(card))] : []),
+    ]);
+  }
+  searchInput.addEventListener('input', renderList);
+  renderList();
+
   mount(container, [
     h('div', { class: 'meta', style: 'margin-bottom:10px' }, "Private to you — your partner can't see this list."),
-    h('div', { class: 'section-title' }, 'Active'),
-    active.length ? h('div', {}, active.map(card)) : h('div', { class: 'empty-state' }, 'Nothing to remind you about yet.'),
-    ...(done.length ? [h('div', { class: 'section-title' }, 'Done'), h('div', {}, done.slice(0, 20).map(card))] : []),
+    rows.length ? h('div', { class: 'field' }, searchInput) : null,
+    listContainer,
     h('button', { class: 'fab', onclick: () => openSheet(dialog) }, '+'),
     dialog,
   ]);

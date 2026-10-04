@@ -16,25 +16,48 @@
 // code guessing at it), before an admin (service-role) client is used
 // to read the partner's push subscriptions and the VAPID secret, the
 // same two things notify-due-items needs service-role access for.
+//
+// CORS: this is the only edge function in this app invoked directly
+// from a browser rather than by pg_cron (which doesn't send a
+// preflight), so unlike every other function here it needs explicit
+// CORS headers and an OPTIONS branch -- without them the browser's own
+// preflight request fails before this code ever runs, since the
+// request carries an Authorization header.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+// How often any one household can trigger a reminder -- a cheap
+// cooldown against unlimited push spam (e.g. an acrimonious split where
+// an ex-partner is still technically a household member), not a general
+// anti-abuse system. Deliberately generous: this is a one-tap action
+// between two people, not a public endpoint.
+const COOLDOWN_MS = 5 * 60 * 1000;
+
 Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
   }
 
   let body: { householdId?: string; label?: string };
   try {
     body = await req.json();
   } catch {
-    return new Response(JSON.stringify({ error: "Invalid request body" }), { status: 400 });
+    return new Response(JSON.stringify({ error: "Invalid request body" }), { status: 400, headers: corsHeaders });
   }
   const { householdId, label } = body;
   if (!householdId || typeof label !== "string" || !label.trim()) {
-    return new Response(JSON.stringify({ error: "householdId and label are required" }), { status: 400 });
+    return new Response(JSON.stringify({ error: "householdId and label are required" }), { status: 400, headers: corsHeaders });
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -45,7 +68,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: userData, error: userError } = await userClient.auth.getUser();
   if (userError || !userData?.user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
   }
 
   // RLS-scoped to the caller's own JWT: this only succeeds in returning
@@ -58,26 +81,37 @@ Deno.serve(async (req: Request) => {
     .select("user_id")
     .eq("household_id", householdId);
   if (membersError) {
-    return new Response(JSON.stringify({ error: membersError.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: membersError.message }), { status: 500, headers: corsHeaders });
   }
   const isMember = (members ?? []).some((m) => m.user_id === userData.user.id);
   if (!isMember) {
-    return new Response(JSON.stringify({ error: "Not a member of this household" }), { status: 403 });
+    return new Response(JSON.stringify({ error: "Not a member of this household" }), { status: 403, headers: corsHeaders });
   }
   const partnerIds = (members ?? []).map((m) => m.user_id).filter((id) => id !== userData.user.id);
   if (!partnerIds.length) {
-    return new Response(JSON.stringify({ sent: 0, reason: "no partner in household" }), { status: 200 });
+    return new Response(JSON.stringify({ sent: 0, reason: "no partner in household" }), { status: 200, headers: corsHeaders });
   }
 
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const admin = createClient(supabaseUrl, serviceRoleKey);
 
+  const { data: household } = await admin
+    .from("households")
+    .select("last_reminded_at")
+    .eq("id", householdId)
+    .single();
+  if (household?.last_reminded_at && Date.now() - new Date(household.last_reminded_at).getTime() < COOLDOWN_MS) {
+    return new Response(JSON.stringify({ error: "Please wait a bit before reminding again." }), { status: 429, headers: corsHeaders });
+  }
+
   const { data: secretRows, error: secretError } = await admin.rpc("get_edge_secrets");
   const secrets = secretRows?.[0];
   if (secretError || !secrets?.vapid_private_key) {
-    return new Response(JSON.stringify({ error: "Server not configured" }), { status: 500 });
+    return new Response(JSON.stringify({ error: "Server not configured" }), { status: 500, headers: corsHeaders });
   }
   webpush.setVapidDetails(secrets.vapid_subject, secrets.vapid_public_key, secrets.vapid_private_key);
+
+  await admin.from("households").update({ last_reminded_at: new Date().toISOString() }).eq("id", householdId);
 
   const { data: subs } = await admin
     .from("push_subscriptions")
@@ -103,6 +137,6 @@ Deno.serve(async (req: Request) => {
   }
 
   return new Response(JSON.stringify({ sent, failed }), {
-    headers: { "Content-Type": "application/json" },
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });

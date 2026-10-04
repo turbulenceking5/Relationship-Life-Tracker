@@ -59,7 +59,9 @@ function renderRecipeBody(section, ctx, recipe, editing, onChanged) {
         },
       }, 'Delete recipe'),
     ]);
-    return h('div', { class: 'card' }, form);
+    // data-editing flags this card to app.js's Realtime refresh guard —
+    // see the matching comment in goals.js's editForm().
+    return h('div', { class: 'card', 'data-editing': 'true' }, form);
   }
 
   // Pushes every ingredient line into the Grocery List's To Buy section,

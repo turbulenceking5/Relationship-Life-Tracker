@@ -229,6 +229,17 @@ export const CHANGELOG_ENTRIES = [
       'Finished goals move into a collapsed "Closed goals" section at the bottom of the tab, and can be reopened any time',
     ],
   },
+  {
+    id: 24,
+    date: '2026-10-04',
+    title: 'Bug fixes: the partner-remind nudge, live sync, and search',
+    items: [
+      'Fixed the "🔔 Remind" nudge not actually working in most browsers',
+      'A partner\'s live update no longer interrupts you mid-edit on a goal or recipe, or collapses a section you had open',
+      'Added search boxes to Events and My To-dos, matching every other list',
+      'Documents now show who added them, like every other card type',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

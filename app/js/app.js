@@ -42,17 +42,43 @@ let refreshTimer = null;
 // an inline field (a search box — every add/edit form is a `<dialog>`
 // appended to `document.body`, outside `main`, so this never interrupts
 // filling one out) so a live update can't yank typed text out from
-// under them; the next own action picks up the change anyway.
+// under them; the next own action picks up the change anyway. Also
+// skipped while a `[data-editing]` card is open in `main` — Goals' and
+// Recipes' inline "Edit ___" forms render directly into the page rather
+// than a `<dialog>` (unlike every other edit flow in this app), so a
+// plain activeElement check wouldn't catch someone reading the form
+// before they've focused a field yet.
+//
+// `renderMainApp()` always rebuilds `main` from scratch, which would
+// otherwise collapse every open `<details>` section and reset scroll
+// position on every live update — tolerable on a deliberate tab switch,
+// not on a background refresh triggered by someone else's action. Both
+// are captured before the rebuild and restored after, matched by each
+// `<details>`'s `<summary>` text (good enough at this app's scale —
+// goal/recipe/event titles are distinct in practice).
 function scheduleRefresh(table, payload) {
   if (table === 'households' && payload?.new) {
     Object.assign(ctx.household, payload.new);
   }
   const active = document.activeElement;
-  if (mainEl && active && mainEl.contains(active) && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
-    return;
-  }
+  const typingInline = mainEl && active && mainEl.contains(active) && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
+  const midInlineEdit = mainEl && mainEl.querySelector('[data-editing]');
+  if (typingInline || midInlineEdit) return;
+
   clearTimeout(refreshTimer);
-  refreshTimer = setTimeout(() => renderMainApp(), 400);
+  refreshTimer = setTimeout(async () => {
+    const scrollY = window.scrollY;
+    const openSummaries = mainEl
+      ? [...mainEl.querySelectorAll('details[open] > summary')].map((s) => s.textContent)
+      : [];
+    await renderMainApp();
+    if (mainEl && openSummaries.length) {
+      for (const summary of mainEl.querySelectorAll('details > summary')) {
+        if (openSummaries.includes(summary.textContent)) summary.parentElement.open = true;
+      }
+    }
+    window.scrollTo(0, scrollY);
+  }, 400);
 }
 
 async function boot() {

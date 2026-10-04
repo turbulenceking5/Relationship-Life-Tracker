@@ -293,6 +293,16 @@ schema.
       collapsed "Closed goals" section, same pattern as Events'
       Upcoming/Done split. See
       [`docs/12-feature-goals.md`](docs/12-feature-goals.md).
+- [x] **Bug-fix batch from a 3-agent audit**: fixed the "🔔 Remind" nudge
+      silently not working in any real browser (missing CORS headers —
+      see [`docs/24-live-sync-and-nudges.md`](docs/24-live-sync-and-nudges.md)),
+      Realtime live sync clobbering an in-progress Goals/Recipes inline
+      edit or collapsing an open section, a coincidental-constant bug in
+      `events.js`'s repeat-select default, and a real latent
+      UTC-vs-local-date bug in `rent.js`'s "mark as paid" flow (found
+      while deduplicating a hand-rolled `addDays()` into `format.js`).
+      Also: documents now show "added by," search boxes added to Events
+      and My To-dos, and a per-household cooldown on the remind nudge.
 
 ## Phase 2 — Reminders that actually reach you
 

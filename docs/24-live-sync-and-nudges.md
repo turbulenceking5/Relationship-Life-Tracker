@@ -36,6 +36,16 @@ cross-partner to sync.
   List) from having their typed query yanked out mid-keystroke. The next
   own action (switching tabs, clearing search) picks up the missed
   change anyway.
+- Also skipped while a `[data-editing]` card is open — Goals' and
+  Recipes' inline "Edit ___" forms are the one exception to "every
+  edit flow is a `<dialog>`" above (they render straight into `main`),
+  so a plain activeElement check wouldn't catch someone reading the form
+  before they've focused a field in it. Both mark their edit-form
+  wrapper with `data-editing="true"` for this reason.
+- `renderMainApp()` always rebuilds `main` from scratch, which would
+  otherwise collapse every open `<details>` section and reset scroll
+  position on every live update. Both are captured (by each open
+  `<details>`'s `<summary>` text) before the rebuild and restored after.
 
 Enabling this needed one migration
 (`0029_enable_realtime_publication.sql`) adding those tables to the
@@ -69,9 +79,24 @@ only their own rows (`user_id = auth.uid()`) — there's no way to look up
 a partner's subscriptions without it, same reason `notify-due-items`
 needs service-role access.
 
-No rate limiting — this is a manual, one-tap action between two trusted
-partners, not a public endpoint; the button disables for a few seconds
-after each tap purely to stop an accidental double-send.
+A 5-minute per-household cooldown (`households.last_reminded_at`,
+migration `0032_household_last_reminded_at.sql`) guards against
+unlimited push spam; this is a manual, one-tap action between two
+trusted partners, not a public endpoint, so the cooldown is generous —
+it's there for the "acrimonious split, still technically a member" case,
+not day-to-day use. The button also disables for a few seconds after
+each tap to stop an accidental double-send.
+
+**CORS**: this is the only edge function in this app invoked directly
+from a browser (every other one is `pg_cron`-only). The real request
+carries an `Authorization` header, which makes the browser send a
+preflight `OPTIONS` request first — without explicit
+`Access-Control-Allow-Origin`/`-Headers` and an `OPTIONS` branch
+returning them, that preflight fails and the actual request never goes
+out, regardless of whether the function's own logic is correct. (This
+was missed when the function first shipped — the nudge button appeared
+to work client-side, since nothing in the UI surfaces a failed
+`fetch`/CORS error loudly, but no push was ever actually sent.)
 
 ## Weekly digest
 A new `weekly-digest` edge function, scheduled once a week (Sunday 18:00

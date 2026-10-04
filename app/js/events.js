@@ -193,13 +193,19 @@ export async function render(container, ctx) {
   const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
   const titleInput = h('input', { type: 'text', required: true, placeholder: 'e.g. Sam’s birthday' });
   const dateInput = h('input', { type: 'date', required: true, value: today });
+  // categorySelect's own default is initialCategory (set explicitly below,
+  // rather than left implicit via option order) — repeatSelect's initial
+  // value is derived from that same variable instead of re-deriving it
+  // from CATEGORIES[0] independently, so the two selects can't drift out
+  // of sync if either one's default logic changes later.
+  const initialCategory = CATEGORIES[0];
   const repeatSelect = h('select', {}, REPEAT_OPTIONS.map((o) => h('option', {
     value: o.value,
-    selected: o.value === (DEFAULT_RECURRING_CATEGORIES.includes(CATEGORIES[0]) ? 'yearly' : 'never'),
+    selected: o.value === (DEFAULT_RECURRING_CATEGORIES.includes(initialCategory) ? 'yearly' : 'never'),
   }, o.label)));
   const categorySelect = h('select', {
     onchange: () => { repeatSelect.value = DEFAULT_RECURRING_CATEGORIES.includes(categorySelect.value) ? 'yearly' : 'never'; repeatSelect.dispatchEvent(new Event('change')); },
-  }, CATEGORIES.map((c) => h('option', { value: c }, c)));
+  }, CATEGORIES.map((c) => h('option', { value: c, selected: c === initialCategory }, c)));
   const descInput = h('textarea', { rows: '2', placeholder: 'Optional notes' });
   const rotation = buildRotationField(members, { assignee_user_id: ctx.user.id });
   wireRotationVisibility(repeatSelect, rotation);
@@ -248,17 +254,40 @@ export async function render(container, ctx) {
   ]);
   mount(body, form);
 
-  const list = [
-    h('div', { class: 'section-title' }, 'Upcoming'),
-    ...(upcoming.length ? upcoming.map((row) => card(row, false)) : [h('div', { class: 'empty-state' }, 'No upcoming events yet.')]),
-  ];
-  if (done.length) {
-    list.push(h('div', { class: 'section-title' }, 'Done'));
-    list.push(...done.slice(0, 20).map((row) => card(row, true)));
+  // Title, category, or description — case-insensitive substring, no
+  // fancy tokenizing, same scope as every other list's search box.
+  function matchesSearch(row, query) {
+    if (!query) return true;
+    const q = query.toLowerCase();
+    return (
+      row.title.toLowerCase().includes(q) ||
+      (row.category || '').toLowerCase().includes(q) ||
+      (row.description || '').toLowerCase().includes(q)
+    );
   }
 
+  const searchInput = h('input', { type: 'search', placeholder: 'Search events…' });
+  const listContainer = h('div', {});
+  function renderList() {
+    const query = searchInput.value.trim();
+    const filteredUpcoming = upcoming.filter((r) => matchesSearch(r, query));
+    const filteredDone = done.filter((r) => matchesSearch(r, query));
+    const list = [
+      h('div', { class: 'section-title' }, 'Upcoming'),
+      ...(filteredUpcoming.length ? filteredUpcoming.map((row) => card(row, false)) : [h('div', { class: 'empty-state' }, query ? 'No events match your search.' : 'No upcoming events yet.')]),
+    ];
+    if (filteredDone.length) {
+      list.push(h('div', { class: 'section-title' }, 'Done'));
+      list.push(...filteredDone.slice(0, 20).map((row) => card(row, true)));
+    }
+    mount(listContainer, list);
+  }
+  searchInput.addEventListener('input', renderList);
+  renderList();
+
   mount(container, [
-    h('div', {}, list),
+    rows.length ? h('div', { class: 'field' }, searchInput) : null,
+    listContainer,
     h('button', { class: 'fab', onclick: () => openSheet(dialog) }, '+'),
     dialog,
   ]);

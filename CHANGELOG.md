@@ -8,6 +8,59 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-04 — Bug-fix batch from a 3-agent audit
+
+Three parallel research agents (security/RLS, code-quality/tech-debt,
+external feature research) were run against the app as it stood after
+the live-sync/remind/digest/goal-close batches. This entry covers the
+confirmed bugs and small cleanups that came back; the new feature ideas
+ship separately as their own entries.
+
+- **Fixed `remind-partner`'s missing CORS headers**: it's the only edge
+  function invoked directly from a browser (every other one is
+  `pg_cron`-only), and without `Access-Control-Allow-Origin`/`-Headers`
+  and an `OPTIONS` branch, the browser's own preflight request — sent
+  because the real request carries an `Authorization` header — failed
+  before the function's code ever ran. The "🔔 Remind" button has likely
+  been non-functional in every real browser since it shipped. Also added
+  a 5-minute per-household cooldown (`households.last_reminded_at`,
+  migration `0032`) against unlimited push spam.
+- **Fixed Realtime live-sync clobbering an in-progress inline edit**:
+  Goals' and Recipes' "Edit ___" forms render directly into the page
+  (unlike every other edit flow, which is a `<dialog>`) — a partner's
+  unrelated change during the 400ms debounce window could silently
+  revert an open edit form before anyone had even focused a field in it.
+  `app.js`'s `scheduleRefresh()` now also skips while a `[data-editing]`
+  card is open, and preserves scroll position and open `<details>`
+  sections (by summary text) across any live-triggered re-render instead
+  of resetting them.
+- **Fixed a coincidental-constant bug in `events.js`**: the add-event
+  form's "Repeats" default was computed from an always-true constant
+  expression that only produced the right answer because of an
+  unrelated coincidence (the category select's own default happening to
+  match). Both selects now derive their initial value from the same
+  named `initialCategory`, so they can't drift apart if either one's
+  default logic changes later.
+- **Documents now show "added by"**, matching every other card type —
+  `uploaded_by` was already stored but never read.
+- **Documents' upload form uses the shared `withBusyLabel()` helper**
+  instead of hand-rolled disable logic; its edit form (which had no
+  submit-disable at all) got one too.
+- **Search boxes added to Events and My To-dos**, matching every other
+  list (Expenses/Grocery List/Recipes/Documents already had one, with no
+  principled reason these two didn't).
+- **Fixed a real latent date bug while deduplicating `addDays()`**:
+  `rent.js`'s copy used `toISOString()`, which converts to UTC — for
+  anyone east of UTC (Brisbane included, per this app's own household),
+  local midnight can land on the *previous* UTC day, so "mark as paid →
+  next period" was silently computing the next due date one day early.
+  `personal-todos.js` had its own correct, local-time copy already; both
+  now share one `addDays()` in `format.js`, fixed.
+- **Consolidated `dueStatus()`/`expiryStatus()`'s day-threshold logic**
+  into one `dayThresholdStatus()` in `format.js` — the two were
+  duplicated copies of the same overdue/due-soon/ok bucketing with only
+  the label wording differing; a threshold change now updates both.
+
 ## 2026-10-02 — Finish or close a goal
 
 Migration `0031_goal_closed_at.sql` adds `custom_goals.closed_at`.

@@ -1,6 +1,6 @@
 import { h, mount, openSheet, closeSheet, makeSheet, withBusyLabel } from './dom.js';
 import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
-import { formatDate, formatMoney, dueStatus, todayStr } from './format.js';
+import { formatDate, formatMoney, dueStatus, todayStr, addDays } from './format.js';
 
 const INTERVAL_PRESETS = [
   { label: 'Weekly', days: 7 },
@@ -8,12 +8,6 @@ const INTERVAL_PRESETS = [
   { label: 'Monthly', days: 30 },
   { label: 'Custom', days: null },
 ];
-
-function addDays(dateStr, days) {
-  const d = new Date(dateStr + 'T00:00:00');
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 
 // Rent (money in) and Mortgage (money out) on the same property are the
 // same "rolling due/paid period" shape (see rent_payments/

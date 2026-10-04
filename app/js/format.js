@@ -40,6 +40,20 @@ function toDateStr(d) {
   return `${year}-${month}-${day}`;
 }
 
+// "YYYY-MM-DD" + n days, in local time throughout (toDateStr(), not
+// toISOString()) — used anywhere a due/reminder date needs to roll
+// forward by a fixed number of days (rent.js's "mark as paid → next
+// period," personal-todos.js's daily/weekly repeat). Was previously
+// duplicated in both of those files; one of the two copies used
+// toISOString() and was quietly off by a day for anyone east of UTC
+// (Brisbane included) for the exact reason todayStr()'s comment warns
+// about — consolidating here fixes that, not just the duplication.
+export function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return toDateStr(d);
+}
+
 // For a recurring event, maps it onto its occurrence within the CURRENT
 // cycle for the given interval — never rolls forward into the next cycle
 // even if that occurrence has already gone by. For a non-recurring event,
@@ -116,11 +130,26 @@ export function occurrenceCycleCount(dateStr, recurring, interval) {
   return Math.max(0, Number(ty) - Number(ay));
 }
 
+// Shared overdue/due-soon/ok day-threshold bucketing behind dueStatus()
+// (below) and expiryStatus() (documents.js, for a document's expiry
+// rather than a bill's due date) — a threshold change here updates both
+// at once instead of relying on two hand-copied day-count checks staying
+// in sync. Callers vary only the label wording via `labels`; `today` and
+// `ok` are optional since expiryStatus() doesn't special-case "today"
+// and shows no label once something isn't expiring soon.
+export function dayThresholdStatus(days, labels) {
+  if (days == null) return { label: '', cls: '' };
+  if (days < 0) return { label: labels.overdue(Math.abs(days)), cls: 'overdue' };
+  if (days === 0 && labels.today) return { label: labels.today(), cls: 'due-soon' };
+  if (days <= 14) return { label: labels.soon(days), cls: 'due-soon' };
+  return { label: labels.ok ? labels.ok(days) : '', cls: 'ok' };
+}
+
 export function dueStatus(dateStr) {
-  const days = daysUntil(dateStr);
-  if (days === null) return { label: '', cls: '' };
-  if (days < 0) return { label: `Overdue ${Math.abs(days)}d`, cls: 'overdue' };
-  if (days === 0) return { label: 'Due today', cls: 'due-soon' };
-  if (days <= 14) return { label: `Due in ${days}d`, cls: 'due-soon' };
-  return { label: `Due in ${days}d`, cls: 'ok' };
+  return dayThresholdStatus(daysUntil(dateStr), {
+    overdue: (d) => `Overdue ${d}d`,
+    today: () => 'Due today',
+    soon: (d) => `Due in ${d}d`,
+    ok: (d) => `Due in ${d}d`,
+  });
 }
