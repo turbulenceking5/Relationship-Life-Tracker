@@ -351,6 +351,12 @@ schema.
       the ⚙️ account sheet) and a "Settle up" action that logs a
       balancing payment. See
       [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md).
+- [x] **Personal expenses — don't split at all**: a "Personal expense"
+      checkbox on the add/edit expense form excludes it from the "who
+      owes who" balance entirely, instead of needing a dishonest 100/0
+      split to fake the same thing. Still counts toward the "This
+      month" total and category breakdown. See
+      [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md).
 - [ ] Multi-currency support (per-entry currency + household default)
 - [ ] CSV export of expenses and goal transactions for taxes/records
 - [ ] Simple charts: spend by category, spend over time

@@ -73,6 +73,24 @@ expense for an override before falling back to the household default,
 so a mix of overridden and default expenses in the same list balances
 correctly.
 
+### Personal expenses — don't split at all (shipped)
+Distinct from the split override above, which still splits an expense
+just at a different ratio: a "Personal expense — don't split with my
+partner" checkbox (`buildPersonalToggle()` in `app/js/expenses.js`) on
+the add/edit form excludes the expense from the "who owes who" balance
+entirely, for a purchase one partner wants to log without it loading
+the shared balance at all — a gift for someone else, say, without
+needing a dishonest 100/0 split entry. Sets `is_personal` on the row;
+`computeBalance()` in `app/js/balance.js` skips any expense with
+`is_personal` set before it ever enters either partner's
+paid/owed totals — it's not that the split works out to "fully the
+payer's," it never participates in the balance calculation at all.
+
+Checking it hides the split field (moot once an expense isn't being
+split), shown on its card as "· personal" in place of the split note.
+Still counts toward the "This month" total and category breakdown below
+— a personal purchase is still real spending, just not shared spending.
+
 ## Monthly total + category breakdown (shipped)
 A "This month" card sits between the running total and the balance
 banner (`monthlyBreakdown()` in `app/js/expenses.js`): total spent so far

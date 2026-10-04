@@ -128,6 +128,27 @@ function buildSplitField(members, initial) {
   return { field, getOverride };
 }
 
+// A "personal, not split" toggle — distinct from buildSplitField()
+// above, which still splits an expense just at a different ratio. This
+// one excludes the expense from the "who owes who" balance entirely
+// (computeBalance() in balance.js skips any row with is_personal set),
+// for a purchase one partner wants to log without it loading the shared
+// balance at all — logging a personal gift, say, without a dishonest
+// 100/0 split entry. Hides the split field while checked, since a
+// split is moot for an expense that isn't being split.
+function buildPersonalToggle(splitField, initial) {
+  const checkbox = h('input', { type: 'checkbox', checked: initial });
+  checkbox.addEventListener('change', () => {
+    if (splitField) splitField.field.style.display = checkbox.checked ? 'none' : '';
+  });
+  if (splitField && initial) splitField.field.style.display = 'none';
+  const field = h('label', { style: 'display:flex;align-items:center;gap:8px;margin:10px 0' }, [
+    checkbox,
+    'Personal expense — don’t split with my partner',
+  ]);
+  return { checkbox, field };
+}
+
 function openSettleUpSheet(balance, members, container, ctx) {
   const memberName = (id) => members.find((m) => m.user_id === id)?.display_name || 'Someone';
   const { dialog, body } = makeSheet('Settle up');
@@ -192,6 +213,7 @@ function openEditSheet(row, members, container, ctx) {
   const dateInput = h('input', { type: 'date', required: true, value: row.expense_date });
   const notesInput = h('textarea', { rows: '2', placeholder: 'Optional notes' }, row.notes || '');
   const split = buildSplitField(members, row);
+  const personal = buildPersonalToggle(split, row.is_personal);
   const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save changes');
 
   const form = h('form', {
@@ -208,7 +230,8 @@ function openEditSheet(row, members, container, ctx) {
           paid_by: paidBySelect.value,
           expense_date: dateInput.value,
           notes: notesInput.value.trim() || null,
-          ...(split ? split.getOverride() : {}),
+          is_personal: personal.checkbox.checked,
+          ...(personal.checkbox.checked ? {} : (split ? split.getOverride() : {})),
         });
         closeSheet(dialog);
         render(container, ctx);
@@ -229,6 +252,7 @@ function openEditSheet(row, members, container, ctx) {
       h('div', { class: 'field' }, [h('label', {}, 'Paid by'), paidBySelect]),
     ]),
     h('div', { class: 'field' }, [h('label', {}, 'Date'), dateInput]),
+    personal.field,
     split ? split.field : null,
     h('div', { class: 'field' }, [h('label', {}, 'Notes'), notesInput]),
     errorEl,
@@ -345,7 +369,11 @@ export async function render(container, ctx) {
   }
 
   function card(row) {
-    const splitNote = row.split_percent == null
+    // A personal expense (is_personal) isn't split at all, so the split
+    // note is moot — shown instead of it, not alongside, same reasoning
+    // the "Personal expense" checkbox hides the split field in the forms.
+    const personalNote = row.is_personal ? ' · personal' : '';
+    const splitNote = (row.is_personal || row.split_percent == null)
       ? ''
       : (() => {
           const [a, b] = members;
@@ -361,7 +389,7 @@ export async function render(container, ctx) {
       h('div', { class: 'card-row' }, [
         h('div', {}, [
           h('h3', {}, row.title),
-          h('div', { class: 'meta' }, `${formatDate(row.expense_date)} · ${row.category || 'uncategorized'} · paid by ${memberName(row.paid_by)}${splitNote}${addedByNote}`),
+          h('div', { class: 'meta' }, `${formatDate(row.expense_date)} · ${row.category || 'uncategorized'} · paid by ${memberName(row.paid_by)}${personalNote}${splitNote}${addedByNote}`),
         ]),
         h('div', { style: 'text-align:right' }, [
           h('div', { class: 'amount' }, formatMoney(row.amount, row.currency)),
@@ -477,6 +505,7 @@ export async function render(container, ctx) {
   const dateInput = h('input', { type: 'date', required: true, value: todayStr() });
   const notesInput = h('textarea', { rows: '2', placeholder: 'Optional notes' });
   const addSplit = buildSplitField(members, null);
+  const personal = buildPersonalToggle(addSplit, false);
   const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save expense');
 
   const form = h('form', {
@@ -495,7 +524,8 @@ export async function render(container, ctx) {
           expense_date: dateInput.value,
           notes: notesInput.value.trim() || null,
           created_by: ctx.user.id,
-          ...(addSplit ? addSplit.getOverride() : {}),
+          is_personal: personal.checkbox.checked,
+          ...(personal.checkbox.checked ? {} : (addSplit ? addSplit.getOverride() : {})),
         });
         setLastCategory(ctx.household.id, categorySelect.value);
         closeSheet(dialog);
@@ -517,6 +547,7 @@ export async function render(container, ctx) {
       h('div', { class: 'field' }, [h('label', {}, 'Paid by'), paidBySelect]),
     ]),
     h('div', { class: 'field' }, [h('label', {}, 'Date'), dateInput]),
+    personal.field,
     addSplit ? addSplit.field : null,
     h('div', { class: 'field' }, [h('label', {}, 'Notes'), notesInput]),
     errorEl,

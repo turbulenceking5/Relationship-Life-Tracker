@@ -8,6 +8,23 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-04 — Log a personal expense without splitting it
+
+Migration `0034_expense_is_personal.sql` adds `expenses.is_personal`.
+
+- **Personal expenses — don't split at all**: distinct from the existing
+  per-expense split override (`buildSplitField()`), which still splits
+  an expense just at a different ratio, a new "Personal expense — don't
+  split with my partner" checkbox on the add/edit form
+  (`buildPersonalToggle()` in `app/js/expenses.js`) excludes the expense
+  from the "who owes who" balance entirely. `computeBalance()` in
+  `balance.js` skips any expense with `is_personal` set before it ever
+  enters either partner's paid/owed totals. Checking it hides the split
+  field (moot once an expense isn't being split); shown on the card as
+  "· personal" in place of a split note. Still counts toward the "This
+  month" total and category breakdown — a personal purchase is still
+  real spending, just not shared spending.
+
 ## 2026-10-04 — Leave a household, or remove a member
 
 Migration `0033_remove_household_member.sql` adds a

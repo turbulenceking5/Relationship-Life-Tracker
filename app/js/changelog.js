@@ -258,6 +258,15 @@ export const CHANGELOG_ENTRIES = [
       'Whoever created the household can also remove the other member — useful if you split up and want to cut off their access',
     ],
   },
+  {
+    id: 27,
+    date: '2026-10-04',
+    title: 'Log a personal expense without splitting it',
+    items: [
+      'A new "Personal expense" checkbox on Add/Edit expense excludes it from the shared balance entirely',
+      'Useful for a gift or purely personal purchase you still want tracked — no need for a 100/0 split to fake it',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';
