@@ -338,6 +338,13 @@ schema.
       client-side with no backend change (`app/js/ics.js`), for
       importing into Apple/Google/Outlook Calendar. See
       [`docs/03-feature-events.md`](docs/03-feature-events.md).
+- [x] **Automatic backup to Google Drive**: once Drive is connected,
+      household data now backs up there as a dated JSON file roughly
+      weekly, plus a manual "Back up now" button — opportunistic
+      (triggered on app open), not a real `pg_cron` job, since this
+      app's Drive access is deliberately client-only with no
+      server-side credential to run one. See
+      [`docs/25-feature-backup.md`](docs/25-feature-backup.md).
 
 ## Phase 2 — Reminders that actually reach you
 

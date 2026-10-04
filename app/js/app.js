@@ -17,6 +17,7 @@ import {
   shareFolderWithEmail,
 } from './googleDrive.js';
 import { subscribeHousehold, unsubscribeHousehold } from './realtime.js';
+import { backupHouseholdIfDue, backupHouseholdNow } from './backup.js';
 
 const appEl = document.getElementById('app');
 
@@ -108,6 +109,10 @@ async function afterAuth(user) {
   renderMainApp();
   showOnboardingIfNeeded(() => showChangelogIfUnseen(showPushPromptIfNeeded));
   realtimeChannel = subscribeHousehold(household.id, scheduleRefresh);
+  // Silent, best-effort, independent of the dialog chain above — see
+  // docs/25-feature-backup.md for why this runs on app open rather than
+  // a real server-scheduled job.
+  backupHouseholdIfDue(ctx);
 }
 
 // Shown once ever per browser, before the changelog dialog (chained via
@@ -415,9 +420,32 @@ function renderDriveSection(container) {
         btn,
       ];
     } else if (hasLocalDriveAccess(ctx)) {
+      const backupErrorEl = h('div', { class: 'error-msg', style: 'display:none' });
+      const backupStatusEl = h('p', { class: 'meta' }, ctx.household.last_backup_at
+        ? `Last backup: ${formatDate(ctx.household.last_backup_at.slice(0, 10))}`
+        : 'No backup yet — happens automatically in the background about once a week, or tap below to run one now.');
+      const backupBtn = h('button', {
+        class: 'btn secondary small',
+        onclick: async () => {
+          backupErrorEl.style.display = 'none';
+          const restore = withBusyLabel(backupBtn, 'Backing up…');
+          try {
+            await backupHouseholdNow(ctx);
+            backupStatusEl.textContent = `Last backup: ${formatDate(ctx.household.last_backup_at.slice(0, 10))}`;
+            restore();
+          } catch (err) {
+            backupErrorEl.textContent = err.message;
+            backupErrorEl.style.display = 'block';
+            restore();
+          }
+        },
+      }, 'Back up now');
       rows = [
         h('p', { class: 'meta' }, `Connected — documents are stored in "${ctx.household.drive_folder_name}" in Google Drive.`),
         h('a', { class: 'btn secondary small', href: folderUrl(ctx.household), target: '_blank', rel: 'noopener' }, 'Open folder in Drive'),
+        backupStatusEl,
+        backupBtn,
+        backupErrorEl,
       ];
     } else {
       btn = h('button', {

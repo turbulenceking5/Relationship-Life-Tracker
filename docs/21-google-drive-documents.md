@@ -142,6 +142,10 @@ who opens the folder directly in Drive.
 
 ## Not done (possible follow-ups)
 - No UI to disconnect/switch the household's Drive folder once set.
+- Automatic backup of the app's *own* data (expenses, events, goals,
+  etc. — not the documents already stored here) to this same folder is
+  now covered separately, see [`25-feature-backup.md`](25-feature-backup.md)
+  — it reuses `uploadFileToDrive()` but is otherwise a distinct feature.
 - No re-share retry if the optional "partner's email" share fails or is
   skipped — the second partner would need the folder shared with them
   some other way before the Picker step can find it under "Shared with

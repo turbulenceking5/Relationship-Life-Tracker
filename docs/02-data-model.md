@@ -55,6 +55,7 @@ this" instead of a raw UUID.
 | `drive_connected_by` | uuid → auth.users | optional, whichever partner ran the initial connect and owns the folder in their own Drive |
 | `shared_note` | text | optional, free-text sticky note shown on Home, editable by either partner — see [`22-feature-home-dashboard.md`](22-feature-home-dashboard.md) |
 | `last_reminded_at` | timestamptz | optional, cooldown tracking for the `remind-partner` edge function — see [`24-live-sync-and-nudges.md`](24-live-sync-and-nudges.md) |
+| `last_backup_at` | timestamptz | optional, when household data was last backed up to Drive — see [`25-feature-backup.md`](25-feature-backup.md) |
 
 ### `household_members`
 | column | type | notes |

@@ -8,6 +8,23 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-04 — Automatic backup to Google Drive
+
+Migration `0036_household_last_backup_at.sql` adds
+`households.last_backup_at`.
+
+- **Automatic backup**: once Google Drive is connected, household data
+  (expenses, events, goals, grocery list, recipes, document metadata,
+  etc.) now backs up there as a dated JSON file roughly once a week
+  (`app/js/backup.js`, `backupHouseholdIfDue()`), triggered
+  opportunistically on app open rather than a true server-scheduled job
+  — see [`docs/25-feature-backup.md`](docs/25-feature-backup.md) for why
+  (short version: this app's Drive access is deliberately client-only,
+  with no refresh token ever persisted anywhere, so there's no
+  server-side credential a cron job could use). A new "Back up now"
+  button in ⚙️ Account & household → Documents storage runs one
+  immediately, and the section now shows when the last backup happened.
+
 ## 2026-10-04 — Download an event as .ics
 
 - **Per-event .ics download**: a new "📅 .ics" button on every event

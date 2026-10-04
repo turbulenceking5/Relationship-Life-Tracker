@@ -292,6 +292,15 @@ export const CHANGELOG_ENTRIES = [
       'A new "📅 .ics" button on any event downloads it as a calendar file you can import into Apple/Google/Outlook Calendar',
     ],
   },
+  {
+    id: 31,
+    date: '2026-10-04',
+    title: 'Automatic backup to Google Drive',
+    items: [
+      'If you\'ve connected Google Drive, your data now backs up there automatically every week or so — no action needed',
+      'A new "Back up now" button in ⚙️ Account & household → Documents storage runs one immediately',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';
