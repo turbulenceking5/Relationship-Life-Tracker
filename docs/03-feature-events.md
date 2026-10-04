@@ -82,6 +82,15 @@ the household's goals — e.g. an "Anniversary dinner" event linked to a
 Wedding Fund goal. Picked from a "Link to a goal" select on the add/edit
 form; shown on the card as "linked to _Goal title_" when set.
 
+## Comment thread (shipped)
+A 💬 button on every event card opens a thread of plain-text comments
+(`app/js/comments.js`, shared with Expenses) — see
+[`04-feature-expenses.md`](04-feature-expenses.md) → "Comment thread" for
+the full writeup, since the module and table are the same for both.
+Deleting an event also deletes its comments (`deleteCommentsFor()`),
+since `item_comments` has no DB-level cascade for its polymorphic
+`entity_id`.
+
 ## Phase 1
 - Category filter chips (birthday / anniversary / appointment / other).
 

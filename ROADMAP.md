@@ -319,6 +319,15 @@ schema.
       created the household — enforced server-side via a new
       `SECURITY DEFINER` RPC, not just a hidden button. See
       [`docs/08-auth-households.md`](docs/08-auth-households.md).
+- [x] **Comment thread on expenses and events**: a new 💬 button on
+      every expense and event card opens a thread of plain-text comments
+      — a back-and-forth note on one specific record instead of a text
+      message outside the app. One shared module/table
+      (`app/js/comments.js`, `item_comments`) backs both, keyed by a
+      polymorphic `entity_type`/`entity_id` pair rather than duplicated
+      per feature. See
+      [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md) and
+      [`docs/03-feature-events.md`](docs/03-feature-events.md).
 
 ## Phase 2 — Reminders that actually reach you
 

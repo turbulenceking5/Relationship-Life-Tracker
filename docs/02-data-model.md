@@ -131,6 +131,22 @@ job, rather than a real ledger entry itself.
 | `created_by` | uuid → auth.users | |
 | `created_at` / `updated_at` | timestamptz | |
 
+### `item_comments`
+See [`04-feature-expenses.md`](04-feature-expenses.md) → "Comment
+thread". A comment on an `expenses` or `events` row — `entity_type`/
+`entity_id` is a plain polymorphic reference, not a real foreign key,
+since it points at rows in either table.
+
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `household_id` | uuid → households | |
+| `entity_type` | text | `'expense'` or `'event'` |
+| `entity_id` | uuid | the commented-on row's id (no FK — polymorphic) |
+| `author_id` | uuid → auth.users | |
+| `body` | text | required |
+| `created_at` | timestamptz | |
+
 ### `personal_todos`
 See [`20-feature-personal-todos.md`](20-feature-personal-todos.md). The
 one table scoped to a single user rather than the whole household — its

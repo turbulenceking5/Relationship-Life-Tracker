@@ -12,6 +12,15 @@ export function formatDate(dateStr) {
   return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// Used for a timestamptz value (e.g. a comment's created_at), unlike
+// formatDate() above which only ever handles a plain "YYYY-MM-DD" — the
+// `+ 'T00:00:00'` trick there would misparse a full timestamp.
+export function formatDateTime(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  return d.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+}
+
 export function todayStr() {
   // Local calendar date, not UTC — toISOString() would return the wrong
   // date for anyone east of UTC (e.g. Australia/Brisbane, UTC+10) for part

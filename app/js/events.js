@@ -2,8 +2,10 @@ import { h, mount, openSheet, closeSheet, makeSheet, withBusyLabel } from './dom
 import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
 import { formatDate, todayStr, currentOccurrence, occurrenceCycleCount } from './format.js';
 import { getHouseholdMembers } from './household.js';
+import { getCommentCounts, deleteCommentsFor, openCommentsSheet } from './comments.js';
 
 const TABLE = 'events';
+const ENTITY_TYPE = 'event';
 const CATEGORIES = ['birthday', 'anniversary', 'appointment', 'other'];
 const DEFAULT_RECURRING_CATEGORIES = ['birthday', 'anniversary'];
 const REPEAT_OPTIONS = [
@@ -138,10 +140,11 @@ function turnLabel(row, members, memberName) {
 }
 
 export async function render(container, ctx) {
-  const [rows, members, goals] = await Promise.all([
+  const [rows, members, goals, commentCounts] = await Promise.all([
     fetchRows(TABLE, ctx.household.id, 'event_date', true),
     getHouseholdMembers(ctx.household.id),
     fetchRows('custom_goals', ctx.household.id, 'created_at', false),
+    getCommentCounts(ctx.household.id, ENTITY_TYPE),
   ]);
   const memberName = (id) => members.find((m) => m.user_id === id)?.display_name;
   const goalTitle = (id) => goals.find((g) => g.id === id)?.title;
@@ -172,6 +175,14 @@ export async function render(container, ctx) {
       await updateRow(TABLE, row.id, { completed_occurrence: isDone ? null : row._occurrence });
       render(container, ctx);
     };
+    const commentCount = commentCounts.get(row.id) || 0;
+    const commentBtn = h('button', {
+      class: 'btn secondary small',
+      onclick: () => openCommentsSheet(ENTITY_TYPE, row.id, row.title, members, ctx, (count) => {
+        commentCounts.set(row.id, count);
+        commentBtn.textContent = `💬 ${count || ''}`.trim();
+      }),
+    }, `💬 ${commentCount || ''}`.trim());
     return h('div', { class: 'card' }, [
       h('div', { class: 'card-row' }, [
         h('div', {}, [
@@ -183,8 +194,17 @@ export async function render(container, ctx) {
       ]),
       h('div', { class: 'actions-row' }, [
         canToggle ? h('button', { class: 'btn secondary small', onclick: toggleDone }, isDone ? 'Mark not done' : 'Mark done') : null,
+        commentBtn,
         h('button', { class: 'btn secondary small', onclick: () => openEditSheet(row, container, ctx, members, goals) }, 'Edit'),
-        h('button', { class: 'btn danger-text small', onclick: async () => { if (!confirm('Delete this event?')) return; await deleteRow(TABLE, row.id); render(container, ctx); } }, 'Delete'),
+        h('button', {
+          class: 'btn danger-text small',
+          onclick: async () => {
+            if (!confirm('Delete this event?')) return;
+            await deleteCommentsFor(ENTITY_TYPE, row.id);
+            await deleteRow(TABLE, row.id);
+            render(container, ctx);
+          },
+        }, 'Delete'),
       ]),
     ]);
   }

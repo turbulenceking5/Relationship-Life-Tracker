@@ -267,6 +267,15 @@ export const CHANGELOG_ENTRIES = [
       'Useful for a gift or purely personal purchase you still want tracked — no need for a 100/0 split to fake it',
     ],
   },
+  {
+    id: 28,
+    date: '2026-10-04',
+    title: 'Comment on an expense or event',
+    items: [
+      'A new 💬 button on any expense or event opens a comment thread for back-and-forth notes — "did we ever get reimbursed for this?", "who\'s picking up the cake?"',
+      'Either partner can post or delete a comment',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

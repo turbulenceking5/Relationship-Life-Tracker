@@ -91,6 +91,28 @@ split), shown on its card as "· personal" in place of the split note.
 Still counts toward the "This month" total and category breakdown below
 — a personal purchase is still real spending, just not shared spending.
 
+## Comment thread (shipped)
+A 💬 button on every expense card (and every event card — see
+[`03-feature-events.md`](03-feature-events.md)) opens a thread of
+plain-text comments, for a back-and-forth note on one specific record
+("did we ever get reimbursed for this?") instead of a text message
+outside the app. Backed by a new `item_comments` table (migration
+`0035_item_comments.sql`) and a shared module, `app/js/comments.js`
+(`openCommentsSheet()`), rather than duplicated per feature — the thread
+UI itself doesn't care which table the parent row lives in, only the
+`entity_type`/`entity_id` pair it's passed.
+
+`entity_type`/`entity_id` is a plain polymorphic reference, not a real
+foreign key, since it points at rows in either `expenses` or `events`;
+any household member can post or delete any comment, the same
+shared-trust model the rest of the app already uses (anyone can edit or
+delete anyone's expense or event). The card's "💬 N" badge comes from one
+`getCommentCounts()` query per tab render, grouped client-side by
+`entity_id`, rather than a query per card. Deleting the parent expense or
+event also deletes its thread (`deleteCommentsFor()`) — there's no
+DB-level cascade for a polymorphic reference, so the app does it
+explicitly before the row itself is deleted.
+
 ## Monthly total + category breakdown (shipped)
 A "This month" card sits between the running total and the balance
 banner (`monthlyBreakdown()` in `app/js/expenses.js`): total spent so far

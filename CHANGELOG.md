@@ -8,6 +8,29 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-04 — Comment thread on expenses and events
+
+Migration `0035_item_comments.sql` adds the `item_comments` table.
+
+- **Comment thread**: a new 💬 button on every expense and event card
+  opens a thread of plain text comments (`app/js/comments.js`,
+  `openCommentsSheet()`), shared across the household — a running
+  back-and-forth note on a specific record instead of a text message
+  outside the app. `item_comments` uses a polymorphic
+  `entity_type`/`entity_id` pair rather than a foreign key, since it
+  attaches to rows in either of two different tables; any household
+  member can post or delete any comment, same shared-trust model as
+  every other table in the app.
+- The card badge ("💬 N") comes from one `getCommentCounts()` query per
+  tab render (grouped client-side by `entity_id`), not one query per
+  card — same N+1-avoidance pattern as everything else in this app.
+- Deleting an expense or event also deletes its comment thread
+  (`deleteCommentsFor()`), since there's no DB-level cascade for a
+  polymorphic reference.
+
+See [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md) and
+[`docs/03-feature-events.md`](docs/03-feature-events.md).
+
 ## 2026-10-04 — Log a personal expense without splitting it
 
 Migration `0034_expense_is_personal.sql` adds `expenses.is_personal`.

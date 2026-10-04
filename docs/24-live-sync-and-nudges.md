@@ -19,7 +19,11 @@ onChange)`), subscribed to `postgres_changes` on every shared-list table:
 (for the shared sticky note) — each filtered to that one household's
 rows. `personal_todos` is deliberately excluded: it's private per user
 (RLS already restricts it to its own owner), so there's nothing
-cross-partner to sync.
+cross-partner to sync. `item_comments` is excluded too, for a different
+reason — its thread only ever shows inside an open comment sheet (see
+[`04-feature-expenses.md`](04-feature-expenses.md) → "Comment thread"),
+which lives outside `main` like every other `<dialog>`, so a live
+refresh of `main` wouldn't reach it anyway.
 
 `app.js` owns what happens with each change (`scheduleRefresh()`):
 - A change to `households` merges the new row into `ctx.household` in

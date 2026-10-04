@@ -3,6 +3,9 @@ import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
 import { formatDate, formatMoney, todayStr } from './format.js';
 import { getHouseholdMembers } from './household.js';
 import { computeBalance } from './balance.js';
+import { getCommentCounts, deleteCommentsFor, openCommentsSheet } from './comments.js';
+
+const ENTITY_TYPE = 'expense';
 
 const TABLE = 'expenses';
 const SETTLEMENTS_TABLE = 'settlements';
@@ -343,11 +346,12 @@ function matchesSearch(row, memberName, query) {
 }
 
 export async function render(container, ctx) {
-  const [rows, members, settlements, recurringRows] = await Promise.all([
+  const [rows, members, settlements, recurringRows, commentCounts] = await Promise.all([
     fetchRows(TABLE, ctx.household.id, 'expense_date', false),
     getHouseholdMembers(ctx.household.id),
     fetchRows(SETTLEMENTS_TABLE, ctx.household.id, 'settlement_date', false),
     fetchRows(RECURRING_TABLE, ctx.household.id, 'next_due_date', true),
+    getCommentCounts(ctx.household.id, ENTITY_TYPE),
   ]);
   const memberName = (id) => members.find((m) => m.user_id === id)?.display_name || 'Someone';
   const total = rows.reduce((sum, r) => sum + Number(r.amount), 0);
@@ -385,6 +389,14 @@ export async function render(container, ctx) {
     // be noise; it's informative only for the case someone logs an
     // expense their partner actually paid for.
     const addedByNote = row.created_by && row.created_by !== row.paid_by ? ` · added by ${memberName(row.created_by)}` : '';
+    const commentCount = commentCounts.get(row.id) || 0;
+    const commentBtn = h('button', {
+      class: 'btn secondary small',
+      onclick: () => openCommentsSheet(ENTITY_TYPE, row.id, row.title, members, ctx, (count) => {
+        commentCounts.set(row.id, count);
+        commentBtn.textContent = `💬 ${count || ''}`.trim();
+      }),
+    }, `💬 ${commentCount || ''}`.trim());
     return h('div', { class: 'card' }, [
       h('div', { class: 'card-row' }, [
         h('div', {}, [
@@ -396,8 +408,17 @@ export async function render(container, ctx) {
         ]),
       ]),
       h('div', { class: 'actions-row' }, [
+        commentBtn,
         h('button', { class: 'btn secondary small', onclick: () => openEditSheet(row, members, container, ctx) }, 'Edit'),
-        h('button', { class: 'btn danger-text small', onclick: async () => { if (!confirm('Delete this expense?')) return; await deleteRow(TABLE, row.id); render(container, ctx); } }, 'Delete'),
+        h('button', {
+          class: 'btn danger-text small',
+          onclick: async () => {
+            if (!confirm('Delete this expense?')) return;
+            await deleteCommentsFor(ENTITY_TYPE, row.id);
+            await deleteRow(TABLE, row.id);
+            render(container, ctx);
+          },
+        }, 'Delete'),
       ]),
     ]);
   }
