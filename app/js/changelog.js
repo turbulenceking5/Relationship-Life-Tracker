@@ -276,6 +276,14 @@ export const CHANGELOG_ENTRIES = [
       'Either partner can post or delete a comment',
     ],
   },
+  {
+    id: 29,
+    date: '2026-10-04',
+    title: 'Chore fairness tally',
+    items: [
+      'A rotating recurring event (bin day, etc.) now shows a running tally of how many turns each of you has had, next to "It\'s your turn"',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

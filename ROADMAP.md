@@ -328,6 +328,11 @@ schema.
       per feature. See
       [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md) and
       [`docs/03-feature-events.md`](docs/03-feature-events.md).
+- [x] **Chore fairness tally**: a rotating recurring event now shows a
+      running "Alex 5 · Sam 4" tally of turns taken so far, next to "It's
+      your turn" — derived arithmetic on the existing cycle count, no new
+      data needed since the rotation was already fully deterministic.
+      See [`docs/03-feature-events.md`](docs/03-feature-events.md).
 
 ## Phase 2 — Reminders that actually reach you
 

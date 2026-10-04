@@ -75,6 +75,16 @@ date: an even cycle count stays with the anchor assignee, odd flips to
 the other member. Shown on the card as "It's _Name_'s turn", suppressed
 once the occurrence is done (nothing to rotate on a completed one).
 
+Below that, a fairness tally ("Alex 5 · Sam 4") counts how many turns
+each person has had so far — unlike the turn label, shown whether or not
+the current occurrence is done, since it's a running count rather than a
+right-now status. Since the rotation itself is fully deterministic
+(strict alternation by cycle parity, no stored history of actual swaps
+or skips), the tally is just arithmetic on `occurrenceCycleCount()`
+(`fairnessTally()` in `events.js`) rather than a real log: the anchor
+cycle through the current one split as evenly as possible between the
+anchor assignee and the other member.
+
 ## Link an event to a goal (shipped)
 `events.related_goal_id` (`on delete set null`, same pattern as
 `documents.related_type/related_id`) optionally links an event to one of

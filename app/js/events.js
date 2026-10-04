@@ -139,6 +139,28 @@ function turnLabel(row, members, memberName) {
   return name ? `It's ${name}'s turn` : null;
 }
 
+// How many times each person has had the turn so far, for a rotating
+// recurring event — "you've done bin day 5 times, I've done it 4"
+// instead of just the current turn. Since rotation is fully
+// deterministic (turnLabel() above always alternates strictly on cycle
+// parity, with no stored history of actual swaps or skips), the tally is
+// just arithmetic on occurrenceCycleCount() rather than a real log:
+// cycles 0..occurrenceCycleCount() inclusive (the anchor cycle through
+// the current one) split evenly between the anchor assignee (the odd
+// one out on a total with no exact half) and the other member. Same
+// null-return conditions as turnLabel(), for the same reason.
+function fairnessTally(row, members) {
+  if (!row.recurring || !row.rotate_assignee || members.length !== 2) return null;
+  const totalTurns = occurrenceCycleCount(row.event_date, row.recurring, row.recurring_interval) + 1;
+  const anchorTurns = Math.ceil(totalTurns / 2);
+  const otherTurns = Math.floor(totalTurns / 2);
+  const [a, b] = members;
+  const anchorIsA = row.assignee_user_id === a.user_id;
+  return anchorIsA
+    ? `${a.display_name} ${anchorTurns} · ${b.display_name} ${otherTurns}`
+    : `${b.display_name} ${anchorTurns} · ${a.display_name} ${otherTurns}`;
+}
+
 export async function render(container, ctx) {
   const [rows, members, goals, commentCounts] = await Promise.all([
     fetchRows(TABLE, ctx.household.id, 'event_date', true),
@@ -164,6 +186,7 @@ export async function render(container, ctx) {
     const addedBy = memberName(row.created_by);
     const linkedGoal = row.related_goal_id ? goalTitle(row.related_goal_id) : null;
     const turn = isDone ? null : turnLabel(row, members, memberName);
+    const tally = fairnessTally(row, members);
     // Once the occurrence's date has actually passed, "undo" has nothing
     // to revert to — it'd just land back in Done next render anyway (the
     // date comparison in isEventDone() still holds). Only a manually
@@ -189,6 +212,7 @@ export async function render(container, ctx) {
           h('h3', { style: isDone ? 'text-decoration:line-through;color:var(--text-muted)' : '' }, row.title),
           h('div', { class: 'meta' }, `${dateLabel}${row.category ? ' · ' + row.category : ''}${addedBy ? ' · added by ' + addedBy : ''}${linkedGoal ? ' · linked to ' + linkedGoal : ''}`),
           turn ? h('div', { class: 'meta', style: 'margin-top:4px;font-weight:600' }, turn) : null,
+          tally ? h('div', { class: 'meta', style: 'margin-top:2px' }, tally) : null,
           row.description ? h('div', { class: 'meta', style: 'margin-top:4px' }, row.description) : null,
         ]),
       ]),

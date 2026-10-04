@@ -8,6 +8,19 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-04 — Chore fairness tally
+
+- **Fairness tally**: a rotating recurring event (`rotate_assignee`) now
+  shows a running "Alex 5 · Sam 4" tally next to "It's _Name_'s turn"
+  (`fairnessTally()` in `app/js/events.js`) — how many turns each person
+  has had so far, not just whose turn it is right now. No new data or
+  migration: the rotation is already fully deterministic (strict
+  alternation by cycle parity), so the tally is derived arithmetic on
+  the existing `occurrenceCycleCount()`, same as the turn label itself.
+  Shown whether or not the current occurrence is done, unlike the turn
+  label, since it's a running count rather than a right-now status. See
+  [`docs/03-feature-events.md`](docs/03-feature-events.md).
+
 ## 2026-10-04 — Comment thread on expenses and events
 
 Migration `0035_item_comments.sql` adds the `item_comments` table.
