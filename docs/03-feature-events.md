@@ -101,6 +101,20 @@ Deleting an event also deletes its comments (`deleteCommentsFor()`),
 since `item_comments` has no DB-level cascade for its polymorphic
 `entity_id`.
 
+## Download a single event as .ics (shipped)
+A "📅 .ics" button on every event card downloads that one occurrence as a
+single-date `.ics` file (`buildIcsEvent()`/`downloadIcs()` in
+`app/js/ics.js`, built client-side — no new backend involved) for
+importing into Apple/Google/Outlook calendar. Only the one occurrence
+currently showing on the card (`row._occurrence`) is included, not a
+subscribable feed of every future occurrence — that's the separate
+"iCal feed you can subscribe to" stretch goal in Phase 5, which would
+need a live, auth-free endpoint rather than a one-off downloaded file.
+Every date in this app is all-day (nothing stores a specific time), so
+the generated event is all-day too (`DTSTART;VALUE=DATE`, `DTEND` the
+next calendar day per RFC 5545's exclusive-end convention for all-day
+events).
+
 ## Phase 1
 - Category filter chips (birthday / anniversary / appointment / other).
 

@@ -3,6 +3,7 @@ import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
 import { formatDate, todayStr, currentOccurrence, occurrenceCycleCount } from './format.js';
 import { getHouseholdMembers } from './household.js';
 import { getCommentCounts, deleteCommentsFor, openCommentsSheet } from './comments.js';
+import { buildIcsEvent, downloadIcs } from './ics.js';
 
 const TABLE = 'events';
 const ENTITY_TYPE = 'event';
@@ -206,6 +207,23 @@ export async function render(container, ctx) {
         commentBtn.textContent = `💬 ${count || ''}`.trim();
       }),
     }, `💬 ${commentCount || ''}`.trim());
+    // Downloads just this one occurrence as a single-date .ics, not a
+    // subscribable feed of every future occurrence (that's a separate
+    // Phase 5 stretch goal) — good enough for "add this one to my phone
+    // calendar" without any new backend involved.
+    const icsBtn = h('button', {
+      class: 'btn secondary small',
+      onclick: () => {
+        const ics = buildIcsEvent({
+          uid: row.id,
+          title: row.title,
+          dateStr: row._occurrence,
+          description: row.description,
+        });
+        const safeName = row.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+        downloadIcs(`${safeName || 'event'}.ics`, ics);
+      },
+    }, '📅 .ics');
     return h('div', { class: 'card' }, [
       h('div', { class: 'card-row' }, [
         h('div', {}, [
@@ -219,6 +237,7 @@ export async function render(container, ctx) {
       h('div', { class: 'actions-row' }, [
         canToggle ? h('button', { class: 'btn secondary small', onclick: toggleDone }, isDone ? 'Mark not done' : 'Mark done') : null,
         commentBtn,
+        icsBtn,
         h('button', { class: 'btn secondary small', onclick: () => openEditSheet(row, container, ctx, members, goals) }, 'Edit'),
         h('button', {
           class: 'btn danger-text small',

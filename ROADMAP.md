@@ -333,6 +333,11 @@ schema.
       your turn" — derived arithmetic on the existing cycle count, no new
       data needed since the rotation was already fully deterministic.
       See [`docs/03-feature-events.md`](docs/03-feature-events.md).
+- [x] **Download an event as .ics**: a "📅 .ics" button on every event
+      card downloads that one occurrence as a calendar file, built
+      client-side with no backend change (`app/js/ics.js`), for
+      importing into Apple/Google/Outlook Calendar. See
+      [`docs/03-feature-events.md`](docs/03-feature-events.md).
 
 ## Phase 2 — Reminders that actually reach you
 
@@ -387,7 +392,11 @@ schema.
 ## Phase 5 — Nice-to-haves / stretch
 
 - [ ] Shared shopping/errand list
-- [ ] iCal feed you can subscribe to from Apple Calendar for due dates
+- [ ] iCal **feed** you can subscribe to from Apple Calendar for due
+      dates (a live, auth-free endpoint covering every future
+      occurrence) — distinct from the per-event one-off `.ics` download
+      already shipped in Phase 1, which only ever covers one occurrence
+      at a time
 - [ ] iOS Shortcuts integration for quick voice add ("log an expense")
 - [ ] Face ID / Touch ID app lock (WebAuthn) since this holds financial data
 - [ ] Support a second household (e.g. tracking things with family too)

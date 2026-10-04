@@ -8,6 +8,16 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-04 — Download an event as .ics
+
+- **Per-event .ics download**: a new "📅 .ics" button on every event
+  card downloads that one occurrence as a single-date `.ics` file
+  (`app/js/ics.js`, built entirely client-side — no backend change), for
+  importing into Apple/Google/Outlook Calendar. Only the one occurrence
+  currently on the card, not a subscribable feed of every future
+  occurrence — that's still the separate Phase 5 "iCal feed" stretch
+  goal. See [`docs/03-feature-events.md`](docs/03-feature-events.md).
+
 ## 2026-10-04 — Chore fairness tally
 
 - **Fairness tally**: a rotating recurring event (`rotate_assignee`) now

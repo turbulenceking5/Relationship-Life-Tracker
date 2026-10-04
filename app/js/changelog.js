@@ -284,6 +284,14 @@ export const CHANGELOG_ENTRIES = [
       'A rotating recurring event (bin day, etc.) now shows a running tally of how many turns each of you has had, next to "It\'s your turn"',
     ],
   },
+  {
+    id: 30,
+    date: '2026-10-04',
+    title: 'Download an event to your phone calendar',
+    items: [
+      'A new "📅 .ics" button on any event downloads it as a calendar file you can import into Apple/Google/Outlook Calendar',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';
