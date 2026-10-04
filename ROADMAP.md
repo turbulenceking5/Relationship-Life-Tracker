@@ -352,6 +352,12 @@ schema.
       and `prefers-contrast: more` globally, same OS-driven-by-default
       approach as dark mode — no new in-app toggle. See
       [`docs/14-ui-patterns.md`](docs/14-ui-patterns.md).
+- [x] **Pre-signup "Add to Home Screen" interstitial**: a brand-new
+      visitor in a regular browser tab now sees an install prompt
+      *before* sign-up/log-in even loads — a real "Install app" button
+      on Chromium browsers, manual Share instructions on iOS Safari,
+      skipped entirely where neither applies. Shown once per browser.
+      See [`docs/26-feature-install-prompt.md`](docs/26-feature-install-prompt.md).
 
 ## Phase 2 — Reminders that actually reach you
 

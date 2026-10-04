@@ -65,6 +65,7 @@ backend is configured.
 | [`23-feature-rent-mortgage.md`](23-feature-rent-mortgage.md) | Investment property rent + mortgage tracking (Money tab's BrackenRidge segment) |
 | [`24-live-sync-and-nudges.md`](24-live-sync-and-nudges.md) | Realtime live sync across phones, the "🔔 Remind" partner nudge, and the weekly digest push |
 | [`25-feature-backup.md`](25-feature-backup.md) | Automatic (opportunistic, not server-scheduled) backup of household data to Google Drive |
+| [`26-feature-install-prompt.md`](26-feature-install-prompt.md) | Pre-signup "Add to Home Screen" interstitial, and why it waits briefly for `beforeinstallprompt` |
 
 The top-level [`ROADMAP.md`](../ROADMAP.md) tracks phases and status across
 all of the above, and [`../CHANGELOG.md`](../CHANGELOG.md) is a dated log of

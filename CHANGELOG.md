@@ -8,6 +8,23 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-04 — Pre-signup "Add to Home Screen" interstitial
+
+- **Install prompt before auth**: a brand-new visitor in a regular
+  browser tab now sees an install interstitial *before* the sign-up/log-in
+  screen even loads (`app/js/installPrompt.js`,
+  `renderInstallInterstitial()` in `app.js`) — on Chromium browsers
+  (Android Chrome, desktop Chrome/Edge) a real "Install app" button via
+  the captured `beforeinstallprompt` event; on iOS Safari (which has no
+  such event) manual "Share → Add to Home Screen" instructions; on
+  anything else (nothing actionable to offer) it's skipped entirely.
+  Shown once per browser, like onboarding/changelog/the push-notification
+  prompt. See [`docs/26-feature-install-prompt.md`](docs/26-feature-install-prompt.md)
+  for why the check briefly (up to 500ms, first boot only) waits for the
+  `beforeinstallprompt` event rather than checking for it immediately —
+  a real race that would otherwise make the native install button
+  permanently unreachable.
+
 ## 2026-10-04 — Accessibility pass
 
 - **Icon-only button labels**: every button whose visible content is

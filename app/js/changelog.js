@@ -310,6 +310,15 @@ export const CHANGELOG_ENTRIES = [
       'The app now respects your phone\'s "reduce motion" and "increase contrast" accessibility settings',
     ],
   },
+  {
+    id: 33,
+    date: '2026-10-04',
+    title: 'A nudge to install before you sign up',
+    items: [
+      'First time opening the app in a regular browser tab, it now offers to install to your Home Screen before you even sign up or log in — due-date reminders and offline access need that to work',
+      'Shown once; "Continue in browser" (or just dismissing it) skips it, and you can still install any time later from Share → Add to Home Screen',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

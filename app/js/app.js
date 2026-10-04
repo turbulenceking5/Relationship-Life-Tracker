@@ -18,6 +18,7 @@ import {
 } from './googleDrive.js';
 import { subscribeHousehold, unsubscribeHousehold } from './realtime.js';
 import { backupHouseholdIfDue, backupHouseholdNow } from './backup.js';
+import { isIos, canPromptInstall, triggerInstall, shouldShowInstallPrompt, markInstallPromptSeen } from './installPrompt.js';
 
 const appEl = document.getElementById('app');
 
@@ -85,10 +86,44 @@ function scheduleRefresh(table, payload) {
 async function boot() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
+    if (await shouldShowInstallPrompt(isStandalone())) {
+      mount(appEl, wrapScreen((el) => renderInstallInterstitial(el, () => mount(appEl, wrapScreen((el2) => renderAuthScreen(el2))))));
+      return;
+    }
     mount(appEl, wrapScreen((el) => renderAuthScreen(el)));
     return;
   }
   await afterAuth(session.user);
+}
+
+// Shown once per browser, before auth even loads — see
+// docs/26-feature-install-prompt.md for why this needs to run pre-signup
+// rather than just nudging about it afterward (push notifications and
+// offline access both require the app to already be installed, so
+// someone who signs up first and installs later gets a confusing "why
+// doesn't this work yet" gap in between).
+function renderInstallInterstitial(container, onContinue) {
+  const continueNow = () => { markInstallPromptSeen(); onContinue(); };
+
+  const actionEl = canPromptInstall()
+    ? h('button', {
+        class: 'btn primary',
+        onclick: async (e) => {
+          e.target.disabled = true;
+          await triggerInstall();
+          continueNow();
+        },
+      }, 'Install app')
+    : isIos()
+      ? h('p', { class: 'meta' }, 'Tap the Share button below, then "Add to Home Screen".')
+      : null;
+
+  mount(container, h('div', { class: 'auth-screen' }, [
+    h('h1', {}, 'Life Tracker'),
+    h('p', { class: 'lead' }, 'Install this app to your Home Screen for the full experience — due-date reminders and offline access only work once it\'s installed, not in a regular browser tab.'),
+    actionEl,
+    h('button', { class: 'link-btn', type: 'button', onclick: continueNow }, 'Continue in browser'),
+  ]));
 }
 
 async function afterAuth(user) {
