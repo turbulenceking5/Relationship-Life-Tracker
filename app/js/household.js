@@ -30,10 +30,21 @@ export async function updateSharedNote(householdId, note) {
 export async function getHouseholdMembers(householdId) {
   const { data, error } = await supabase
     .from('household_members')
-    .select('user_id, split_percent, profiles ( display_name )')
+    .select('user_id, role, split_percent, profiles ( display_name )')
     .eq('household_id', householdId);
   if (error) throw error;
-  return data.map((m) => ({ user_id: m.user_id, display_name: m.profiles?.display_name || 'Member', split_percent: Number(m.split_percent) }));
+  return data.map((m) => ({ user_id: m.user_id, role: m.role, display_name: m.profiles?.display_name || 'Member', split_percent: Number(m.split_percent) }));
+}
+
+// Removes a household member — either yourself ("leave household") or,
+// if you're the owner, the other member. See
+// remove_household_member()'s own comment (migration
+// 0033_remove_household_member.sql) for the authorization rule this
+// relies on: it's enforced server-side via a SECURITY DEFINER RPC
+// scoped to auth.uid(), not just by hiding the button client-side.
+export async function removeMember(userId) {
+  const { error } = await supabase.rpc('remove_household_member', { p_user_id: userId });
+  if (error) throw error;
 }
 
 // Only meaningful for a two-person household — the whole point of

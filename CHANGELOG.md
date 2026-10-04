@@ -8,6 +8,25 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-04 — Leave a household, or remove a member
+
+Migration `0033_remove_household_member.sql` adds a
+`remove_household_member(p_user_id)` RPC.
+
+- **Leave a household, or remove a member**: previously there was no
+  way to cut off a household member's access short of the project owner
+  hand-running SQL in the dashboard — a household that split up would
+  leave an ex-partner as a full member indefinitely. A new "Household
+  members" section in ⚙️ Account & household lists the roster with
+  "Leave household" on your own row, and "Remove" on the other
+  member's row if you're the one who created the household.
+  `remove_household_member()` is `SECURITY DEFINER` (same pattern as
+  `create_household`/`join_household`) — the owner-only restriction on
+  removing someone else is enforced there, server-side, not just by the
+  button being hidden client-side. After leaving, the account sheet
+  closes and the app re-runs its normal post-auth check, routing to the
+  create/join screen exactly as it would for a brand-new account.
+
 ## 2026-10-04 — Proactively ask to enable push notifications
 
 - **A one-time prompt for push notifications**: previously the only way

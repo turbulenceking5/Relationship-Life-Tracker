@@ -1,7 +1,7 @@
 import { supabase } from './supabaseClient.js';
 import { h, mount, openSheet, closeSheet, makeSheet, withBusyLabel } from './dom.js';
 import { renderAuthScreen } from './auth.js';
-import { renderHouseholdScreen, getMyHousehold, renderInviteInfo, getHouseholdMembers, updateSplitPercents } from './household.js';
+import { renderHouseholdScreen, getMyHousehold, renderInviteInfo, getHouseholdMembers, updateSplitPercents, removeMember } from './household.js';
 import { isStandalone, isPushSupported, getSubscriptionStatus, enablePush, disablePush, shouldShowPushPrompt, markPushPromptSeen } from './notifications.js';
 import { getTheme, setTheme } from './theme.js';
 import { getUnseenEntries, markChangelogSeen } from './changelog.js';
@@ -271,10 +271,13 @@ function showAccountSheet() {
   const notificationsSection = h('div', { class: 'meta' }, 'Checking notification status…');
   const splitSection = h('div', { class: 'meta' }, 'Loading…');
   const driveSection = h('div', {});
+  const membersSection = h('div', { class: 'meta' }, 'Loading…');
 
   mount(body, [
     h('p', { class: 'meta' }, ctx.user.email),
     renderInviteInfo(ctx.household),
+    h('div', { class: 'section-title' }, 'Household members'),
+    membersSection,
     h('div', { class: 'section-title' }, 'Theme'),
     renderThemeToggle(),
     h('div', { class: 'section-title' }, 'Expense split'),
@@ -296,6 +299,77 @@ function showAccountSheet() {
   renderNotificationsSection(notificationsSection);
   renderSplitSection(splitSection);
   renderDriveSection(driveSection);
+  renderMembersSection(membersSection, dialog);
+}
+
+// Lists the household roster with a "Leave household" action on your
+// own row and, if you're the owner, a "Remove" action on the other
+// member's row. Both call the same remove_household_member() RPC (see
+// household.js) — the owner-only restriction on removing someone else
+// is enforced there, server-side, not just by this button being hidden.
+async function renderMembersSection(container, accountDialog) {
+  let members;
+  try {
+    members = await getHouseholdMembers(ctx.household.id);
+  } catch (err) {
+    mount(container, h('p', { class: 'error-msg' }, `Could not load members: ${err.message}`));
+    return;
+  }
+
+  const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
+  const isOwner = ctx.household.myRole === 'owner';
+
+  function memberRow(m) {
+    const isSelf = m.user_id === ctx.user.id;
+    const label = `${m.display_name}${isSelf ? ' (you)' : ''}${m.role === 'owner' ? ' · owner' : ''}`;
+
+    let actionBtn = null;
+    if (isSelf) {
+      actionBtn = h('button', {
+        class: 'btn danger-text small',
+        onclick: async () => {
+          if (!confirm('Leave this household? You\'ll lose access to its shared events, expenses, goals, and documents.')) return;
+          errorEl.style.display = 'none';
+          try {
+            await removeMember(m.user_id);
+            closeSheet(accountDialog);
+            // getMyHousehold() now returns null for this user, so
+            // re-running the normal post-auth check routes to the
+            // create/join screen, same as it would for a brand-new
+            // account — no separate "you left" screen needed.
+            await afterAuth(ctx.user);
+          } catch (err) {
+            errorEl.textContent = err.message;
+            errorEl.style.display = 'block';
+          }
+        },
+      }, 'Leave household');
+    } else if (isOwner) {
+      actionBtn = h('button', {
+        class: 'btn danger-text small',
+        onclick: async () => {
+          if (!confirm(`Remove ${m.display_name} from this household? They'll lose access immediately.`)) return;
+          errorEl.style.display = 'none';
+          try {
+            await removeMember(m.user_id);
+            // Re-render the whole sheet, not just this section — the
+            // Expense split section above also depends on the member
+            // list (it was fetched once when the sheet opened) and
+            // would otherwise keep showing the removed person.
+            closeSheet(accountDialog);
+            showAccountSheet();
+          } catch (err) {
+            errorEl.textContent = err.message;
+            errorEl.style.display = 'block';
+          }
+        },
+      }, 'Remove');
+    }
+
+    return h('div', { class: 'card-row', style: 'padding:6px 0' }, [h('span', {}, label), actionBtn]);
+  }
+
+  mount(container, [h('div', {}, members.map(memberRow)), errorEl]);
 }
 
 // Documents now live in a shared Google Drive folder rather than

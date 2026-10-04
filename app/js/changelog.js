@@ -249,6 +249,15 @@ export const CHANGELOG_ENTRIES = [
       'Say "Not now" and it won\'t ask again, but you can still turn it on any time from ⚙️ Account & household',
     ],
   },
+  {
+    id: 26,
+    date: '2026-10-04',
+    title: 'Leave a household, or remove a member',
+    items: [
+      'A new "Household members" section in ⚙️ Account & household lets you leave the household',
+      'Whoever created the household can also remove the other member — useful if you split up and want to cut off their access',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

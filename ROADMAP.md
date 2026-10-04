@@ -311,6 +311,14 @@ schema.
       screen, not already on) — declining isn't permanent, the manual
       toggle still works either way. See
       [`docs/11-push-notifications.md`](docs/11-push-notifications.md).
+- [x] **Leave a household, or remove a member**: previously there was
+      no way to cut off a household member's access short of hand-running
+      SQL in the Supabase dashboard. A new "Household members" section
+      in ⚙️ Account & household offers "Leave household" on your own
+      row, and "Remove" on the other member's row if you're the one who
+      created the household — enforced server-side via a new
+      `SECURITY DEFINER` RPC, not just a hidden button. See
+      [`docs/08-auth-households.md`](docs/08-auth-households.md).
 
 ## Phase 2 — Reminders that actually reach you
 
