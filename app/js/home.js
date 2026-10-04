@@ -102,7 +102,7 @@ export async function render(container, ctx, navigate) {
     return h('div', { class: 'card', onclick: onClick, style: onClick ? 'cursor:pointer' : '' }, [
       h('div', { class: 'card-row' }, [
         h('div', { style: 'display:flex;gap:10px;align-items:center' }, [
-          icon ? h('div', { class: 'card-icon' }, icon) : null,
+          icon ? h('div', { class: 'card-icon', 'aria-hidden': 'true' }, icon) : null,
           h('div', {}, [h('h3', {}, title), h('div', { class: 'meta' }, meta)]),
         ]),
         pill,

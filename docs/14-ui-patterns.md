@@ -171,6 +171,32 @@ no flash of the wrong theme while `app.js` — an ES module — is still
 loading), and once by `theme.js`'s `setTheme()` when the toggle is used
 mid-session. Both read/write the same `localStorage` key.
 
+## Accessibility: icon-only buttons need `aria-label`, decorative icons need `aria-hidden`
+
+Same OS-driven-by-default philosophy as theming (below): respect the
+browser's/OS's own accessibility signals rather than building a custom
+in-app toggle for them.
+
+- **Any button whose visible content is just an emoji/symbol with no
+  adjacent text** (the ✕ sheet-close, the ⚙️ account button, every "+"
+  FAB, the 💬 comment button, the 📅 .ics download button) needs an
+  `aria-label` — otherwise a screen reader announces only the emoji's
+  Unicode name ("plus sign, button"), with no indication of what it
+  does. A button whose count/label changes after the fact (the comment
+  button's "💬 N") updates its `aria-label` via `setAttribute` alongside
+  its `textContent`, not just once at render time.
+- **A decorative icon sitting next to text that already says the same
+  thing** (home.js's `.card-icon`, the tabbar's `.tab-icon` — a 🏠 next
+  to the word "Home") gets `'aria-hidden': 'true'` instead, so it isn't
+  announced redundantly on top of the text right next to it.
+- **`prefers-reduced-motion: reduce` and `prefers-contrast: more`** are
+  both honored globally in `styles.css` (a blanket
+  animation/transition-duration override for the former, swapped
+  `--text-muted`/`--border` values for the latter, mirroring the
+  OS-driven-plus-forced-theme layering the dark-mode rules below already
+  use) — not a manual in-app toggle, since there's no existing request
+  for one and the OS setting already covers it.
+
 ## Color-by-person (categorical series)
 
 When a UI needs to distinguish *who* did something by color — not a

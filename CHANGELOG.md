@@ -8,6 +8,25 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-04 — Accessibility pass
+
+- **Icon-only button labels**: every button whose visible content is
+  just an emoji/symbol with no adjacent text (every "+" FAB, the 💬
+  comment button, the 📅 .ics download button) now has an `aria-label`,
+  so a screen reader announces what it does instead of just the emoji's
+  Unicode name. The comment button's label updates alongside its count.
+- **Decorative icons hidden from screen readers**: an icon sitting next
+  to text that already says the same thing (home.js's `.card-icon`, the
+  tabbar's `.tab-icon`) is now `aria-hidden`, so it isn't announced
+  redundantly on top of the text beside it.
+- **Reduced motion / increased contrast**: `styles.css` now honors
+  `prefers-reduced-motion: reduce` (a blanket animation/transition
+  override, and the goal-celebration confetti hidden outright) and
+  `prefers-contrast: more` (higher-contrast muted-text/border colors, in
+  both light and dark) globally, the same OS-driven-by-default
+  philosophy as the existing dark-mode handling — no new in-app toggle.
+  See [`docs/14-ui-patterns.md`](docs/14-ui-patterns.md).
+
 ## 2026-10-04 — Automatic backup to Google Drive
 
 Migration `0036_household_last_backup_at.sql` adds

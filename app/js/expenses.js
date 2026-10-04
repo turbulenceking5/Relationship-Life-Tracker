@@ -390,11 +390,14 @@ export async function render(container, ctx) {
     // expense their partner actually paid for.
     const addedByNote = row.created_by && row.created_by !== row.paid_by ? ` · added by ${memberName(row.created_by)}` : '';
     const commentCount = commentCounts.get(row.id) || 0;
+    const commentLabel = (count) => (count ? `${count} comment${count === 1 ? '' : 's'}` : 'Comments');
     const commentBtn = h('button', {
       class: 'btn secondary small',
+      'aria-label': commentLabel(commentCount),
       onclick: () => openCommentsSheet(ENTITY_TYPE, row.id, row.title, members, ctx, (count) => {
         commentCounts.set(row.id, count);
         commentBtn.textContent = `💬 ${count || ''}`.trim();
+        commentBtn.setAttribute('aria-label', commentLabel(count));
       }),
     }, `💬 ${commentCount || ''}`.trim());
     return h('div', { class: 'card' }, [
@@ -640,7 +643,7 @@ export async function render(container, ctx) {
     listContainer,
     settlements.length ? h('div', { class: 'section-title' }, 'Settlements') : null,
     ...settlements.map(settlementCard),
-    h('button', { class: 'fab', onclick: () => openSheet(dialog) }, '+'),
+    h('button', { class: 'fab', 'aria-label': 'Add expense', onclick: () => openSheet(dialog) }, '+'),
     dialog,
   ]);
 }

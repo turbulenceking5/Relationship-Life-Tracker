@@ -703,3 +703,43 @@ dialog::backdrop { background: rgba(0,0,0,0.45); }
   0% { transform: translateY(0) rotate(0deg); opacity: 1; }
   100% { transform: translateY(90px) rotate(45deg); opacity: 0; }
 }
+
+/* Respect the OS's "reduce motion" accessibility setting by cutting every
+   animation/transition to effectively nothing, rather than hand-chasing
+   each one as more get added — today that's just the confetti burst
+   above and the collapsible-section arrow's rotate transition, but this
+   covers anything added later too. The confetti burst is also hidden
+   outright rather than left to animate near-instantly, so there's no
+   one-frame flash of full-opacity emoji. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .confetti-burst { display: none; }
+}
+
+/* Respect the OS's "increase contrast" accessibility setting by swapping
+   in darker/lighter muted-text and border colors than this app's normal
+   (deliberately soft, low-contrast-by-design) palette — same
+   OS-driven-plus-forced-theme layering docs/14-ui-patterns.md already
+   uses for dark mode, just keyed on prefers-contrast instead of
+   prefers-color-scheme. Three rules, exactly mirroring the three
+   possible rendered states: plain/forced-light, OS-dark, forced-dark. */
+@media (prefers-contrast: more) {
+  :root {
+    --text-muted: #4a443c;
+    --border: #8f8574;
+  }
+  :root[data-theme="dark"] {
+    --text-muted: #c7cedb;
+    --border: #4a5872;
+  }
+}
+@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --text-muted: #c7cedb;
+    --border: #4a5872;
+  }
+}

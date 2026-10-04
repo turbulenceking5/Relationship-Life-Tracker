@@ -345,6 +345,13 @@ schema.
       app's Drive access is deliberately client-only with no
       server-side credential to run one. See
       [`docs/25-feature-backup.md`](docs/25-feature-backup.md).
+- [x] **Accessibility pass**: every icon-only button (every "+" FAB, the
+      💬 comment button, the 📅 .ics download button) now has an
+      `aria-label`; a decorative icon next to text saying the same thing
+      is `aria-hidden`; `styles.css` now honors `prefers-reduced-motion`
+      and `prefers-contrast: more` globally, same OS-driven-by-default
+      approach as dark mode — no new in-app toggle. See
+      [`docs/14-ui-patterns.md`](docs/14-ui-patterns.md).
 
 ## Phase 2 — Reminders that actually reach you
 

@@ -249,6 +249,6 @@ export async function render(container, ctx) {
     rows.length ? filterRow : null,
     rows.length ? h('div', { class: 'field' }, searchInput) : null,
     listContainer,
-    h('button', { class: 'fab', onclick: () => openUploadDocumentSheet(ctx, { onSaved: () => render(container, ctx) }) }, '+'),
+    h('button', { class: 'fab', 'aria-label': 'Add document', onclick: () => openUploadDocumentSheet(ctx, { onSaved: () => render(container, ctx) }) }, '+'),
   ]);
 }

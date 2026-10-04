@@ -301,6 +301,15 @@ export const CHANGELOG_ENTRIES = [
       'A new "Back up now" button in ⚙️ Account & household → Documents storage runs one immediately',
     ],
   },
+  {
+    id: 32,
+    date: '2026-10-04',
+    title: 'Accessibility pass',
+    items: [
+      'Every icon-only button (add, comments, calendar download) now has a screen-reader label',
+      'The app now respects your phone\'s "reduce motion" and "increase contrast" accessibility settings',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

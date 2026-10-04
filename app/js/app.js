@@ -239,7 +239,7 @@ async function renderMainApp() {
     h('button', {
       class: t.key === currentTab ? 'active' : '',
       onclick: () => { currentTab = t.key; renderMainApp(); },
-    }, [h('span', { class: 'tab-icon' }, t.icon), h('span', {}, t.label)])
+    }, [h('span', { class: 'tab-icon', 'aria-hidden': 'true' }, t.icon), h('span', {}, t.label)])
   ));
 
   mainEl = main;

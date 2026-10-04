@@ -188,7 +188,7 @@ export async function render(container, ctx) {
     h('div', { class: 'meta', style: 'margin-bottom:10px' }, "Private to you — your partner can't see this list."),
     rows.length ? h('div', { class: 'field' }, searchInput) : null,
     listContainer,
-    h('button', { class: 'fab', onclick: () => openSheet(dialog) }, '+'),
+    h('button', { class: 'fab', 'aria-label': 'Add to-do', onclick: () => openSheet(dialog) }, '+'),
     dialog,
   ]);
 }

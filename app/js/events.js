@@ -200,11 +200,14 @@ export async function render(container, ctx) {
       render(container, ctx);
     };
     const commentCount = commentCounts.get(row.id) || 0;
+    const commentLabel = (count) => (count ? `${count} comment${count === 1 ? '' : 's'}` : 'Comments');
     const commentBtn = h('button', {
       class: 'btn secondary small',
+      'aria-label': commentLabel(commentCount),
       onclick: () => openCommentsSheet(ENTITY_TYPE, row.id, row.title, members, ctx, (count) => {
         commentCounts.set(row.id, count);
         commentBtn.textContent = `💬 ${count || ''}`.trim();
+        commentBtn.setAttribute('aria-label', commentLabel(count));
       }),
     }, `💬 ${commentCount || ''}`.trim());
     // Downloads just this one occurrence as a single-date .ics, not a
@@ -213,6 +216,7 @@ export async function render(container, ctx) {
     // calendar" without any new backend involved.
     const icsBtn = h('button', {
       class: 'btn secondary small',
+      'aria-label': 'Download to calendar (.ics)',
       onclick: () => {
         const ics = buildIcsEvent({
           uid: row.id,
@@ -351,7 +355,7 @@ export async function render(container, ctx) {
   mount(container, [
     rows.length ? h('div', { class: 'field' }, searchInput) : null,
     listContainer,
-    h('button', { class: 'fab', onclick: () => openSheet(dialog) }, '+'),
+    h('button', { class: 'fab', 'aria-label': 'Add event', onclick: () => openSheet(dialog) }, '+'),
     dialog,
   ]);
 }
