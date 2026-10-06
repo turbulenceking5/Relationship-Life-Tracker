@@ -335,6 +335,15 @@ export const CHANGELOG_ENTRIES = [
       'The "🗓️ .ics" button on each event is now just the icon — same download, less label clutter',
     ],
   },
+  {
+    id: 36,
+    date: '2026-10-06',
+    title: 'Fixed "can\'t upload docs" / "Google scripts isn\'t loading"',
+    items: [
+      'Uploading a document to Drive, or backing up, could fail with "Google scripts did not load in time" — a background caching bug was interfering with those scripts loading at all',
+      'If it still happens, it means something on your network (a content blocker, restrictive Wi-Fi) is blocking Google\'s own sign-in page — try a different network or turning off any ad/content blockers',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

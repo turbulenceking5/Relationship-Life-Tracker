@@ -8,6 +8,28 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-06 — Fixed Google Drive uploads/backup failing with "Google scripts did not load in time"
+
+- **Service worker stopped intercepting third-party script loads**:
+  `service-worker.js`'s fetch handler only ever bypassed its own
+  cache-first pipeline for `*.supabase.co` requests — every other
+  cross-origin request, including the two Google Identity
+  Services/API script tags `index.html` loads for Drive
+  (`accounts.google.com/gsi/client`, `apis.google.com/js/api.js`), got
+  routed through the service worker's own `fetch()`/`cache.match()`
+  instead of the browser's normal script-loading path. That's a known
+  source of a cross-origin `<script>` load silently failing or hanging
+  on some engines, and the `cache.put()` was already origin-gated to
+  same-origin responses only, so none of this ever bought anything for
+  a third-party request. Generalized the bypass from "Supabase only" to
+  "any non-same-origin request." See
+  [`docs/21-google-drive-documents.md`](docs/21-google-drive-documents.md)
+  → "Known failure mode."
+- If uploads/backup still fail with this error after updating, it's no
+  longer something the app's code controls — a content blocker or
+  network policy is blocking Google's own domains outright, same
+  category as this project's other dashboard-only limitations.
+
 ## 2026-10-06 — Dropped the text label on the .ics download button
 
 - The per-event `.ics` download button (`app/js/events.js`) now shows

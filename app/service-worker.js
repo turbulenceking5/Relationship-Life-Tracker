@@ -1,4 +1,4 @@
-const CACHE_NAME = 'life-tracker-v38';
+const CACHE_NAME = 'life-tracker-v39';
 const APP_SHELL = [
   './',
   'index.html',
@@ -55,8 +55,19 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Never cache calls to Supabase (auth/data/storage) — always go to network.
-  if (url.hostname.endsWith('.supabase.co')) {
+  // Only this app's own same-origin requests go through the cache-first
+  // pipeline below -- everything else (Supabase, and the Google Identity
+  // Services/API scripts loaded from accounts.google.com/apis.google.com
+  // for Drive, see index.html) is left to the browser's own network
+  // stack untouched. Routing a cross-origin request through this
+  // service worker's own fetch()+cache.match() never bought anything
+  // here (the cache.put() below is already origin-gated and would never
+  // store it), and on some engines a service-worker-proxied cross-origin
+  // script load is a real source of it silently failing or hanging --
+  // exactly the "Google scripts isn't loading" failure mode this was
+  // written to rule out. This used to only special-case *.supabase.co;
+  // generalizing it to "any other origin" closes the same gap for Drive.
+  if (url.origin !== self.location.origin) {
     return;
   }
 
@@ -66,7 +77,7 @@ self.addEventListener('fetch', (event) => {
     caches.match(event.request).then((cached) => {
       const network = fetch(event.request)
         .then((response) => {
-          if (response.ok && url.origin === self.location.origin) {
+          if (response.ok) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           }

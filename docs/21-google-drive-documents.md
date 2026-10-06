@@ -140,6 +140,37 @@ The app's own category filter chips (above) are the more useful way to
 browse by category day-to-day; the filename prefix is mainly for anyone
 who opens the folder directly in Drive.
 
+## Known failure mode: "Google scripts did not load in time"
+`requestAccessToken()` in `app/js/googleDrive.js` throws this
+(`ensureGisLoaded()`'s `waitFor()` helper) if `window.google.accounts.oauth2`
+never shows up within 10 seconds of the first Drive action — i.e. the
+`<script src="https://accounts.google.com/gsi/client" defer>` tag in
+`index.html` genuinely never finished loading. Every Drive-dependent
+feature (connect, upload, and backup — see
+[`25-feature-backup.md`](25-feature-backup.md)) shares this one
+dependency, so this error surfaces identically across all of them.
+
+One real cause, found and fixed: `service-worker.js`'s fetch handler
+used to only bypass its own cache-first pipeline for `*.supabase.co`
+requests — every other request, including these two Google script tags
+(neither same-origin nor Supabase), got routed through the service
+worker's own `fetch()`/`cache.match()` instead of the browser's normal
+script-loading path, which is a known source of a cross-origin
+`<script>` load silently failing or hanging on some engines. Fixed by
+generalizing the bypass to any non-same-origin request — a service
+worker has no business mediating a third-party script load it was never
+going to cache anyway (the `cache.put()` was already origin-gated to
+same-origin responses only, so routing these through it never bought
+anything).
+
+If this still happens after that fix, it's no longer something the
+app's own code controls — same category as the dashboard-only settings
+elsewhere in this project: a content blocker, restrictive DNS/firewall,
+or network policy blocking `accounts.google.com`/`apis.google.com`
+outright. There's no client-side workaround for that; the person hitting
+it needs to try a different network or disable whatever's blocking
+those domains.
+
 ## Not done (possible follow-ups)
 - No UI to disconnect/switch the household's Drive folder once set.
 - Automatic backup of the app's *own* data (expenses, events, goals,
