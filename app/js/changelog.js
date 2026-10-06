@@ -344,6 +344,14 @@ export const CHANGELOG_ENTRIES = [
       'If it still happens, it means something on your network (a content blocker, restrictive Wi-Fi) is blocking Google\'s own sign-in page — try a different network or turning off any ad/content blockers',
     ],
   },
+  {
+    id: 37,
+    date: '2026-10-06',
+    title: 'Backups now clean up after themselves',
+    items: [
+      'Only the 10 most recent backups are kept in Drive — older ones are deleted automatically so the folder doesn\'t fill up with years of dated files',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

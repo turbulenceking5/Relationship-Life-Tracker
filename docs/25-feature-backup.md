@@ -48,6 +48,29 @@ household-wide backup): `events`, `expenses`, `recurring_expenses`,
 `documents` (metadata only — titles/categories/Drive file links, not the
 files themselves, which already live in Drive), and `item_comments`.
 
+Every backed-up table is small text rows — no file blobs (uploaded
+documents already live in Drive as their own files; this only backs up
+their metadata). Even after a couple of years of regular use, a backup
+file lands somewhere in the tens of KB up to maybe one or two MB at the
+high end — nowhere near a size that matters to anyone, or to Drive's
+quota.
+
+## Rolling retention: last 10 backups, not every backup ever made
+File *size* was never the concern (see above) — file *count* was: one
+new dated file every ~week, forever, would eventually clutter the same
+folder the household's actual documents live in. `pruneOldBackups()` in
+`app/js/backup.js` runs after every successful backup (both the
+opportunistic one and "Back up now"): it lists this household's own
+`Backup *.json` files (`listFilesInFolder()` in `googleDrive.js`,
+scoped to the household's folder and that name prefix so it only ever
+touches files this app itself created), keeps the `KEEP_BACKUPS` (10)
+most recent by name — `Backup YYYY-MM-DD.json` sorts chronologically as
+a plain string, so no date-parsing is needed — and deletes the rest.
+Ten backups at the current ~weekly cadence is roughly 2-3 months of
+point-in-time history. Pruning failure is swallowed (logged, not
+thrown): the backup itself already succeeded by that point, and a
+missed prune just gets caught up next time.
+
 ## Data
 `households.last_backup_at` (migration `0036_household_last_backup_at.sql`)
 — same column-scoped `grant update` pattern as `drive_folder_id` etc. in

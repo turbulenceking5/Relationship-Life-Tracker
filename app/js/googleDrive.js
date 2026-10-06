@@ -210,6 +210,19 @@ export async function uploadFileToDrive(ctx, file, driveFileName = file.name) {
   return res.json(); // { id, webViewLink }
 }
 
+// Used by backup.js to find its own previous backup files for rolling
+// retention (see keepRecentBackups() there) — scoped to the household's
+// folder and a name prefix so it only ever sees files this app itself
+// created, never anything else a partner's put in the shared folder.
+// `name` sorts chronologically for "Backup YYYY-MM-DD.json"-style names,
+// so orderBy=name desc is enough without parsing dates out of anything.
+export async function listFilesInFolder(ctx, namePrefix) {
+  const accessToken = await requestAccessToken({ interactive: false }).catch(() => requestAccessToken());
+  const q = encodeURIComponent(`'${ctx.household.drive_folder_id}' in parents and name contains '${namePrefix.replace(/'/g, "\\'")}' and trashed=false`);
+  const result = await driveFetch(`files?q=${q}&fields=files(id,name)&orderBy=name desc`, accessToken);
+  return result.files || [];
+}
+
 export async function deleteDriveFile(fileId) {
   const accessToken = await requestAccessToken({ interactive: false }).catch(() => requestAccessToken());
   await driveFetch(`files/${fileId}`, accessToken, { method: 'DELETE' });

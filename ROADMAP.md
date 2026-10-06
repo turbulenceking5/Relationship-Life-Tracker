@@ -343,7 +343,9 @@ schema.
       weekly, plus a manual "Back up now" button — opportunistic
       (triggered on app open), not a real `pg_cron` job, since this
       app's Drive access is deliberately client-only with no
-      server-side credential to run one. See
+      server-side credential to run one. Rolling retention keeps only
+      the 10 most recent backups, deleting older ones automatically so
+      the Drive folder doesn't accumulate years of dated files. See
       [`docs/25-feature-backup.md`](docs/25-feature-backup.md).
 - [x] **Accessibility pass**: every icon-only button (every "+" FAB, the
       💬 comment button, the 🗓️ .ics-download button) now has an

@@ -8,6 +8,23 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-06 — Rolling retention on Drive backups
+
+- **Keep only the last 10 backups**: `pruneOldBackups()` in
+  `app/js/backup.js` runs after every successful backup and deletes
+  anything past the 10 most recent `Backup *.json` files in the
+  household's Drive folder (`listFilesInFolder()`, a new export in
+  `app/js/googleDrive.js`, scoped to the household's folder + name
+  prefix). File *size* was never a concern (every backed-up table is
+  small text rows — no file blobs — so even years of regular use stays
+  in the tens of KB to low single-digit MB range); file *count* was: an
+  unbounded weekly trail would eventually clutter the same folder the
+  household's actual documents live in. 10 backups at the current
+  ~weekly cadence is roughly 2-3 months of point-in-time history.
+  Pruning failure is logged and swallowed, not thrown — the backup
+  itself already succeeded by that point. See
+  [`docs/25-feature-backup.md`](docs/25-feature-backup.md).
+
 ## 2026-10-06 — Fixed Google Drive uploads/backup failing with "Google scripts did not load in time"
 
 - **Service worker stopped intercepting third-party script loads**:
