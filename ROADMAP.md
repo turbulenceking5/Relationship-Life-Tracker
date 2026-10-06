@@ -333,7 +333,7 @@ schema.
       your turn" — derived arithmetic on the existing cycle count, no new
       data needed since the rotation was already fully deterministic.
       See [`docs/03-feature-events.md`](docs/03-feature-events.md).
-- [x] **Download an event as .ics**: a "🗓️ .ics" button on every event
+- [x] **Download an event as .ics**: a "🗓️" button on every event
       card downloads that one occurrence as a calendar file, built
       client-side with no backend change (`app/js/ics.js`), for
       importing into Apple/Google/Outlook Calendar. See
@@ -346,7 +346,7 @@ schema.
       server-side credential to run one. See
       [`docs/25-feature-backup.md`](docs/25-feature-backup.md).
 - [x] **Accessibility pass**: every icon-only button (every "+" FAB, the
-      💬 comment button, the 🗓️ .ics download button) now has an
+      💬 comment button, the 🗓️ .ics-download button) now has an
       `aria-label`; a decorative icon next to text saying the same thing
       is `aria-hidden`; `styles.css` now honors `prefers-reduced-motion`
       and `prefers-contrast: more` globally, same OS-driven-by-default

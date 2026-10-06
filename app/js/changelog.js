@@ -289,7 +289,7 @@ export const CHANGELOG_ENTRIES = [
     date: '2026-10-04',
     title: 'Download an event to your phone calendar',
     items: [
-      'A new "🗓️ .ics" button on any event downloads it as a calendar file you can import into Apple/Google/Outlook Calendar',
+      'A new "🗓️" button on any event downloads it as a calendar file you can import into Apple/Google/Outlook Calendar',
     ],
   },
   {
@@ -325,6 +325,14 @@ export const CHANGELOG_ENTRIES = [
     title: 'Fixed the Events icon looking like a stuck date',
     items: [
       'The Events tab, appointment icon, and ".ics" download button used a calendar emoji that some phones render with a fixed, unrelated date baked right into the icon — replaced with one that doesn\'t',
+    ],
+  },
+  {
+    id: 35,
+    date: '2026-10-06',
+    title: 'Tidied up the calendar-download button',
+    items: [
+      'The "🗓️ .ics" button on each event is now just the icon — same download, less label clutter',
     ],
   },
 ];

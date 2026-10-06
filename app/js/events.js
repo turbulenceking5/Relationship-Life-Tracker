@@ -227,7 +227,7 @@ export async function render(container, ctx) {
         const safeName = row.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
         downloadIcs(`${safeName || 'event'}.ics`, ics);
       },
-    }, '🗓️ .ics');
+    }, '🗓️');
     return h('div', { class: 'card' }, [
       h('div', { class: 'card-row' }, [
         h('div', {}, [
