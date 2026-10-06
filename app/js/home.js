@@ -6,7 +6,7 @@ import { getHouseholdMembers, updateSharedNote } from './household.js';
 import { computeBalance } from './balance.js';
 import { remindPartner } from './notifications.js';
 
-const CATEGORY_ICONS = { birthday: '🎂', anniversary: '💍', appointment: '📅', other: '📌' };
+const CATEGORY_ICONS = { birthday: '🎂', anniversary: '💍', appointment: '🗓️', other: '📌' };
 const GRADIENT_CLASSES = ['grad-a', 'grad-b', 'grad-c', 'grad-d', 'grad-e'];
 
 function gradientClass(seed) {

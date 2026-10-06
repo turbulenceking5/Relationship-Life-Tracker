@@ -179,7 +179,7 @@ in-app toggle for them.
 
 - **Any button whose visible content is just an emoji/symbol with no
   adjacent text** (the ✕ sheet-close, the ⚙️ account button, every "+"
-  FAB, the 💬 comment button, the 📅 .ics download button) needs an
+  FAB, the 💬 comment button, the 🗓️ .ics download button) needs an
   `aria-label` — otherwise a screen reader announces only the emoji's
   Unicode name ("plus sign, button"), with no indication of what it
   does. A button whose count/label changes after the fact (the comment

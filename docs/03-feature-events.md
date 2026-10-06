@@ -102,7 +102,7 @@ since `item_comments` has no DB-level cascade for its polymorphic
 `entity_id`.
 
 ## Download a single event as .ics (shipped)
-A "📅 .ics" button on every event card downloads that one occurrence as a
+A "🗓️ .ics" button on every event card downloads that one occurrence as a
 single-date `.ics` file (`buildIcsEvent()`/`downloadIcs()` in
 `app/js/ics.js`, built client-side — no new backend involved) for
 importing into Apple/Google/Outlook calendar. Only the one occurrence

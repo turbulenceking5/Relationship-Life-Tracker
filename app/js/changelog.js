@@ -289,7 +289,7 @@ export const CHANGELOG_ENTRIES = [
     date: '2026-10-04',
     title: 'Download an event to your phone calendar',
     items: [
-      'A new "📅 .ics" button on any event downloads it as a calendar file you can import into Apple/Google/Outlook Calendar',
+      'A new "🗓️ .ics" button on any event downloads it as a calendar file you can import into Apple/Google/Outlook Calendar',
     ],
   },
   {
@@ -317,6 +317,14 @@ export const CHANGELOG_ENTRIES = [
     items: [
       'First time opening the app in a regular browser tab, it now offers to install to your Home Screen before you even sign up or log in — due-date reminders and offline access need that to work',
       'Shown once; "Continue in browser" (or just dismissing it) skips it, and you can still install any time later from Share → Add to Home Screen',
+    ],
+  },
+  {
+    id: 34,
+    date: '2026-10-06',
+    title: 'Fixed the Events icon looking like a stuck date',
+    items: [
+      'The Events tab, appointment icon, and ".ics" download button used a calendar emoji that some phones render with a fixed, unrelated date baked right into the icon — replaced with one that doesn\'t',
     ],
   },
 ];

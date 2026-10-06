@@ -8,6 +8,18 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-06 — Fixed the Events icon looking like a stuck date
+
+- **Calendar emoji (📅) replaced with 🗓️**: the Events tab icon, the
+  "appointment" category icon on Home, and the per-event ".ics" download
+  button all used `📅` (U+1F4C5 CALENDAR) as a generic calendar/events
+  icon — on some devices/fonts that glyph's artwork bakes in a fixed,
+  specific date (unrelated to any real date in the app), which read as
+  a stuck or wrong date repeated identically everywhere the icon
+  appeared. Swapped for `🗓️` (U+1F5D3 SPIRAL CALENDAR) in `app/js/app.js`,
+  `app/js/home.js`, and `app/js/events.js`, which renders as a generic
+  calendar with no baked-in date on every major platform.
+
 ## 2026-10-04 — Pre-signup "Add to Home Screen" interstitial
 
 - **Install prompt before auth**: a brand-new visitor in a regular
@@ -29,7 +41,7 @@ one has to stay short enough to read on a phone).
 
 - **Icon-only button labels**: every button whose visible content is
   just an emoji/symbol with no adjacent text (every "+" FAB, the 💬
-  comment button, the 📅 .ics download button) now has an `aria-label`,
+  comment button, the 🗓️ .ics download button) now has an `aria-label`,
   so a screen reader announces what it does instead of just the emoji's
   Unicode name. The comment button's label updates alongside its count.
 - **Decorative icons hidden from screen readers**: an icon sitting next
@@ -63,7 +75,7 @@ Migration `0036_household_last_backup_at.sql` adds
 
 ## 2026-10-04 — Download an event as .ics
 
-- **Per-event .ics download**: a new "📅 .ics" button on every event
+- **Per-event .ics download**: a new "🗓️ .ics" button on every event
   card downloads that one occurrence as a single-date `.ics` file
   (`app/js/ics.js`, built entirely client-side — no backend change), for
   importing into Apple/Google/Outlook Calendar. Only the one occurrence

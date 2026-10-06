@@ -24,7 +24,7 @@ const appEl = document.getElementById('app');
 
 const TABS = [
   { key: 'home', label: 'Home', icon: '🏠', mod: () => import('./home.js') },
-  { key: 'events', label: 'Events', icon: '📅', mod: () => import('./events.js') },
+  { key: 'events', label: 'Events', icon: '🗓️', mod: () => import('./events.js') },
   { key: 'money', label: 'Money', icon: '💰', mod: () => import('./money.js') },
   { key: 'goals', label: 'Goals', icon: '🎯', mod: () => import('./goals.js') },
   { key: 'documents', label: 'Docs', icon: '📄', mod: () => import('./documents.js') },
