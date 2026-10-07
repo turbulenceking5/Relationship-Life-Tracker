@@ -179,27 +179,38 @@ export function parseCsvStatement(text) {
 // extractable text and will just come back with zero transactions — the
 // upload still succeeds and "+ Add transaction" covers filling it in by
 // hand, no dead end.
+//
+// Loaded as a dynamic import() of the .mjs build, not a classic <script
+// src>: cdnjs only publishes the ES-module build (pdf.min.mjs/
+// pdf.worker.min.mjs) for this pdf.js version — the old pdf.min.js/
+// pdf.worker.min.js URLs 404, which (since extractPdfText()'s caller
+// wraps everything in a broad try/catch, see parseStatementFile() below)
+// used to fail completely silently: every PDF upload "succeeded" with
+// zero transactions found, indistinguishable from a genuinely
+// unreadable scanned PDF. Caught via a real statement file reproducing
+// it end to end, not a scanned-PDF edge case.
+let pdfJsModule = null;
 let pdfJsLoading = null;
 function ensurePdfJsLoaded() {
-  if (window.pdfjsLib) return Promise.resolve();
+  if (pdfJsModule) return Promise.resolve(pdfJsModule);
   if (pdfJsLoading) return pdfJsLoading;
-  pdfJsLoading = new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.js';
-    script.onload = () => {
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js';
-      resolve();
-    };
-    script.onerror = () => reject(new Error('Could not load the PDF reader library — check your connection.'));
-    document.head.appendChild(script);
-  });
+  pdfJsLoading = import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.mjs')
+    .then((mod) => {
+      mod.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.mjs';
+      pdfJsModule = mod;
+      return mod;
+    })
+    .catch(() => {
+      pdfJsLoading = null;
+      throw new Error('Could not load the PDF reader library — check your connection.');
+    });
   return pdfJsLoading;
 }
 
 async function extractPdfText(file) {
-  await ensurePdfJsLoaded();
+  const pdfjsLib = await ensurePdfJsLoaded();
   const buffer = await file.arrayBuffer();
-  const pdf = await window.pdfjsLib.getDocument({ data: buffer }).promise;
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
   let text = '';
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
@@ -252,17 +263,29 @@ export function parsePdfTransactions(text) {
     if (!dateTok) continue;
     const amounts = [...line.matchAll(amountRe)];
     if (!amounts.length) continue;
-    const last = amounts[amounts.length - 1];
-    const isDebit = /dr\s*$/i.test(last[0]);
-    const isCredit = /cr\s*$/i.test(last[0]);
+    // A trailing running-balance column (Date/Description/Withdrawal/
+    // Deposit/Balance is a very standard AU bank statement shape, ING's
+    // among them — confirmed against a real statement) means the LAST
+    // number on the line is the balance, not the transaction amount,
+    // whenever there's more than one number present; with exactly one,
+    // there's no balance column to exclude and it IS the amount. Picking
+    // "last" unconditionally (as this used to) silently recorded the
+    // running balance as every transaction's amount instead.
+    const chosen = amounts.length > 1 ? amounts[amounts.length - 2] : amounts[0];
+    const isDebit = /dr\s*$/i.test(chosen[0]);
+    const isCredit = /cr\s*$/i.test(chosen[0]);
     // parseAmount()/looksNumeric() are deliberately strict (no trailing
     // letters) so they don't mistake CSV description text for a number
     // — strip the CR/DR suffix before handing it the bare number.
-    let amount = parseAmount(last[0].replace(/\s*(?:CR|DR)\s*$/i, ''));
+    let amount = parseAmount(chosen[0].replace(/\s*(?:CR|DR)\s*$/i, ''));
     if (amount === null) continue;
     if (isDebit) amount = -Math.abs(amount);
     if (isCredit) amount = Math.abs(amount);
-    const description = line.slice(dateTok.index + dateTok.match.length, last.index).replace(/\s+/g, ' ').trim();
+    // Slicing up to the chosen amount's own start (not literally "the
+    // last match") naturally drops both that amount's own text and
+    // anything after it on the line — the trailing balance included —
+    // from the description, with no separate trim step needed for it.
+    const description = line.slice(dateTok.index + dateTok.match.length, chosen.index).replace(/\s+/g, ' ').trim();
     if (!description) continue;
     transactions.push({ txn_date: dateTok.date, description, amount });
   }
@@ -278,8 +301,14 @@ async function parseStatementFile(file) {
     if (name.endsWith('.pdf') || file.type === 'application/pdf') {
       return parsePdfTransactions(await extractPdfText(file));
     }
-  } catch {
-    return []; // best-effort — falls back to "add transactions manually"
+  } catch (err) {
+    // best-effort — falls back to "add transactions manually" rather
+    // than blocking the upload, but logged (not fully silent) so a real
+    // tooling failure (a broken library URL, say — see
+    // ensurePdfJsLoaded() above) doesn't masquerade as just another
+    // unreadable scanned PDF with no trace left behind.
+    console.warn('Could not parse statement file:', err.message);
+    return [];
   }
   return [];
 }

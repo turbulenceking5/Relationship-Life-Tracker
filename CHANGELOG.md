@@ -8,6 +8,39 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-07 — Fixed PDF statement parsing: broken library + wrong amounts
+
+Found by uploading a real statement and getting "$0.00 spent / No
+transactions" with no error — reproduced end to end (real pdf.js
+extraction plus `parsePdfTransactions()` run against the statement's
+actual text) rather than guessed at from the code. Two separate bugs,
+both in `app/js/statements.js`:
+
+- **pdf.js never actually loaded, for anyone.** `ensurePdfJsLoaded()`
+  requested `pdf.min.js`/`pdf.worker.min.js` from cdnjs via a classic
+  `<script src>` — those paths 404 for this pdf.js version; cdnjs only
+  ships the `.mjs` (ES module) build here. Because
+  `parseStatementFile()`'s broad `try/catch` returns `[]` on any
+  failure (correct for a genuinely unreadable scanned PDF, not for a
+  broken library URL), this failed completely silently — every PDF
+  upload "succeeded" with zero transactions, indistinguishable from a
+  scanned statement. Fixed by loading the `.mjs` build via dynamic
+  `import()` (confirmed to actually exist via cdnjs's own file listing
+  first) instead of a script tag, and by `console.warn`-ing the real
+  error on a parse failure instead of swallowing it without a trace.
+- **The running balance was being recorded as the transaction amount.**
+  A standard AU bank statement shape (`Date | Description | Withdrawal
+  | Deposit | Balance`) puts two dollar amounts on each transaction
+  line; `parsePdfTransactions()` picked the *last* one — the balance —
+  as the transaction amount, leaving the real amount stuck in the
+  description text instead. Every transaction from a statement with a
+  balance column got a plausible-looking but entirely wrong amount,
+  with nothing to catch it. Fixed: with more than one number on a
+  line, the second-to-last is now the amount and the last is the
+  (dropped) balance; with exactly one number, unchanged. See
+  [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md)
+  → "Two real bugs found testing against an actual statement".
+
 ## 2026-10-07 — Statement overview: upload, parse, and categorize bank statements
 
 - **New Money tab segment, "Statement overview"**: upload a bank

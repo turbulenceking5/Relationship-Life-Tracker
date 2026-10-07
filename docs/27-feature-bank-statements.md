@@ -97,6 +97,51 @@ Drive" link.
   glance at the "Spent"/"Received" totals after a first upload from a
   new source.
 
+### Two real bugs found testing against an actual statement (fixed)
+
+Both of these were caught the same way: uploading a real ING PDF
+statement and getting "$0.00 spent / No transactions" with no error
+shown — reproduced end to end (pdf.js extraction + `parsePdfTransactions()`
+run against the statement's real text) rather than guessed at from the
+code alone.
+
+1. **pdf.js never actually loaded, for anyone, ever.**
+   `ensurePdfJsLoaded()` requested `pdf.min.js`/`pdf.worker.min.js` from
+   cdnjs via a classic `<script src>` tag — those files don't exist for
+   this pdf.js version; cdnjs only ships the `.mjs` (ES module) build
+   at this path, so both requests 404'd. Because `parseStatementFile()`
+   wraps everything in a single broad `try/catch` that returns `[]` on
+   any failure (originally reasoned as "best-effort, falls back to
+   manual entry" — true for a *genuinely* unreadable scanned PDF, not
+   for a totally broken library URL), this failed **completely
+   silently**: every PDF upload "succeeded" with zero transactions,
+   indistinguishable from a scanned/image-only statement. Fixed by
+   loading the `.mjs` build via dynamic `import()` instead of a script
+   tag (`pdf.min.mjs`/`pdf.worker.min.mjs`, confirmed to actually exist
+   via `cdnjs.com`'s own file listing for this version), and by logging
+   the real error (`console.warn`) when parsing fails instead of
+   swallowing it without a trace — a future tooling break like this one
+   should leave *something* to go on.
+2. **The running balance was being recorded as the transaction amount.**
+   A very standard AU bank statement shape is `Date | Description |
+   Withdrawal | Deposit | Balance` — once the above bug was fixed and
+   real transaction lines started reaching `parsePdfTransactions()`,
+   each line had *two* dollar amounts (the actual withdrawal/deposit,
+   then the running balance), and the code picked `amounts[amounts.length
+   - 1]` — the **last** one, i.e. the balance — as "the" transaction
+   amount, with the real amount left dangling in the description text
+   instead. Every transaction from a statement with a balance column
+   would get the wrong amount (a plausible-looking but entirely wrong
+   four-figure number) with no error or validation to catch it. Fixed:
+   when a line has more than one number, the second-to-last is now
+   treated as the amount and the last as the balance (dropped from the
+   description along with everything after it); with exactly one
+   number, it's unambiguously the amount, same as before. This is a
+   heuristic, same as everything else in this section — a bank that
+   shows a balance *before* the amount, or shows two real amount
+   columns with neither being a balance, would need different handling,
+   but no such statement has turned up yet.
+
 ## Auto-categorization and "Needs review"
 
 `guessCategory()` matches a transaction's description against a plain

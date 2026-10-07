@@ -363,6 +363,15 @@ export const CHANGELOG_ENTRIES = [
       'Statements upload into your existing shared Drive folder, renamed to their month/year',
     ],
   },
+  {
+    id: 39,
+    date: '2026-10-07',
+    title: 'Fixed PDF statements silently finding zero transactions',
+    items: [
+      'PDF statement uploads were quietly failing to read anything at all — fixed a broken library link that affected every PDF upload',
+      'Fixed the actual transaction amount sometimes being swapped for the running balance shown next to it on bank statements that list one',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';
