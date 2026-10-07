@@ -13,7 +13,23 @@ const RECURRING_TABLE = 'recurring_expenses';
 // Exported so statements.js can categorize parsed bank transactions
 // against the exact same taxonomy expenses use, rather than inventing a
 // second, slightly-different category list to keep in sync by hand.
-export const CATEGORIES = ['groceries', 'bills', 'rent', 'transport', 'household', 'leisure', 'other'];
+// New categories are appended at the end, never inserted earlier in the
+// list — colorIndex below is each category's fixed array position, so
+// inserting one earlier would silently reassign every later category's
+// chart color.
+export const CATEGORIES = ['groceries', 'bills', 'rent', 'transport', 'household', 'leisure', 'other', 'food', 'pet', 'online shopping'];
+
+// This app has exactly 8 fixed, CVD-validated categorical colors
+// (--series-1..8 in styles.css) — per the data-viz palette rule, a 9th
+// series is never a generated hue (that risks colliding with an
+// existing category's color the moment the list grows), it folds into a
+// shared neutral instead. categoryColor() is that single source of
+// truth for both this file's and statements.js's category breakdown
+// charts, so the two can never disagree on a category's color.
+export function categoryColor(cat) {
+  const idx = CATEGORIES.indexOf(cat);
+  return idx >= 0 && idx < 8 ? `var(--series-${idx + 1})` : 'var(--text-muted)';
+}
 const RECURRING_INTERVAL_PRESETS = [
   { label: 'Weekly', days: 7 },
   { label: 'Monthly', days: 30 },
@@ -64,10 +80,7 @@ function monthlyBreakdown(rows, currency) {
     totalsByCategory.set(cat, (totalsByCategory.get(cat) || 0) + Number(r.amount));
   }
   const categories = [...totalsByCategory.entries()]
-    .map(([cat, amount]) => {
-      const idx = CATEGORIES.indexOf(cat);
-      return { cat, amount, colorIndex: (idx >= 0 ? idx : CATEGORIES.length) % 8 };
-    })
+    .map(([cat, amount]) => ({ cat, amount, color: categoryColor(cat) }))
     .sort((a, b) => b.amount - a.amount);
 
   return h('div', { class: 'total-banner', style: 'flex-direction:column;align-items:stretch;gap:8px' }, [
@@ -77,10 +90,10 @@ function monthlyBreakdown(rows, currency) {
     ]),
     h('div', { class: 'contribution-bar' }, categories.map((c) => h('div', {
       class: 'segment',
-      style: `width:${(c.amount / total) * 100}%;background:var(--series-${c.colorIndex + 1})`,
+      style: `width:${(c.amount / total) * 100}%;background:${c.color}`,
     }))),
     h('div', { class: 'contribution-legend' }, categories.map((c) => h('div', { class: 'item' }, [
-      h('span', { class: 'swatch', style: `background:var(--series-${c.colorIndex + 1})` }),
+      h('span', { class: 'swatch', style: `background:${c.color}` }),
       h('span', {}, `${c.cat} · ${formatMoney(c.amount, currency)} (${Math.round((c.amount / total) * 100)}%)`),
     ]))),
   ]);

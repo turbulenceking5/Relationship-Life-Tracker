@@ -8,6 +8,39 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-07 — Three new expense categories: Food, Pet, Online Shopping
+
+- **Added `food`, `pet`, and `online shopping`** to `CATEGORIES`
+  (`app/js/expenses.js`), the shared taxonomy used by both expenses and
+  statement transactions (`app/js/statements.js`). Appended at the end
+  of the list rather than inserted earlier, since a category's chart
+  color is its fixed array position — inserting one earlier would've
+  silently reassigned every later category's color.
+- **Dining/takeaway keywords moved from `leisure` to `food`** in
+  `statements.js`'s auto-categorizer (`CATEGORY_KEYWORDS`): restaurants,
+  cafes, Uber Eats/Menulog/DoorDash/Deliveroo, and fast-food chains now
+  auto-categorize as Food instead of Leisure on future statement
+  uploads. Doesn't retroactively touch anything already saved.
+- **New `pet` keywords** (Petbarn, vets, etc.) and **`online shopping`
+  keywords** (Amazon, eBay, AliExpress, etc.) added to the same
+  auto-categorizer.
+- **Chart color handling**: this app has exactly 8 fixed, CVD-checked
+  categorical colors (`--series-1`..`--series-8`), and the category list
+  just grew from 7 to 10. Rather than generate a 9th/10th hue that could
+  collide with an earlier category's color, the two categories beyond
+  the 8-color palette (`pet`, `online shopping`) share a neutral
+  fallback swatch (`var(--text-muted)`) in the spending-breakdown
+  charts — they're still fully distinct, selectable categories
+  everywhere else. New shared `categoryColor(cat)` helper (exported from
+  `expenses.js`) is the single source of truth for this, used by both
+  the Expenses "This month" breakdown and the My Statements
+  per-statement breakdown so the two charts can never disagree on a
+  category's color.
+- See [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md) →
+  "Monthly total + category breakdown" and
+  [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md)
+  → "Auto-categorization and 'Needs review'".
+
 ## 2026-10-07 — Statement overview is now private, renamed "My Statements"
 
 - **Statements are now private per-user, not shared across the

@@ -389,6 +389,15 @@ export const CHANGELOG_ENTRIES = [
       'Renamed "Statement overview" to "My Statements" in the Money tab to reflect that',
     ],
   },
+  {
+    id: 42,
+    date: '2026-10-07',
+    title: 'Three new expense categories: Food, Pet, Online Shopping',
+    items: [
+      'Added Food, Pet, and Online Shopping to the category list on expenses and statement transactions',
+      'Dining out and takeaway (restaurants, Uber Eats, DoorDash, etc.) now auto-categorize as Food on statement uploads instead of Leisure',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

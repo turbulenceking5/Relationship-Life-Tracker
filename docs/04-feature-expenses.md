@@ -124,6 +124,21 @@ position in the `CATEGORIES` list, not sort order, so it stays the same
 color month to month even as which categories have spending changes.
 Hidden entirely when there's no spending this month yet.
 
+`CATEGORIES` is `groceries`, `bills`, `rent`, `transport`, `household`,
+`leisure`, `other`, `food`, `pet`, `online shopping` — new categories are
+always appended at the end, never inserted earlier, since inserting one
+would shift every later category's array position and silently
+reassign its chart color. This app defines exactly 8 fixed, CVD-checked
+categorical colors (`--series-1`..`--series-8` in `styles.css`); with 10
+categories now on the list, the 9th and 10th (`pet`, `online shopping`)
+don't get a 9th/10th generated hue — per the data-viz palette rule, that
+risks colliding with an earlier category's color the moment the list
+grows further, so they fold into a shared neutral (`var(--text-muted)`)
+instead. `categoryColor(cat)` (exported from `expenses.js`) is the one
+place this mapping lives, shared by this file's breakdown and
+`statements.js`'s, so the two charts can never color the same category
+differently.
+
 ## Sort/group by month (shipped)
 The expense list groups into collapsible per-month sections (`<details
 class="goal-section">`, same pattern as Goals/Recipes) instead of one

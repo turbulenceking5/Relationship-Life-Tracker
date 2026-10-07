@@ -186,11 +186,28 @@ code alone.
 `guessCategory()` matches a transaction's description against a plain
 keyword map (`CATEGORY_KEYWORDS`) onto the **same `CATEGORIES` list
 expenses use** (`groceries`/`bills`/`rent`/`transport`/`household`/
-`leisure`/`other`), exported from `app/js/expenses.js` specifically so
-this doesn't fork into a second, slightly-different taxonomy to keep in
+`leisure`/`other`/`food`/`pet`/`online shopping`), exported from
+`app/js/expenses.js` specifically so this doesn't fork into a second,
+slightly-different taxonomy to keep in
 sync by hand. Deliberately not a learned/ML classifier — a short,
 readable keyword list that's easy to extend as real statements turn up
 merchants it misses.
+
+Dining/takeaway keywords (restaurants, cafes, Uber Eats/Menulog/
+DoorDash/Deliveroo, fast food chains) moved from `leisure` into the new
+`food` category once it existed — "ate at a restaurant" belongs there
+more than next to "went to the movies," which is what `leisure` is left
+with. This only affects **future** parses; it doesn't retroactively
+re-categorize transactions already saved under `leisure`.
+
+Only 8 fixed categorical colors exist for the spending-breakdown chart
+(see [`04-feature-expenses.md`](04-feature-expenses.md) → "Monthly total
++ category breakdown"); with 10 categories now in the list, `pet` and
+`online shopping` share a neutral fallback swatch in the chart rather
+than being assigned a 9th/10th hue that could collide with an earlier
+category's color — they're still fully distinct, selectable categories
+everywhere else (the picker, "Needs review," keyword matching), just not
+individually color-coded in the bar/legend.
 
 Anything that doesn't match a keyword gets `status = 'unknown'` and
 shows up in a "Needs review" section (open by default whenever it's

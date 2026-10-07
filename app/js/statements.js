@@ -14,7 +14,7 @@ import { h, mount, openSheet, closeSheet, makeSheet, withBusyLabel } from './dom
 import { fetchRows, insertRow, insertRows, updateRow, deleteRow } from './crud.js';
 import { formatMoney, formatDate, todayStr } from './format.js';
 import { isConfigured, isDriveConnected, hasLocalDriveAccess, uploadFileToDrive, deleteDriveFile, folderUrl } from './googleDrive.js';
-import { CATEGORIES } from './expenses.js';
+import { CATEGORIES, categoryColor } from './expenses.js';
 
 const STATEMENTS_TABLE = 'bank_statements';
 const TRANSACTIONS_TABLE = 'bank_transactions';
@@ -43,7 +43,13 @@ const CATEGORY_KEYWORDS = {
   rent: ['real estate', 'rental', 'strata', 'body corporate', 'property mgmt', 'property management'],
   transport: ['fuel', 'petrol', 'bp ', 'shell', 'caltex', '7-eleven', 'uber trip', 'myki', 'opal', 'translink', 'parking', 'toll'],
   household: ['bunnings', 'officeworks', 'ikea', 'kmart', 'big w', 'target', 'harvey norman', 'jb hi-fi'],
-  leisure: ['netflix', 'spotify', 'cinema', 'restaurant', 'cafe', 'bar ', 'pub ', 'uber eats', 'menulog', 'doordash', 'deliveroo'],
+  // Entertainment only — dining/takeaway moved to 'food' below now that
+  // it exists as its own category, rather than lumping "ate at a
+  // restaurant" in with "went to the movies."
+  leisure: ['netflix', 'spotify', 'cinema'],
+  food: ['restaurant', 'cafe', 'bar ', 'pub ', 'uber eats', 'menulog', 'doordash', 'deliveroo', 'mcdonald', 'kfc', 'subway', 'domino\'s', 'hungry jack', 'guzman', 'grill\'d', 'bakery'],
+  pet: ['petbarn', 'pet circle', 'petstock', 'vet ', 'veterinary', 'vetwest', 'greencross'],
+  'online shopping': ['amazon', 'ebay', 'aliexpress', 'shein', 'temu', 'asos', 'the iconic', 'etsy', 'catch.com'],
 };
 
 function guessCategory(description) {
@@ -359,18 +365,17 @@ function categoryBreakdown(transactions, currency) {
     totals.set(cat, (totals.get(cat) || 0) + Math.abs(Number(t.amount)));
   }
   const total = [...totals.values()].reduce((a, b) => a + b, 0);
-  const entries = [...totals.entries()].map(([cat, amount]) => {
-    const idx = CATEGORIES.indexOf(cat);
-    return { cat, amount, colorIndex: (idx >= 0 ? idx : CATEGORIES.length) % 8 };
-  }).sort((a, b) => b.amount - a.amount);
+  const entries = [...totals.entries()]
+    .map(([cat, amount]) => ({ cat, amount, color: categoryColor(cat) }))
+    .sort((a, b) => b.amount - a.amount);
 
   return h('div', {}, [
     h('div', { class: 'contribution-bar' }, entries.map((e) => h('div', {
       class: 'segment',
-      style: `width:${(e.amount / total) * 100}%;background:var(--series-${e.colorIndex + 1})`,
+      style: `width:${(e.amount / total) * 100}%;background:${e.color}`,
     }))),
     h('div', { class: 'contribution-legend' }, entries.map((e) => h('div', { class: 'item' }, [
-      h('span', { class: 'swatch', style: `background:var(--series-${e.colorIndex + 1})` }),
+      h('span', { class: 'swatch', style: `background:${e.color}` }),
       h('span', {}, `${e.cat === 'unknown' ? 'Uncategorized' : categoryLabel(e.cat)} · ${formatMoney(e.amount, currency)} (${Math.round((e.amount / total) * 100)}%)`),
     ]))),
   ]);
