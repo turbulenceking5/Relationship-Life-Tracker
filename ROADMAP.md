@@ -226,6 +226,27 @@ status. Check items off as they land.
       visible to a partner browsing that folder directly even though
       the app's own UI never shows their parsed data; see
       [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md).
+- [x] **My Statements — categorization made faster, broader, and
+      self-improving**: bulk category assignment (pick several
+      transactions' categories, save them all in one batch, instead of
+      one round-trip and one tab-collapse per pick); a real PDF-parsing
+      fix (a broken pdf.js library URL and a running-balance-vs-amount
+      mixup that both silently produced wrong data); three new expense
+      categories (Food, Pet, Online Shopping — split out of Leisure/
+      Household); an `income` category for money coming in (salary,
+      refunds, Centrelink, dividends, etc.), kept separate from the
+      shared `CATEGORIES` list since a logged expense is always an
+      outflow; a category's direction (expense vs. income) is now an
+      explicit `CATEGORY_DIRECTION` declaration, not inferred from a
+      category's name, so an incoming rent deposit can no longer get
+      silently misfiled as a rent *expense* just because both share the
+      word "rental"; and a learning system — manually categorizing an
+      unrecognized transaction teaches the app that merchant
+      (`bank_transaction_category_rules`, private per-user), with a
+      "Manage learned categories" sheet to view, fix, or delete what
+      it's learned, and a guard against a near-empty merchant key ever
+      learning a rule that silently matches almost everything. See
+      [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md).
 
 ## Phase 0 — Foundations ✅ (this session)
 
