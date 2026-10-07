@@ -8,6 +8,47 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-07 — Statement categorization now learns from your picks
+
+- **New `bank_transaction_category_rules` table** (migration
+  `0039_bank_transaction_category_rules.sql`): one row per merchant
+  you've manually categorized (`merchant_key`, `category`), unique on
+  `(user_id, merchant_key)`. Private per-user, owner-only RLS
+  (`user_id = auth.uid()`), same shape as `bank_statements`/
+  `bank_transactions` — not added to the `supabase_realtime`
+  publication, same reasoning as those two.
+- **`extractMerchantKey(description)`** (`app/js/statements.js`):
+  extracts a stable key from a transaction's description — its leading
+  word, with filler like "the"/"a" stripped — deliberately as simple as
+  the existing static `CATEGORY_KEYWORDS` list, not a real normalizer.
+  Correctly drops trailing store-number/suburb noise for chain merchants
+  ("WOOLWORTHS 1234 BRISBANE" → `woolworths`), at the cost of only
+  capturing the first word of a genuinely multi-word brand typed by hand.
+- **`guessCategory()`** now takes an optional `rules` map and checks it
+  *after* the static keyword list finds nothing — so a learned rule can
+  never override a category the curated list already gets right.
+- **Saving a manual pick learns the rule** (`learnCategoryRule()`), from
+  both the bulk "Save changes" button and the "+ Add transaction"
+  sheet — upserted via `(user_id, merchant_key)`, so recategorizing the
+  same merchant later updates its existing rule rather than adding a
+  second one.
+- **Saving also sweeps your whole "Needs review" backlog**
+  (`applyLearnedRulesToUnknown()`): every one of your `'unknown'`
+  transactions, across every statement (not just the one you're
+  looking at), gets re-checked against your full rule set and
+  auto-categorized on any match. One pick can clear out every other
+  occurrence of that merchant sitting unresolved anywhere, not just the
+  transaction you touched.
+- **Learned rules are also applied at upload time**: `guessCategory()`
+  is called with this user's rules fetched fresh for every new
+  statement upload, so a merchant you've already taught the app
+  auto-categorizes on arrival instead of needing a manual pick again.
+- Both the rule-saving and the backlog sweep are best-effort — a
+  learning write failing never blocks or rolls back the category change
+  that was actually requested.
+- See [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md)
+  → "Learning from your picks".
+
 ## 2026-10-07 — Three new expense categories: Food, Pet, Online Shopping
 
 - **Added `food`, `pet`, and `online shopping`** to `CATEGORIES`

@@ -11,13 +11,14 @@
 // technically visible to a partner who browses that shared Drive folder
 // directly, even though the app itself never shows their parsed data).
 import { h, mount, openSheet, closeSheet, makeSheet, withBusyLabel } from './dom.js';
-import { fetchRows, insertRow, insertRows, updateRow, deleteRow } from './crud.js';
+import { fetchRows, insertRow, insertRows, updateRow, deleteRow, upsertRow } from './crud.js';
 import { formatMoney, formatDate, todayStr } from './format.js';
 import { isConfigured, isDriveConnected, hasLocalDriveAccess, uploadFileToDrive, deleteDriveFile, folderUrl } from './googleDrive.js';
 import { CATEGORIES, categoryColor } from './expenses.js';
 
 const STATEMENTS_TABLE = 'bank_statements';
 const TRANSACTIONS_TABLE = 'bank_transactions';
+const RULES_TABLE = 'bank_transaction_category_rules';
 const DRIVE_PREFIX = '[Bank Statement]';
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -52,13 +53,88 @@ const CATEGORY_KEYWORDS = {
   'online shopping': ['amazon', 'ebay', 'aliexpress', 'shein', 'temu', 'asos', 'the iconic', 'etsy', 'catch.com'],
 };
 
-function guessCategory(description) {
+// `rules` is a Map of merchant_key -> category, built from this user's
+// own bank_transaction_category_rules rows (see "Learning from your
+// picks" below) — checked only after the static keyword list finds
+// nothing, so a merchant you've corrected before never overrides a
+// category the static list already gets right.
+function guessCategory(description, rules) {
   const d = description.toLowerCase();
   for (const cat of CATEGORIES) {
     const words = CATEGORY_KEYWORDS[cat];
     if (words && words.some((w) => d.includes(w))) return cat;
   }
+  if (rules) {
+    for (const [key, cat] of rules) {
+      if (d.includes(key)) return cat;
+    }
+  }
   return null;
+}
+
+// ---- Learning from your picks -----------------------------------------
+// Picking a category the static keyword list above didn't catch is a
+// real signal — it means the same merchant will show up again and land
+// in "Needs review" every single time otherwise. extractMerchantKey()
+// pulls a stable key out of the description (deliberately as simple as
+// CATEGORY_KEYWORDS itself, not a real normalizer): bank descriptions
+// are almost always "<merchant name> <store number/suburb/reference>"
+// (see parsePdfTransactions() above), and the merchant name is what
+// repeats across transactions from the same place — the leading word,
+// with common filler stripped, is a good enough proxy for it.
+const KEY_STOPWORDS = new Set(['the', 'a', 'an']);
+function extractMerchantKey(description) {
+  const words = description
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w && !KEY_STOPWORDS.has(w));
+  return words[0] || description.toLowerCase().trim();
+}
+
+// Records (or updates) this user's own rule for a merchant — private,
+// same as the statements/transactions themselves, via RLS on
+// bank_transaction_category_rules (0039_bank_transaction_category_rules.sql).
+// Best-effort by every caller below: a learning write failing should
+// never block or roll back the category change the user actually asked
+// to save.
+async function learnCategoryRule(ctx, description, category) {
+  const merchantKey = extractMerchantKey(description);
+  if (!merchantKey) return;
+  await upsertRow(RULES_TABLE, {
+    household_id: ctx.household.id,
+    user_id: ctx.user.id,
+    merchant_key: merchantKey,
+    category,
+  }, 'user_id,merchant_key');
+}
+
+async function fetchCategoryRules(ctx) {
+  const rows = await fetchRows(RULES_TABLE, ctx.household.id, 'updated_at', false).catch(() => []);
+  return new Map(rows.map((r) => [r.merchant_key, r.category]));
+}
+
+// Re-sweeps every transaction of yours still sitting in "Needs review"
+// against your full learned-rules set (not just what was just learned
+// this save) — otherwise "the app learned" would only be true for your
+// *next* statement upload, not for the backlog already sitting right
+// there waiting on you.
+async function applyLearnedRulesToUnknown(ctx) {
+  const rules = await fetchCategoryRules(ctx);
+  if (!rules.size) return;
+  const unknown = (await fetchRows(TRANSACTIONS_TABLE, ctx.household.id, 'txn_date', false))
+    .filter((t) => t.status === 'unknown');
+  const updates = [];
+  for (const t of unknown) {
+    const d = t.description.toLowerCase();
+    for (const [key, cat] of rules) {
+      if (d.includes(key)) {
+        updates.push(updateRow(TRANSACTIONS_TABLE, t.id, { category: cat, status: 'categorized', categorized_by: ctx.user.id }));
+        break;
+      }
+    }
+  }
+  await Promise.all(updates);
 }
 
 // ---- Shared date/amount parsing helpers -------------------------------
@@ -492,6 +568,7 @@ function openUploadStatementSheet(ctx, onSaved) {
           : `${statementLabel(periods[0].month, periods[0].year)} – ${statementLabel(periods[periods.length - 1].month, periods[periods.length - 1].year)}`;
         const fileName = `${DRIVE_PREFIX} ${driveLabel}${ext}`;
         const uploaded = await uploadFileToDrive(ctx, file, fileName);
+        const rules = await fetchCategoryRules(ctx);
         await Promise.all(periods.map(async (period) => {
           const label = statementLabel(period.month, period.year);
           const statement = await insertRow(STATEMENTS_TABLE, {
@@ -508,7 +585,7 @@ function openUploadStatementSheet(ctx, onSaved) {
           });
           if (period.transactions.length) {
             await insertRows(TRANSACTIONS_TABLE, period.transactions.map((t) => {
-              const category = guessCategory(t.description);
+              const category = guessCategory(t.description, rules);
               return {
                 household_id: ctx.household.id,
                 statement_id: statement.id,
@@ -560,16 +637,18 @@ function openAddTransactionSheet(ctx, statement, onSaved) {
       errorEl.style.display = 'none';
       const restore = withBusyLabel(submitBtn, 'Saving…');
       try {
+        const description = descInput.value.trim();
         await insertRow(TRANSACTIONS_TABLE, {
           household_id: ctx.household.id,
           statement_id: statement.id,
           txn_date: dateInput.value || null,
-          description: descInput.value.trim(),
+          description,
           amount: Number(amountInput.value),
           category: categorySelect.value || null,
           status: categorySelect.value ? 'categorized' : 'unknown',
           categorized_by: categorySelect.value ? ctx.user.id : null,
         });
+        if (categorySelect.value) await learnCategoryRule(ctx, description, categorySelect.value).catch(() => {});
         closeSheet(dialog);
         onSaved();
       } catch (err) {
@@ -647,12 +726,24 @@ function statementSection(ctx, statement, allStatements, transactions, previousT
     onclick: async () => {
       const restore = withBusyLabel(bulkSaveBtn, 'Saving…');
       try {
-        await Promise.all([...pendingChanges.entries()].map(([id, category]) => updateRow(TRANSACTIONS_TABLE, id, {
+        const picks = [...pendingChanges.entries()];
+        await Promise.all(picks.map(([id, category]) => updateRow(TRANSACTIONS_TABLE, id, {
           category,
           status: category ? 'categorized' : 'unknown',
           categorized_by: category ? ctx.user.id : null,
         })));
         pendingChanges.clear();
+        // Learn from every actual pick (not a reset back to "Unknown"),
+        // then sweep the rest of your "Needs review" backlog against
+        // your full rule set — best-effort, so a learning hiccup can
+        // never undo the save that already succeeded above.
+        await Promise.all(picks
+          .filter(([, category]) => category)
+          .map(([id, category]) => {
+            const txn = transactions.find((t) => t.id === id);
+            return txn ? learnCategoryRule(ctx, txn.description, category) : null;
+          })).catch(() => {});
+        await applyLearnedRulesToUnknown(ctx).catch(() => {});
         onSaved();
       } catch (err) {
         alert(err.message);

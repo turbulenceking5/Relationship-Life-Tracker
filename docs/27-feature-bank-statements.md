@@ -229,6 +229,47 @@ the very statement section you were working in back to closed every
 single time, since nothing preserved which sections had been manually
 opened.
 
+### Learning from your picks
+
+Picking a category for something the static keyword list above didn't
+catch is a real signal: that merchant will show up again, and without
+this it would land in "Needs review" every single time. Saving a
+manual pick (either the bulk "Save changes" button, or the "+ Add
+transaction" sheet) also upserts a row into
+`bank_transaction_category_rules` — `extractMerchantKey()` pulls a
+stable key out of the description (the leading word, with common filler
+like "the"/"a" stripped), paired with the category you picked, one rule
+per merchant per user. `guessCategory()` checks your rules after the
+static `CATEGORY_KEYWORDS` list finds nothing, so the next transaction
+from that merchant — in a future upload — auto-categorizes instead of
+landing in "Needs review" again.
+
+Saving also **sweeps your whole "Needs review" backlog**, not just the
+transaction you just picked: `applyLearnedRulesToUnknown()` re-checks
+every one of your `'unknown'` transactions, across every statement, not
+just the one you're looking at, against your full rule set (including
+the rule you just learned) and auto-categorizes any match. Pick a
+category for one "MYSTERY MERCHANT" transaction and every other
+transaction from that same merchant sitting unresolved anywhere — this
+statement, an older one — gets fixed in the same save, not just the one
+you touched.
+
+This is deliberately as simple as the static keyword list it extends —
+a leading-word match, not a real classifier — and it only ever adds a
+*second* source of matches below the static list, never overrides it:
+a description the static list already resolves correctly never reaches
+the rules check at all, so a loosely-keyed learned rule (say, "big" from
+a merchant you typed by hand) can't un-categorize something the curated
+list already gets right. Both the rule-saving and the backlog sweep are
+best-effort (`.catch(() => {})` at each call site) — a learning write
+failing never blocks or rolls back the category change you actually
+asked to save.
+
+Private to the user who made the pick, same RLS shape as
+`bank_statements`/`bank_transactions` (`user_id = auth.uid()`, see
+migration `0039_bank_transaction_category_rules.sql`) — your partner
+builds up their own rules from their own picks, not yours.
+
 ### Open sections survive a save — matched by key, not title
 
 `render()` rebuilds the whole tab from scratch on every save (same
@@ -268,7 +309,8 @@ Each statement's card shows:
 
 ## Data
 
-New tables (migration `0037_bank_statements.sql`):
+New tables (migration `0037_bank_statements.sql`, plus
+`0039_bank_transaction_category_rules.sql`):
 - `bank_statements` — one row per represented **period**, not per
   upload (see "One upload, one or more periods" above — a multi-month
   upload produces several rows sharing one Drive file): period
@@ -278,11 +320,15 @@ New tables (migration `0037_bank_statements.sql`):
   transaction: `statement_id` (cascades on delete), date, description,
   signed amount, `category` (nullable), `status`
   (`'unknown'`/`'categorized'`), `categorized_by`.
+- `bank_transaction_category_rules` — one row per merchant you've
+  manually categorized (see "Learning from your picks" above):
+  `merchant_key`, `category`, unique on `(user_id, merchant_key)`.
 
-Both are scoped to `household_id`, but — unlike every other table in this
-list — gated by **owner-only** RLS (`uploaded_by = auth.uid()`, see
+All three are scoped to `household_id`, but — unlike every other table in
+this list — gated by **owner-only** RLS (`uploaded_by = auth.uid()` for
+`bank_statements`, `user_id = auth.uid()` for the other two, see
 "Private per-user, not shared" above), not
-`is_household_member(household_id)`. Neither is in the
+`is_household_member(household_id)`. None are in the
 `supabase_realtime` publication: private-per-user data has no partner to
 sync live to, same as `personal_todos`
 ([`24-live-sync-and-nudges.md`](24-live-sync-and-nudges.md) covers only
@@ -306,6 +352,18 @@ step is needed here).
   this feature wasn't asked to solve.
 - No OCR for scanned/image PDFs — out of scope for a client-only PWA;
   export a CSV from online banking instead for reliable parsing.
-- The keyword categorizer only knows the merchants in `CATEGORY_KEYWORDS`
-  — expect a first upload from a new bank to land mostly in "Needs
-  review" until the list grows from real use.
+- The static keyword list (`CATEGORY_KEYWORDS`) only knows the merchants
+  hardcoded into it — but every manual pick now teaches the app that
+  merchant going forward, see "Learning from your picks" above, so a
+  first upload from a new bank landing mostly in "Needs review" gets
+  better on its own as you categorize, not just when the hardcoded list
+  grows from a future code change.
+- Learned rules key on a single leading word (`extractMerchantKey()`),
+  so a genuinely two-word brand name you type by hand (not already in
+  the static list) only ever learns its first word — good enough to
+  recognize "the same merchant again" for most real descriptions, not a
+  real NLP normalizer. No UI yet to view, edit, or delete a learned rule
+  directly if one turns out wrong — correcting the transaction again
+  with the right category overwrites it (same `(user_id, merchant_key)`
+  upsert), so a bad rule self-corrects the next time you fix one of its
+  matches, just not proactively.

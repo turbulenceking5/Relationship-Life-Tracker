@@ -398,6 +398,15 @@ export const CHANGELOG_ENTRIES = [
       'Dining out and takeaway (restaurants, Uber Eats, DoorDash, etc.) now auto-categorize as Food on statement uploads instead of Leisure',
     ],
   },
+  {
+    id: 43,
+    date: '2026-10-07',
+    title: 'Statement categorization now learns from your picks',
+    items: [
+      'Manually categorizing a transaction now teaches the app that merchant — the next one from the same place auto-categorizes instead of landing in "Needs review" again',
+      'Saving also re-checks everything else still in "Needs review" against what you\'ve taught it, across every statement, so your existing backlog gets cleaned up too, not just future uploads',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

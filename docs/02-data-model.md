@@ -400,6 +400,23 @@ One row per parsed (or manually added) transaction within a statement.
 | `categorized_by` | uuid → auth.users | nullable |
 | `created_at` | timestamptz | |
 
+### `bank_transaction_category_rules`
+See [`27-feature-bank-statements.md`](27-feature-bank-statements.md) →
+"Learning from your picks." One row per merchant you've manually
+categorized — `guessCategory()` checks this (per-user) after the static
+`CATEGORY_KEYWORDS` list finds nothing, so a merchant you've corrected
+once auto-categorizes from then on. Private to the user who made the
+pick, like `bank_statements`/`bank_transactions`.
+
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `household_id` | uuid → households | kept for the same forgery-prevention reason as above; not itself the access boundary |
+| `user_id` | uuid → auth.users | the owner — the actual access boundary |
+| `merchant_key` | text | extracted from a transaction's description by `extractMerchantKey()`, e.g. "woolworths" |
+| `category` | text | one of `CATEGORIES` |
+| `created_at` / `updated_at` | timestamptz | unique on `(user_id, merchant_key)` — re-categorizing the same merchant updates its existing rule rather than adding a second one |
+
 ## Row Level Security summary
 
 Every table above (except `auth.users`, which Supabase manages) has RLS
@@ -409,10 +426,11 @@ helper function `is_household_member(household_id)` so policies stay
 simple and avoid recursive-policy pitfalls. `profiles` is visible to
 yourself and anyone who shares a household with you.
 
-Two tables are the exception, scoped to a single user rather than the
-whole household: `personal_todos` (`user_id = auth.uid()`) and
+Three tables are the exception, scoped to a single user rather than the
+whole household: `personal_todos` (`user_id = auth.uid()`),
 `bank_statements`/`bank_transactions` (`uploaded_by = auth.uid()`, via
-the owning statement for `bank_transactions`) — see
+the owning statement for `bank_transactions`), and
+`bank_transaction_category_rules` (`user_id = auth.uid()`) — see
 [`20-feature-personal-todos.md`](20-feature-personal-todos.md) and
 [`27-feature-bank-statements.md`](27-feature-bank-statements.md). Full
 detail on the household-scoped majority in
