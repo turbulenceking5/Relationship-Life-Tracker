@@ -10,7 +10,10 @@ const ENTITY_TYPE = 'expense';
 const TABLE = 'expenses';
 const SETTLEMENTS_TABLE = 'settlements';
 const RECURRING_TABLE = 'recurring_expenses';
-const CATEGORIES = ['groceries', 'bills', 'rent', 'transport', 'household', 'leisure', 'other'];
+// Exported so statements.js can categorize parsed bank transactions
+// against the exact same taxonomy expenses use, rather than inventing a
+// second, slightly-different category list to keep in sync by hand.
+export const CATEGORIES = ['groceries', 'bills', 'rent', 'transport', 'household', 'leisure', 'other'];
 const RECURRING_INTERVAL_PRESETS = [
   { label: 'Weekly', days: 7 },
   { label: 'Monthly', days: 30 },

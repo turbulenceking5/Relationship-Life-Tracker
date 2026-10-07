@@ -1,0 +1,671 @@
+// Statement overview (Money tab segment) — upload a bank statement
+// (CSV or PDF), store it in the household's shared Google Drive folder
+// renamed to its period, parse it into individual transactions, and
+// auto-categorize what it confidently can. Anything it can't lands in
+// "Needs review" for a partner to assign a category to by hand. See
+// docs/27-feature-bank-statements.md for the full design, in particular
+// why this reuses the one existing shared Drive folder rather than a
+// separate "Bank Statements" subfolder.
+import { h, mount, openSheet, closeSheet, makeSheet, withBusyLabel } from './dom.js';
+import { fetchRows, insertRow, insertRows, updateRow, deleteRow } from './crud.js';
+import { formatMoney, formatDate, todayStr } from './format.js';
+import { isConfigured, isDriveConnected, hasLocalDriveAccess, uploadFileToDrive, deleteDriveFile, folderUrl } from './googleDrive.js';
+import { CATEGORIES } from './expenses.js';
+
+const STATEMENTS_TABLE = 'bank_statements';
+const TRANSACTIONS_TABLE = 'bank_transactions';
+const DRIVE_PREFIX = '[Bank Statement]';
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+function statementLabel(month, year) {
+  return `${MONTH_NAMES[month - 1]} ${year}`;
+}
+
+function categoryLabel(category) {
+  return category.charAt(0).toUpperCase() + category.slice(1);
+}
+
+// ---- Auto-categorization ---------------------------------------------
+// Plain keyword matching against the same CATEGORIES taxonomy expenses
+// use — deliberately not a "smart"/ML classifier. Anything that doesn't
+// match a keyword stays uncategorized ('unknown') rather than guessing
+// wrong silently; a partner assigns it by hand in "Needs review" below,
+// which both fixes that transaction and gives a place to extend this
+// list from real statements over time.
+const CATEGORY_KEYWORDS = {
+  groceries: ['woolworths', 'coles', 'aldi', 'iga ', 'foodworks', 'supermarket', 'costco'],
+  bills: ['energy', 'electricity', 'telstra', 'optus', 'vodafone', 'origin', 'agl', 'water corp', 'internet', 'insurance', 'council rates'],
+  rent: ['real estate', 'rental', 'strata', 'body corporate', 'property mgmt', 'property management'],
+  transport: ['fuel', 'petrol', 'bp ', 'shell', 'caltex', '7-eleven', 'uber trip', 'myki', 'opal', 'translink', 'parking', 'toll'],
+  household: ['bunnings', 'officeworks', 'ikea', 'kmart', 'big w', 'target', 'harvey norman', 'jb hi-fi'],
+  leisure: ['netflix', 'spotify', 'cinema', 'restaurant', 'cafe', 'bar ', 'pub ', 'uber eats', 'menulog', 'doordash', 'deliveroo'],
+};
+
+function guessCategory(description) {
+  const d = description.toLowerCase();
+  for (const cat of CATEGORIES) {
+    const words = CATEGORY_KEYWORDS[cat];
+    if (words && words.some((w) => d.includes(w))) return cat;
+  }
+  return null;
+}
+
+// ---- Shared date/amount parsing helpers -------------------------------
+
+function parseDateLoose(str) {
+  if (!str) return null;
+  const s = String(str).trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (m) {
+    let [, d, mo, y] = m;
+    if (y.length === 2) y = `20${y}`;
+    return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  return null;
+}
+
+// Whether a whole CSV cell is money-shaped (optionally $-prefixed,
+// comma-grouped digits, optional decimal) — deliberately stricter than
+// "contains a number," since a quoted description cell like "WOOLWORTHS
+// 1234 BRISBANE" contains digits too and must never be mistaken for the
+// amount or balance column.
+function looksNumeric(str) {
+  return /^-?\$?\d[\d,]*\.?\d*$/.test(String(str).trim());
+}
+
+function parseAmount(str) {
+  if (!str || !looksNumeric(str)) return null;
+  const cleaned = String(str).replace(/[^0-9.\-]/g, '');
+  if (!cleaned || cleaned === '-' || cleaned === '.') return null;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+
+// ---- CSV parsing --------------------------------------------------------
+// Most bank CSV exports are "Date, Description, Amount[, Balance]" (one
+// signed amount column) or "Date, Description, Debit, Credit[, Balance]"
+// (two). We don't try to support every bank's exact column order or
+// locale — we look for a header row naming Debit/Credit explicitly (and
+// use those fixed column positions if found), otherwise fall back to
+// "first numeric cell after the date is the amount," which covers the
+// common single signed-Amount-column case. Negative = money out, same
+// convention used throughout the app. This is inherently best-effort;
+// the "Needs review" workflow below is the safety net for anything it
+// gets wrong, but a flipped sign on a whole statement wouldn't be
+// caught by category review alone — spot-check the totals after
+// uploading. See docs/27-feature-bank-statements.md.
+function splitCsvLine(line) {
+  const cells = [];
+  let cur = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQuotes) {
+      if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+      else if (c === '"') inQuotes = false;
+      else cur += c;
+    } else if (c === '"') inQuotes = true;
+    else if (c === ',') { cells.push(cur); cur = ''; }
+    else cur += c;
+  }
+  cells.push(cur);
+  return cells.map((c) => c.trim());
+}
+
+export function parseCsvStatement(text) {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim().length);
+  if (!lines.length) return [];
+
+  const headerCells = splitCsvLine(lines[0]).map((c) => c.toLowerCase());
+  const debitIdx = headerCells.findIndex((c) => c.includes('debit'));
+  const creditIdx = headerCells.findIndex((c) => c.includes('credit'));
+  const hasDebitCredit = debitIdx !== -1 && creditIdx !== -1;
+  const looksLikeHeader = hasDebitCredit || headerCells.some((c) => /date|amount|description|narrative/.test(c));
+  const dataLines = looksLikeHeader ? lines.slice(1) : lines;
+
+  const transactions = [];
+  for (const line of dataLines) {
+    const cells = splitCsvLine(line);
+    let date = null;
+    let dateIdx = -1;
+    for (let i = 0; i < cells.length; i++) {
+      const d = parseDateLoose(cells[i]);
+      if (d) { date = d; dateIdx = i; break; }
+    }
+    if (!date) continue; // not a transaction row (stray header/footer/balance line)
+
+    let amount = null;
+    const usedIdx = new Set([dateIdx]);
+    if (hasDebitCredit) {
+      const debit = parseAmount(cells[debitIdx]) || 0;
+      const credit = parseAmount(cells[creditIdx]) || 0;
+      if (debit || credit) amount = credit - debit;
+      usedIdx.add(debitIdx);
+      usedIdx.add(creditIdx);
+    } else {
+      for (let i = 0; i < cells.length; i++) {
+        if (i === dateIdx) continue;
+        const a = parseAmount(cells[i]);
+        if (a !== null && cells[i] !== '') { amount = a; usedIdx.add(i); break; }
+      }
+    }
+    if (amount === null) continue;
+
+    // Drop any other purely-numeric cell (most commonly a trailing
+    // running-balance column) from the description too — otherwise a
+    // stray balance figure ends up glued onto the end of every
+    // transaction's description, which is worse than occasionally
+    // dropping a numeric reference number.
+    for (let i = 0; i < cells.length; i++) {
+      if (!usedIdx.has(i) && cells[i] !== '' && parseAmount(cells[i]) !== null) usedIdx.add(i);
+    }
+
+    const description = cells.filter((_, i) => !usedIdx.has(i)).join(' ').replace(/\s+/g, ' ').trim() || '(no description)';
+    transactions.push({ txn_date: date, description, amount });
+  }
+  return transactions;
+}
+
+// ---- PDF parsing ---------------------------------------------------------
+// Lazily loads pdf.js from cdnjs the first time a PDF is uploaded — most
+// sessions never touch this, so it isn't worth a static <script> tag in
+// index.html the way the always-relevant Google Drive scripts are.
+// Extracts page text, then scans line by line for a "<date> ...
+// <amount>" shape. This only ever works on a text-based PDF (the kind
+// most banks generate); a scanned/photographed statement has no
+// extractable text and will just come back with zero transactions — the
+// upload still succeeds and "+ Add transaction" covers filling it in by
+// hand, no dead end.
+let pdfJsLoading = null;
+function ensurePdfJsLoaded() {
+  if (window.pdfjsLib) return Promise.resolve();
+  if (pdfJsLoading) return pdfJsLoading;
+  pdfJsLoading = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.js';
+    script.onload = () => {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js';
+      resolve();
+    };
+    script.onerror = () => reject(new Error('Could not load the PDF reader library — check your connection.'));
+    document.head.appendChild(script);
+  });
+  return pdfJsLoading;
+}
+
+async function extractPdfText(file) {
+  await ensurePdfJsLoaded();
+  const buffer = await file.arrayBuffer();
+  const pdf = await window.pdfjsLib.getDocument({ data: buffer }).promise;
+  let text = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    let lastY = null;
+    let line = '';
+    for (const item of content.items) {
+      const y = item.transform[5];
+      if (lastY !== null && Math.abs(y - lastY) > 2) { text += line + '\n'; line = ''; }
+      line += item.str + ' ';
+      lastY = y;
+    }
+    text += line + '\n';
+  }
+  return text;
+}
+
+const MONTH_ABBR = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+const DATE_PATTERNS = [
+  /(\d{4})-(\d{1,2})-(\d{1,2})/,
+  /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/,
+  /(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{2,4})/,
+];
+
+function findDateToken(line) {
+  for (let p = 0; p < DATE_PATTERNS.length; p++) {
+    const m = line.match(DATE_PATTERNS[p]);
+    if (!m) continue;
+    let iso = null;
+    if (p === 0) iso = `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+    else if (p === 1) { let y = m[3]; if (y.length === 2) y = `20${y}`; iso = `${y}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`; }
+    else {
+      const mo = MONTH_ABBR[m[2].slice(0, 3).toLowerCase()];
+      if (!mo) continue;
+      let y = m[3]; if (y.length === 2) y = `20${y}`;
+      iso = `${y}-${String(mo).padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+    }
+    return { date: iso, match: m[0], index: m.index };
+  }
+  return null;
+}
+
+export function parsePdfTransactions(text) {
+  const transactions = [];
+  const amountRe = /-?\$?\d[\d,]*\.\d{2}\s*(?:CR|DR)?/gi;
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    if (!line) continue;
+    const dateTok = findDateToken(line);
+    if (!dateTok) continue;
+    const amounts = [...line.matchAll(amountRe)];
+    if (!amounts.length) continue;
+    const last = amounts[amounts.length - 1];
+    const isDebit = /dr\s*$/i.test(last[0]);
+    const isCredit = /cr\s*$/i.test(last[0]);
+    // parseAmount()/looksNumeric() are deliberately strict (no trailing
+    // letters) so they don't mistake CSV description text for a number
+    // — strip the CR/DR suffix before handing it the bare number.
+    let amount = parseAmount(last[0].replace(/\s*(?:CR|DR)\s*$/i, ''));
+    if (amount === null) continue;
+    if (isDebit) amount = -Math.abs(amount);
+    if (isCredit) amount = Math.abs(amount);
+    const description = line.slice(dateTok.index + dateTok.match.length, last.index).replace(/\s+/g, ' ').trim();
+    if (!description) continue;
+    transactions.push({ txn_date: dateTok.date, description, amount });
+  }
+  return transactions;
+}
+
+async function parseStatementFile(file) {
+  const name = file.name.toLowerCase();
+  try {
+    if (name.endsWith('.csv') || file.type.includes('csv')) {
+      return parseCsvStatement(await file.text());
+    }
+    if (name.endsWith('.pdf') || file.type === 'application/pdf') {
+      return parsePdfTransactions(await extractPdfText(file));
+    }
+  } catch {
+    return []; // best-effort — falls back to "add transactions manually"
+  }
+  return [];
+}
+
+// Guesses the statement's period from whichever month the most parsed
+// transactions fall in (statements often span a day or two into the
+// next calendar month) — falls back to the current month/year when
+// nothing parsed, so the picker always has a sane starting point for
+// the user to confirm or correct.
+function guessPeriod(transactions) {
+  if (!transactions.length) {
+    const d = new Date();
+    return { month: d.getMonth() + 1, year: d.getFullYear() };
+  }
+  const counts = new Map();
+  for (const t of transactions) {
+    const key = t.txn_date.slice(0, 7);
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  const [best] = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  const [y, m] = best[0].split('-');
+  return { month: Number(m), year: Number(y) };
+}
+
+// ---- Report: category breakdown + trend vs the previous statement ------
+
+function categoryBreakdown(transactions, currency) {
+  const spend = transactions.filter((t) => Number(t.amount) < 0);
+  if (!spend.length) return null;
+  const totals = new Map();
+  for (const t of spend) {
+    const cat = t.category || 'unknown';
+    totals.set(cat, (totals.get(cat) || 0) + Math.abs(Number(t.amount)));
+  }
+  const total = [...totals.values()].reduce((a, b) => a + b, 0);
+  const entries = [...totals.entries()].map(([cat, amount]) => {
+    const idx = CATEGORIES.indexOf(cat);
+    return { cat, amount, colorIndex: (idx >= 0 ? idx : CATEGORIES.length) % 8 };
+  }).sort((a, b) => b.amount - a.amount);
+
+  return h('div', {}, [
+    h('div', { class: 'contribution-bar' }, entries.map((e) => h('div', {
+      class: 'segment',
+      style: `width:${(e.amount / total) * 100}%;background:var(--series-${e.colorIndex + 1})`,
+    }))),
+    h('div', { class: 'contribution-legend' }, entries.map((e) => h('div', { class: 'item' }, [
+      h('span', { class: 'swatch', style: `background:var(--series-${e.colorIndex + 1})` }),
+      h('span', {}, `${e.cat === 'unknown' ? 'Uncategorized' : categoryLabel(e.cat)} · ${formatMoney(e.amount, currency)} (${Math.round((e.amount / total) * 100)}%)`),
+    ]))),
+  ]);
+}
+
+function categoryTotals(transactions) {
+  const totals = new Map();
+  for (const t of transactions) {
+    if (Number(t.amount) >= 0 || !t.category) continue;
+    totals.set(t.category, (totals.get(t.category) || 0) + Math.abs(Number(t.amount)));
+  }
+  return totals;
+}
+
+// A lightweight "did this get better or worse" readout, Buddy-style:
+// per category, compares this statement's spend to the immediately
+// preceding one. A >15% rise is flagged as worth a look; a drop is
+// shown as a quiet win. Categories with no spend in either statement
+// are skipped entirely rather than shown as a meaningless 0% change.
+function trendVsPrevious(current, previous, currency) {
+  if (!previous) return null;
+  const curTotals = categoryTotals(current);
+  const prevTotals = categoryTotals(previous);
+  const cats = new Set([...curTotals.keys(), ...prevTotals.keys()]);
+  const rows = [];
+  for (const cat of cats) {
+    const cur = curTotals.get(cat) || 0;
+    const prev = prevTotals.get(cat) || 0;
+    if (!cur && !prev) continue;
+    const diff = cur - prev;
+    const pct = prev > 0 ? Math.round((diff / prev) * 100) : (cur > 0 ? 100 : 0);
+    rows.push({ cat, cur, prev, diff, pct });
+  }
+  if (!rows.length) return null;
+  rows.sort((a, b) => b.diff - a.diff);
+
+  return h('div', {}, rows.map((r) => {
+    const up = r.diff > 0;
+    const flagged = up && r.pct >= 15;
+    const color = flagged ? 'var(--danger)' : (r.diff < 0 ? 'var(--accent-2)' : 'var(--text-muted)');
+    const arrow = r.diff > 0 ? '↑' : r.diff < 0 ? '↓' : '→';
+    return h('div', { class: 'meta', style: `color:${color};margin-bottom:4px` },
+      `${arrow} ${categoryLabel(r.cat)}: ${formatMoney(r.cur, currency)} (${r.diff === 0 ? 'no change' : `${r.pct > 0 ? '+' : ''}${r.pct}% vs last statement`})${flagged ? ' — worth a look' : ''}`);
+  }));
+}
+
+// ---- Upload sheet --------------------------------------------------------
+
+function openUploadStatementSheet(ctx, onSaved) {
+  const { dialog, body } = makeSheet('Upload bank statement');
+  document.body.appendChild(dialog);
+  dialog.addEventListener('close', () => dialog.remove());
+
+  if (!isConfigured()) {
+    mount(body, h('p', { class: 'meta' }, 'Google Drive isn’t set up for this deployment yet — see docs/21-google-drive-documents.md.'));
+    openSheet(dialog);
+    return;
+  }
+  if (!isDriveConnected(ctx.household) || !hasLocalDriveAccess(ctx)) {
+    mount(body, h('p', { class: 'meta' }, 'Connect Google Drive first, from ⚙️ Account & household → Documents storage, then come back here to upload.'));
+    openSheet(dialog);
+    return;
+  }
+
+  const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
+  const now = new Date();
+  const monthSelect = h('select', {}, MONTH_NAMES.map((name, i) => h('option', { value: i + 1, selected: i + 1 === now.getMonth() + 1 }, name)));
+  const yearInput = h('input', { type: 'number', inputmode: 'numeric', value: now.getFullYear(), min: '2000', max: '2100' });
+  const fileInput = h('input', { type: 'file', required: true, accept: '.csv,.pdf,text/csv,application/pdf' });
+  const statusEl = h('p', { class: 'meta' }, 'Choose a CSV or PDF export from your bank.');
+  const submitBtn = h('button', { class: 'btn primary', type: 'submit', disabled: true }, 'Upload statement');
+
+  let parsedTransactions = [];
+
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    submitBtn.disabled = true;
+    statusEl.textContent = 'Reading statement…';
+    parsedTransactions = await parseStatementFile(file);
+    const guess = guessPeriod(parsedTransactions);
+    monthSelect.value = guess.month;
+    yearInput.value = guess.year;
+    statusEl.textContent = parsedTransactions.length
+      ? `Found ${parsedTransactions.length} transaction${parsedTransactions.length === 1 ? '' : 's'} — check the guessed month/year below, then upload.`
+      : 'Couldn’t automatically read any transactions from this file (common for scanned PDFs) — it’ll still upload, and you can add transactions by hand afterwards.';
+    submitBtn.disabled = false;
+  });
+
+  const form = h('form', {
+    onsubmit: async (e) => {
+      e.preventDefault();
+      errorEl.style.display = 'none';
+      const file = fileInput.files[0];
+      if (!file) return;
+      const restore = withBusyLabel(submitBtn, 'Uploading…');
+      try {
+        const month = Number(monthSelect.value);
+        const year = Number(yearInput.value);
+        const label = statementLabel(month, year);
+        const ext = file.name.includes('.') ? file.name.slice(file.name.lastIndexOf('.')) : '';
+        const uploaded = await uploadFileToDrive(ctx, file, `${DRIVE_PREFIX} ${label}${ext}`);
+        const statement = await insertRow(STATEMENTS_TABLE, {
+          household_id: ctx.household.id,
+          period_month: month,
+          period_year: year,
+          label,
+          original_filename: file.name,
+          drive_file_id: uploaded.id,
+          drive_web_view_link: uploaded.webViewLink,
+          file_name: `${DRIVE_PREFIX} ${label}${ext}`,
+          mime_type: file.type,
+          uploaded_by: ctx.user.id,
+        });
+        if (parsedTransactions.length) {
+          await insertRows(TRANSACTIONS_TABLE, parsedTransactions.map((t) => {
+            const category = guessCategory(t.description);
+            return {
+              household_id: ctx.household.id,
+              statement_id: statement.id,
+              txn_date: t.txn_date,
+              description: t.description,
+              amount: t.amount,
+              category,
+              status: category ? 'categorized' : 'unknown',
+            };
+          }));
+        }
+        closeSheet(dialog);
+        onSaved();
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+        restore();
+      }
+    },
+  }, [
+    h('div', { class: 'field' }, [h('label', {}, 'File'), fileInput]),
+    statusEl,
+    h('div', { class: 'field-row' }, [
+      h('div', { class: 'field' }, [h('label', {}, 'Statement month'), monthSelect]),
+      h('div', { class: 'field' }, [h('label', {}, 'Year'), yearInput]),
+    ]),
+    h('p', { class: 'meta' }, 'Uploads to the household’s shared Google Drive folder, renamed to its period.'),
+    errorEl,
+    submitBtn,
+  ]);
+  mount(body, form);
+  openSheet(dialog);
+}
+
+// ---- Manual "add transaction" sheet (parsing fallback / corrections) ---
+
+function openAddTransactionSheet(ctx, statement, onSaved) {
+  const { dialog, body } = makeSheet('Add transaction');
+  document.body.appendChild(dialog);
+  dialog.addEventListener('close', () => dialog.remove());
+
+  const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
+  const amountInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', required: true, placeholder: 'e.g. -45.00 (negative = money out)' });
+  const descInput = h('input', { type: 'text', required: true, placeholder: 'e.g. Woolworths' });
+  const dateInput = h('input', { type: 'date', value: todayStr() });
+  const categorySelect = h('select', {}, [h('option', { value: '' }, 'Unknown — categorize later'), ...CATEGORIES.map((c) => h('option', { value: c }, categoryLabel(c)))]);
+  const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Add transaction');
+
+  const form = h('form', {
+    onsubmit: async (e) => {
+      e.preventDefault();
+      errorEl.style.display = 'none';
+      const restore = withBusyLabel(submitBtn, 'Saving…');
+      try {
+        await insertRow(TRANSACTIONS_TABLE, {
+          household_id: ctx.household.id,
+          statement_id: statement.id,
+          txn_date: dateInput.value || null,
+          description: descInput.value.trim(),
+          amount: Number(amountInput.value),
+          category: categorySelect.value || null,
+          status: categorySelect.value ? 'categorized' : 'unknown',
+          categorized_by: categorySelect.value ? ctx.user.id : null,
+        });
+        closeSheet(dialog);
+        onSaved();
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+        restore();
+      }
+    },
+  }, [
+    h('div', { class: 'field' }, [h('label', {}, 'Amount (negative = money out)'), amountInput]),
+    h('div', { class: 'field' }, [h('label', {}, 'Description'), descInput]),
+    h('div', { class: 'field-row' }, [
+      h('div', { class: 'field' }, [h('label', {}, 'Date'), dateInput]),
+      h('div', { class: 'field' }, [h('label', {}, 'Category'), categorySelect]),
+    ]),
+    errorEl,
+    submitBtn,
+  ]);
+  mount(body, form);
+  openSheet(dialog);
+}
+
+// ---- Transaction row (shared by "Needs review" and "All transactions") -
+
+function transactionRow(ctx, txn, currency, onSaved) {
+  const categorySelect = h('select', {}, [h('option', { value: '' }, 'Unknown'), ...CATEGORIES.map((c) => h('option', { value: c, selected: c === txn.category }, categoryLabel(c)))]);
+  const saveBtn = h('button', {
+    class: 'btn secondary small',
+    type: 'button',
+    onclick: async () => {
+      const restore = withBusyLabel(saveBtn, 'Saving…');
+      try {
+        await updateRow(TRANSACTIONS_TABLE, txn.id, {
+          category: categorySelect.value || null,
+          status: categorySelect.value ? 'categorized' : 'unknown',
+          categorized_by: categorySelect.value ? ctx.user.id : null,
+        });
+        onSaved();
+      } catch (err) {
+        alert(err.message);
+        restore();
+      }
+    },
+  }, 'Save');
+
+  return h('div', { class: 'card' }, [
+    h('div', { class: 'card-row' }, [
+      h('div', {}, [
+        h('h3', {}, txn.description),
+        h('div', { class: 'meta' }, `${txn.txn_date ? formatDate(txn.txn_date) + ' · ' : ''}${formatMoney(Math.abs(Number(txn.amount)), currency)}${Number(txn.amount) < 0 ? ' out' : ' in'}`),
+      ]),
+    ]),
+    h('div', { class: 'actions-row' }, [categorySelect, saveBtn]),
+  ]);
+}
+
+// ---- One statement's collapsible section --------------------------------
+
+function statementSection(ctx, statement, transactions, previousTransactions, currency, open, onSaved) {
+  const spent = transactions.filter((t) => Number(t.amount) < 0).reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
+  const received = transactions.filter((t) => Number(t.amount) > 0).reduce((s, t) => s + Number(t.amount), 0);
+  const unknown = transactions.filter((t) => t.status === 'unknown');
+  const categorized = transactions.filter((t) => t.status !== 'unknown');
+
+  const content = [
+    h('div', { class: 'actions-row' }, [
+      h('a', { href: statement.drive_web_view_link || `https://drive.google.com/file/d/${statement.drive_file_id}/view`, target: '_blank', class: 'btn secondary small' }, 'Open file in Drive'),
+      h('button', { class: 'btn secondary small', type: 'button', onclick: () => openAddTransactionSheet(ctx, statement, onSaved) }, '+ Add transaction'),
+      h('button', {
+        class: 'btn danger-text small',
+        type: 'button',
+        onclick: async () => {
+          if (!confirm('Delete this statement and all its transactions? This can’t be undone.')) return;
+          await deleteDriveFile(statement.drive_file_id).catch(() => {});
+          await deleteRow(STATEMENTS_TABLE, statement.id);
+          onSaved();
+        },
+      }, 'Delete'),
+    ]),
+    h('div', { class: 'total-banner' }, [
+      h('span', {}, 'Spent this statement'),
+      h('span', { class: 'value' }, formatMoney(spent, currency)),
+    ]),
+    received > 0 ? h('div', { class: 'total-banner' }, [
+      h('span', {}, 'Received this statement'),
+      h('span', { class: 'value' }, formatMoney(received, currency)),
+    ]) : null,
+  ];
+
+  const breakdown = categoryBreakdown(transactions, currency);
+  if (breakdown) {
+    content.push(h('div', { class: 'section-title' }, 'Category breakdown'));
+    content.push(breakdown);
+  }
+
+  const trend = trendVsPrevious(transactions, previousTransactions, currency);
+  if (trend) {
+    content.push(h('div', { class: 'section-title' }, 'Compared to last statement'));
+    content.push(trend);
+  }
+
+  if (unknown.length) {
+    content.push(h('details', { class: 'goal-section', open: true }, [
+      h('summary', {}, `Needs review (${unknown.length})`),
+      h('div', { class: 'goal-section-body' }, unknown.map((t) => transactionRow(ctx, t, currency, onSaved))),
+    ]));
+  }
+
+  if (categorized.length) {
+    content.push(h('details', { class: 'goal-section' }, [
+      h('summary', {}, `All categorized transactions (${categorized.length})`),
+      h('div', { class: 'goal-section-body' }, categorized.map((t) => transactionRow(ctx, t, currency, onSaved))),
+    ]));
+  }
+
+  if (!transactions.length) {
+    content.push(h('div', { class: 'empty-state' }, 'No transactions yet — add them by hand with "+ Add transaction" above.'));
+  }
+
+  return h('details', { class: 'goal-section', open }, [
+    h('summary', {}, statement.label),
+    h('div', { class: 'goal-section-body' }, content),
+  ]);
+}
+
+// ---- Top-level render ----------------------------------------------------
+
+export async function render(container, ctx) {
+  const [statements, allTransactions] = await Promise.all([
+    fetchRows(STATEMENTS_TABLE, ctx.household.id, 'created_at', false),
+    fetchRows(TRANSACTIONS_TABLE, ctx.household.id, 'txn_date', false),
+  ]);
+  const currency = ctx.household.default_currency || 'AUD';
+
+  const sorted = [...statements].sort((a, b) => (b.period_year - a.period_year) || (b.period_month - a.period_month));
+  const txnsByStatement = (id) => allTransactions.filter((t) => t.statement_id === id);
+
+  const driveLinkRow = isDriveConnected(ctx.household)
+    ? h('p', { class: 'meta' }, [h('a', { href: folderUrl(ctx.household), target: '_blank' }, 'Open the shared Drive folder')])
+    : null;
+
+  const sections = sorted.map((statement, i) => {
+    const previous = sorted[i + 1]; // one position further back = the preceding statement chronologically
+    return statementSection(
+      ctx,
+      statement,
+      txnsByStatement(statement.id),
+      previous ? txnsByStatement(previous.id) : null,
+      currency,
+      sorted.length === 1,
+      () => render(container, ctx),
+    );
+  });
+
+  mount(container, [
+    h('p', { class: 'meta' }, 'Upload a bank statement to auto-sort its spending into categories — anything it’s unsure about lands in "Needs review" for you to assign.'),
+    driveLinkRow,
+    sections.length ? h('div', {}, sections) : h('div', { class: 'empty-state' }, 'No statements uploaded yet.'),
+    h('button', { class: 'fab', 'aria-label': 'Upload bank statement', onclick: () => openUploadStatementSheet(ctx, () => render(container, ctx)) }, '+'),
+  ]);
+}

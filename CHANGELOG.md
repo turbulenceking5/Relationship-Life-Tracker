@@ -8,6 +8,38 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-07 — Statement overview: upload, parse, and categorize bank statements
+
+- **New Money tab segment, "Statement overview"**: upload a bank
+  statement (CSV or PDF, `app/js/statements.js`) and it's parsed
+  client-side into individual transactions, auto-categorized against the
+  same `CATEGORIES` list Expenses uses (now exported from
+  `app/js/expenses.js`) via a plain keyword map. CSV parsing handles both
+  a single signed Amount column and separate Debit/Credit columns, with
+  or without a header row; PDF parsing lazily loads pdf.js from cdnjs and
+  scans extracted text for `<date> ... <amount>` lines — best-effort,
+  since it only works on a text-based PDF (not a scanned one).
+- **"Needs review"**: anything the keyword matcher can't place lands
+  with `status = 'unknown'` in an open-by-default section with an
+  inline category picker — picking one updates it in place via Realtime
+  the same as everything else in the Money tab. Already-categorized
+  transactions sit in a collapsed section below, editable the same way.
+- **Per-statement report**: a spend/received total, a category
+  breakdown using the same contribution-bar visual as Expenses' "This
+  month" card, and a "Compared to last statement" trend per category
+  (rises of 15%+ flagged, drops shown as a quiet win) — a lightweight
+  Buddy-style insight without a real analytics pipeline.
+- **New tables**: `bank_statements`, `bank_transactions` (migration
+  `0037_bank_statements.sql`), household-scoped RLS, added to the
+  `supabase_realtime` publication.
+- **Why no new "Bank Statements" Drive subfolder**: statements upload
+  into the household's existing shared Drive folder (same one Documents/
+  backups use), renamed to their period and prefixed `[Bank Statement]`
+  — a dedicated subfolder would hit the same `drive.file`
+  per-partner-access fork-into-duplicates problem already documented for
+  Documents' category folders. See
+  [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md).
+
 ## 2026-10-06 — Rolling retention on Drive backups
 
 - **Keep only the last 10 backups**: `pruneOldBackups()` in

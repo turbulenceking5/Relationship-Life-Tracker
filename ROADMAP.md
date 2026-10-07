@@ -197,6 +197,17 @@ status. Check items off as they land.
       category weren't used — they don't work with this app's narrow
       OAuth scope without a join step per category per partner. See
       [`docs/21-google-drive-documents.md`](docs/21-google-drive-documents.md).
+- [x] **Statement overview**: new Money tab segment — upload a bank
+      statement (CSV or PDF), parsed client-side into transactions and
+      auto-categorized against the same category list Expenses uses,
+      with a "Needs review" bucket for anything it can't confidently
+      categorize and a per-statement spending report (category
+      breakdown + a trend comparison against the previous statement).
+      Statements upload into the household's existing shared Drive
+      folder (not a new dedicated subfolder — same `drive.file`
+      per-partner-access constraint documented for Documents' category
+      folders applies here too), renamed to their period. See
+      [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md).
 
 ## Phase 0 — Foundations ✅ (this session)
 
@@ -423,7 +434,12 @@ schema.
 - [ ] Face ID / Touch ID app lock (WebAuthn) since this holds financial data
 - [ ] Support a second household (e.g. tracking things with family too)
 - [ ] Activity log — who added/edited/deleted what, for transparency
-- [ ] Bank statement CSV import to auto-suggest expenses
+- [x] **Bank statement import and categorization** — shipped as the
+      "Statement overview" Money tab segment; see the entry under
+      "Shipped outside the original phases" above and
+      [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md).
+      Doesn't yet auto-suggest logged expenses from a transaction — see
+      that doc's "Not done" section.
 - [ ] Wrap the PWA in Capacitor for a real App Store build, if ever wanted
 
 ## Suggestions for making it better
