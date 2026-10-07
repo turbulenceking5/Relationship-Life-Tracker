@@ -431,6 +431,14 @@ export const CHANGELOG_ENTRIES = [
       'New "Manage learned categories" link on My Statements — see every merchant you\'ve taught the app, fix a bad guess, or delete it outright',
     ],
   },
+  {
+    id: 47,
+    date: '2026-10-07',
+    title: 'Fixed a learned category that could override everything else',
+    items: [
+      'A blank or near-blank transaction description (or a very short pick, like a single letter) could silently learn a rule that matched almost every transaction, overriding its real category — learning and matching now both ignore a key that short or empty',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

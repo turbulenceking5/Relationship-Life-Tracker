@@ -8,6 +8,39 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-07 — Fixed a learned category that could override everything else
+
+- **`extractMerchantKey()` now refuses to produce (and `learnCategoryRule()`
+  to save) a degenerate merchant key** — shorter than 2 characters, or a
+  description that's nothing but filler words ("The", " A ", "An" alone).
+  Previously, a blank/whitespace-only description (the manual "+ Add
+  transaction" sheet's description field is HTML5 `required`, which does
+  **not** reject a whitespace-only value) or a very short pick (e.g. a
+  single-letter description) could learn a `bank_transaction_category_rules`
+  row keyed on `''` or a single character. Because `guessCategory()`'s and
+  `applyLearnedRulesToUnknown()`'s rule matching is a plain
+  `description.includes(key)` substring check, and every string includes
+  `''` while almost every description contains any single given letter
+  somewhere, that one bad rule would silently override the category of
+  every other transaction it was ever checked against.
+- **Defense in depth**: `guessCategory()`'s and `applyLearnedRulesToUnknown()`'s
+  rules-matching loops now also skip any rule whose key is empty or shorter
+  than 2 characters, regardless of how it got into the table (a legacy row
+  from before this fix included) — not just preventing new bad keys from
+  being written.
+- The 2-character floor deliberately still allows real short brand names as
+  a learned key (e.g. `bp`), so this doesn't regress legitimate short-key
+  matching.
+- Also, internally: the expense/income direction gate `guessCategory()`
+  uses is now an explicit `CATEGORY_DIRECTION` map (keyed per category)
+  rather than inferred from a category's name equaling `'income'`, and
+  the two direction-filtered category lists it picks between are
+  precomputed once rather than re-filtered on every call — no behavior
+  change, just more declarative and a bit less wasted work in what's a
+  per-transaction hot path during a statement upload.
+- See [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md)
+  → "Learning from your picks".
+
 ## 2026-10-07 — Income category for money coming into your account
 
 - **Added `income`** as a category option on bank statement

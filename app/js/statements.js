@@ -28,7 +28,36 @@ const DRIVE_PREFIX = '[Bank Statement]';
 // form itself. Everything below that offers a category picker or
 // matches keywords for statement transactions uses this list, not the
 // bare CATEGORIES import, for exactly that reason.
-const STATEMENT_CATEGORIES = [...CATEGORIES, 'income'];
+//
+// Each category's money direction is declared here too, explicitly,
+// rather than left for guessCategory() (or anything else) to infer by
+// checking whether a category's name happens to equal the string
+// 'income'. Every expense category is 'out' (money leaving the
+// account); 'income' is the only 'in' entry today, but it doesn't have
+// to stay the only one — splitting it into, say, 'salary'/'refund'/
+// 'dividend' sub-categories down the line is then one more line in this
+// map, not a scattered name-equality check to track down and update.
+// STATEMENT_CATEGORIES itself is derived from this map's keys (same
+// order CATEGORIES already defines, 'income' last), so the two can never
+// drift apart, and every existing call site that just wants the flat
+// list of category names (for a <select>'s options, say) keeps working
+// unchanged.
+const CATEGORY_DIRECTION = Object.fromEntries(CATEGORIES.map((cat) => [cat, 'out']));
+CATEGORY_DIRECTION.income = 'in';
+
+const STATEMENT_CATEGORIES = Object.keys(CATEGORY_DIRECTION);
+
+// guessCategory() below only ever needs one of these two per call, picked
+// purely by the transaction amount's sign — and since CATEGORY_DIRECTION
+// never changes at runtime, neither does the result of splitting
+// STATEMENT_CATEGORIES by it. Computed once here instead of via a fresh
+// .filter() pass on every single guessCategory() invocation, which
+// matters since it's called once per parsed transaction in a tight loop
+// when a statement uploads (see openUploadStatementSheet() below) — a
+// statement with hundreds of transactions otherwise did hundreds of
+// redundant filter passes for a result that's identical every time.
+const CATEGORIES_BY_DIRECTION = { out: [], in: [] };
+for (const cat of STATEMENT_CATEGORIES) CATEGORIES_BY_DIRECTION[CATEGORY_DIRECTION[cat]].push(cat);
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -66,33 +95,34 @@ const CATEGORY_KEYWORDS = {
   food: ['restaurant', 'cafe', 'bar ', 'pub ', 'uber eats', 'menulog', 'doordash', 'deliveroo', 'mcdonald', 'kfc', 'subway', 'domino\'s', 'hungry jack', 'guzman', 'grill\'d', 'bakery'],
   pet: ['petbarn', 'pet circle', 'petstock', 'vet ', 'veterinary', 'vetwest', 'greencross'],
   'online shopping': ['amazon', 'ebay', 'aliexpress', 'shein', 'temu', 'asos', 'the iconic', 'etsy', 'catch.com'],
-  // Money coming in, not out. guessCategory()'s amount-sign gate means
-  // this list is only ever checked against a positive-amount
-  // transaction, so it can safely share a word with an expense
-  // category's keywords — a rent *payment* (negative amount, 'rental'
-  // above) and a rent *deposit* (positive amount, e.g. "RENTAL INCOME"
-  // from the BrackenRidge property's managing agent) can never collide,
-  // since only one of the two keyword lists is ever in play for either
-  // direction. Still kept as deliberately specific phrases rather than
-  // a bare 'interest' or 'rent', so a vague word doesn't false-positive
-  // against an unrelated incoming transaction.
+  // Money coming in, not out (CATEGORY_DIRECTION.income === 'in', see
+  // above). guessCategory()'s amount-sign gate means this list is only
+  // ever checked against a positive-amount transaction, so it can
+  // safely share a word with an expense category's keywords — a rent
+  // *payment* (negative amount, 'rental' above) and a rent *deposit*
+  // (positive amount, e.g. "RENTAL INCOME" from the BrackenRidge
+  // property's managing agent) can never collide, since only one of the
+  // two keyword lists is ever in play for either direction. Still kept
+  // as deliberately specific phrases rather than a bare 'interest' or
+  // 'rent', so a vague word doesn't false-positive against an unrelated
+  // incoming transaction.
   income: ['salary', 'payroll', 'wages', 'centrelink', 'refund', 'reimbursement', 'cashback', 'dividend', 'interest credit'],
 };
 
-// `amount` gates which half of STATEMENT_CATEGORIES even gets checked,
-// before a single keyword is matched: every category except 'income'
-// is inherently an outflow, and 'income' is inherently an inflow (see
-// the comments on CATEGORY_KEYWORDS and its 'income' entry above), so a
-// negative (money out) transaction only ever matches an expense
-// category's keywords, and a positive (money in — same '< 0' = out /
-// '>= 0' = in convention transactionRow() below uses for its own ' out'/
-// ' in' label) one only ever matches 'income's. This is what stops a
-// positive-amount "RENTAL INCOME" deposit from matching the `rent`
-// category's `rental` keyword and landing as a confidently-wrong
-// expense that never surfaces in "Needs review" — not a one-off patch
-// for that specific wording, but a general rule that rules out the same
-// collision for any other keyword an expense category and `income`
-// happen to share, now or in the future.
+// `amount` gates which half of CATEGORIES_BY_DIRECTION even gets
+// checked, before a single keyword is matched: a negative amount (money
+// out, same '< 0' = out / '>= 0' = in convention transactionRow() below
+// uses for its own ' out'/' in' label) is only ever checked against the
+// 'out' categories, and a positive amount (money in) only against the
+// 'in' ones — looked up from CATEGORY_DIRECTION above, not inferred
+// from a category's name. This is what stops a positive-amount "RENTAL
+// INCOME" deposit from matching the `rent` category's `rental` keyword
+// and landing as a confidently-wrong expense that never surfaces in
+// "Needs review" — not a one-off patch for that specific wording, but a
+// general rule that rules out the same collision for any other keyword
+// an 'out' category and an 'in' one happen to share, now or in the
+// future, for however many categories end up on either side of
+// CATEGORY_DIRECTION.
 // `rules` is a Map of merchant_key -> category, built from this user's
 // own bank_transaction_category_rules rows (see "Learning from your
 // picks" below) — checked only after the static keyword list finds
@@ -100,16 +130,26 @@ const CATEGORY_KEYWORDS = {
 // category the static list already gets right.
 function guessCategory(description, amount, rules) {
   const d = description.toLowerCase();
-  const eligibleCategories = Number(amount) < 0
-    ? STATEMENT_CATEGORIES.filter((cat) => cat !== 'income')
-    : STATEMENT_CATEGORIES.filter((cat) => cat === 'income');
+  const direction = Number(amount) < 0 ? 'out' : 'in';
+  const eligibleCategories = CATEGORIES_BY_DIRECTION[direction];
   for (const cat of eligibleCategories) {
     const words = CATEGORY_KEYWORDS[cat];
     if (words && words.some((w) => d.includes(w))) return cat;
   }
   if (rules) {
     for (const [key, cat] of rules) {
-      if (d.includes(key)) return cat;
+      // Defensive, independent of whether extractMerchantKey() can still
+      // produce a bad key (see its own guard below): `d.includes(key)` is
+      // true for EVERY description when `key` is '' (every string
+      // includes the empty string), and effectively true for almost every
+      // real-world description when `key` is a single character (e.g. a
+      // merchant_key of 'x' matches "NETFLIX.COM", "COLES EXPRESS", any
+      // description containing the letter at all) — either would silently
+      // override every other transaction's category with one bad learned
+      // rule. Guards against that regardless of how the bad key got into
+      // bank_transaction_category_rules (a row from before this fix, or
+      // any future write path), not just the one below.
+      if (key && key.length >= MIN_MERCHANT_KEY_LENGTH && d.includes(key)) return cat;
     }
   }
   return null;
@@ -126,13 +166,39 @@ function guessCategory(description, amount, rules) {
 // repeats across transactions from the same place — the leading word,
 // with common filler stripped, is a good enough proxy for it.
 const KEY_STOPWORDS = new Set(['the', 'a', 'an']);
+// Floor for a usable merchant key. guessCategory()'s (and
+// applyLearnedRulesToUnknown()'s) matching is a plain `description.
+// includes(key)` substring check, so a key below this length is no longer
+// a "merchant" signal — it's a near-universal match. '' is the extreme
+// case (every string includes the empty string), but a single character is
+// nearly as bad in practice: a saved rule keyed on 'x' alone wrongly
+// recategorizes any description that merely contains the letter x
+// ("NETFLIX.COM", "COLES EXPRESS", "EXPRESS LANE TOLL", ...), confirmed
+// while fixing this. 2 is the floor, not more, specifically so real short
+// brand names still work as a learned key — e.g. 'bp' (also matched
+// statically via CATEGORY_KEYWORDS' transport list's 'bp ' entry).
+const MIN_MERCHANT_KEY_LENGTH = 2;
 function extractMerchantKey(description) {
-  const words = description
-    .toLowerCase()
-    .replace(/[^a-z\s]/g, ' ')
-    .split(/\s+/)
-    .filter((w) => w && !KEY_STOPWORDS.has(w));
-  return words[0] || description.toLowerCase().trim();
+  const lower = description.toLowerCase();
+  // Non-letter characters (digits, punctuation) become spaces, same as
+  // before, but tracked separately from the split: whether the
+  // description had any letters at all decides what an empty `words`
+  // array means below.
+  const lettersOnly = lower.replace(/[^a-z\s]/g, ' ');
+  const hasLetters = /[a-z]/.test(lettersOnly);
+  const words = lettersOnly.split(/\s+/).filter((w) => w && !KEY_STOPWORDS.has(w));
+  // `words` can end up empty two different ways, and they mean different
+  // things: (1) the description had no letters at all (a raw reference
+  // number, "#### 4821") — falling back to the raw trimmed description is
+  // still a reasonable, if low-value, key; (2) the description DID have
+  // letters, but every single one of them was a stopword ("The", " A ",
+  // "An", and nothing else) — falling back to the raw description here
+  // would just hand back that same bare stopword (e.g. 'the'), which is a
+  // real word that shows up inside huge numbers of unrelated descriptions.
+  // Only case (1) should fall back; case (2) has no real merchant signal
+  // and should produce no key at all.
+  const key = words[0] || (hasLetters ? '' : lower.trim());
+  return key.length >= MIN_MERCHANT_KEY_LENGTH ? key : '';
 }
 
 // Records (or updates) this user's own rule for a merchant — private,
@@ -171,7 +237,11 @@ async function applyLearnedRulesToUnknown(ctx) {
   for (const t of unknown) {
     const d = t.description.toLowerCase();
     for (const [key, cat] of rules) {
-      if (d.includes(key)) {
+      // Same defensive floor as guessCategory()'s rules loop above — a
+      // '' or single-character key here would reassign every single
+      // "Needs review" transaction to one bad rule's category on every
+      // sweep, not just fail to match.
+      if (key && key.length >= MIN_MERCHANT_KEY_LENGTH && d.includes(key)) {
         updates.push(updateRow(TRANSACTIONS_TABLE, t.id, { category: cat, status: 'categorized', categorized_by: ctx.user.id }));
         break;
       }

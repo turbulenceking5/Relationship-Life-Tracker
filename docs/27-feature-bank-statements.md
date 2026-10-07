@@ -292,6 +292,24 @@ best-effort (`.catch(() => {})` at each call site) — a learning write
 failing never blocks or rolls back the category change you actually
 asked to save.
 
+`extractMerchantKey()` and the matching loops in `guessCategory()` and
+`applyLearnedRulesToUnknown()` guard against a degenerate key —
+shorter than 2 characters, or a description that's nothing but filler
+("The", " A ", "An" alone) — ever being learned or matched on. A
+`merchant_key` that short or generic isn't a merchant signal: the
+matching itself is a plain `description.includes(key)` substring
+check, and in JavaScript every string includes `''`, while almost
+every real description contains any single letter somewhere (e.g. a
+rule keyed on `'x'` would wrongly match "NETFLIX.COM" or "COLES
+EXPRESS"). Without the guard, one such rule — from a blank/near-blank
+description slipping through (the manual "+ Add transaction"
+description field's `required` attribute doesn't actually stop a
+whitespace-only value) or a stray short pick — would silently override
+every other unmatched transaction's category on every future
+save/sweep. The floor is 2, not higher, so a real short brand name you
+teach it (e.g. "bp", also in the static `transport` keyword list) still
+works.
+
 Private to the user who made the pick, same RLS shape as
 `bank_statements`/`bank_transactions` (`user_id = auth.uid()`, see
 migration `0039_bank_transaction_category_rules.sql`) — your partner
