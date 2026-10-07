@@ -22,20 +22,37 @@ one has to stay short enough to read on a phone).
   `wages`, `centrelink`, `refund`, `reimbursement`, `cashback`,
   `dividend`, `interest credit`. Checked in the same single ordered
   pass as every other category.
-- **Known collision, specific to this household**: the existing `rent`
-  category's `rental` keyword (for paying rent/agent fees) matches
-  *before* `income` is checked, so an incoming rent deposit from the
-  BrackenRidge property's managing agent — any description containing
-  "rental" — currently auto-categorizes as `rent` instead of `income`,
-  silently (it's a confident auto-match, so it never surfaces in "Needs
-  review"). Correcting it by hand also teaches the app that merchant via
-  the category-learning feature above. Left as a known gap rather than
-  guessed at further without real statement text to tune against — see
-  [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md)
-  → "Auto-categorization and 'Needs review'".
 - Income transactions never appear in the spend category-breakdown chart
   or the "Compared to last statement" trend (both already filter to
   `amount < 0`), so no chart/color changes were needed for this.
+- **Known collision from this entry, fixed the same day** — see the
+  entry directly below.
+
+## 2026-10-07 — Fixed rent/income auto-categorization collision
+
+- **`guessCategory(description, amount, rules)`** (`app/js/statements.js`)
+  now takes the transaction's `amount` and uses its sign to gate which
+  half of `STATEMENT_CATEGORIES` even gets checked, before a single
+  keyword is matched: a negative amount (money out) only ever matches
+  an expense category's keywords; a positive amount (money in) only
+  ever matches `income`'s. Previously every category was checked
+  against every transaction regardless of direction, in a fixed order
+  with `rent` ahead of `income` — so a positive-amount incoming rent
+  deposit from the BrackenRidge property's managing agent (anything
+  containing "rental"/"real estate") matched `rent`'s keywords first
+  and was saved as a confidently-wrong expense, never surfacing in
+  "Needs review" to be caught.
+- This is a general fix, not a one-off patch for the word "rental": it
+  rules out the same collision for any other keyword an expense
+  category and `income` happen to share, now or in the future. A
+  positive-amount transaction that doesn't contain an actual income
+  keyword now correctly lands in "Needs review" instead of being
+  silently misfiled.
+- Updated the one call site (`openUploadStatementSheet()`'s submit
+  handler) and the explanatory comments on `CATEGORY_KEYWORDS`, its
+  `income` entry, and `guessCategory()` itself.
+- See [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md)
+  → "Auto-categorization and 'Needs review'".
 
 ## 2026-10-07 — Statement categorization now learns from your picks
 

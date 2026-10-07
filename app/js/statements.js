@@ -42,11 +42,17 @@ function categoryLabel(category) {
 
 // ---- Auto-categorization ---------------------------------------------
 // Plain keyword matching against the same CATEGORIES taxonomy expenses
-// use — deliberately not a "smart"/ML classifier. Anything that doesn't
-// match a keyword stays uncategorized ('unknown') rather than guessing
-// wrong silently; a partner assigns it by hand in "Needs review" below,
-// which both fixes that transaction and gives a place to extend this
-// list from real statements over time.
+// use, plus 'income' — deliberately not a "smart"/ML classifier. Every
+// expense category's keyword list only ever describes money going OUT,
+// and 'income's only ever describes money coming IN — guessCategory()
+// below uses the transaction's own amount sign to gate which of the two
+// halves even gets checked, before a single keyword is matched, so a
+// word that happens to appear in both (e.g. 'rental' below) can never
+// be matched against the wrong half. Anything that still doesn't match
+// a keyword stays uncategorized ('unknown') rather than guessing wrong
+// silently; a partner assigns it by hand in "Needs review" below, which
+// both fixes that transaction and gives a place to extend this list
+// from real statements over time.
 const CATEGORY_KEYWORDS = {
   groceries: ['woolworths', 'coles', 'aldi', 'iga ', 'foodworks', 'supermarket', 'costco'],
   bills: ['energy', 'electricity', 'telstra', 'optus', 'vodafone', 'origin', 'agl', 'water corp', 'internet', 'insurance', 'council rates'],
@@ -60,21 +66,44 @@ const CATEGORY_KEYWORDS = {
   food: ['restaurant', 'cafe', 'bar ', 'pub ', 'uber eats', 'menulog', 'doordash', 'deliveroo', 'mcdonald', 'kfc', 'subway', 'domino\'s', 'hungry jack', 'guzman', 'grill\'d', 'bakery'],
   pet: ['petbarn', 'pet circle', 'petstock', 'vet ', 'veterinary', 'vetwest', 'greencross'],
   'online shopping': ['amazon', 'ebay', 'aliexpress', 'shein', 'temu', 'asos', 'the iconic', 'etsy', 'catch.com'],
-  // Money coming in, not out — deliberately specific phrases rather
-  // than a bare 'interest' or 'rent' (which would collide with the
-  // existing 'rent' category's 'rental' keyword above, wrongly filing
-  // rental income from the BrackenRidge property as a rent *expense*).
+  // Money coming in, not out. guessCategory()'s amount-sign gate means
+  // this list is only ever checked against a positive-amount
+  // transaction, so it can safely share a word with an expense
+  // category's keywords — a rent *payment* (negative amount, 'rental'
+  // above) and a rent *deposit* (positive amount, e.g. "RENTAL INCOME"
+  // from the BrackenRidge property's managing agent) can never collide,
+  // since only one of the two keyword lists is ever in play for either
+  // direction. Still kept as deliberately specific phrases rather than
+  // a bare 'interest' or 'rent', so a vague word doesn't false-positive
+  // against an unrelated incoming transaction.
   income: ['salary', 'payroll', 'wages', 'centrelink', 'refund', 'reimbursement', 'cashback', 'dividend', 'interest credit'],
 };
 
+// `amount` gates which half of STATEMENT_CATEGORIES even gets checked,
+// before a single keyword is matched: every category except 'income'
+// is inherently an outflow, and 'income' is inherently an inflow (see
+// the comments on CATEGORY_KEYWORDS and its 'income' entry above), so a
+// negative (money out) transaction only ever matches an expense
+// category's keywords, and a positive (money in — same '< 0' = out /
+// '>= 0' = in convention transactionRow() below uses for its own ' out'/
+// ' in' label) one only ever matches 'income's. This is what stops a
+// positive-amount "RENTAL INCOME" deposit from matching the `rent`
+// category's `rental` keyword and landing as a confidently-wrong
+// expense that never surfaces in "Needs review" — not a one-off patch
+// for that specific wording, but a general rule that rules out the same
+// collision for any other keyword an expense category and `income`
+// happen to share, now or in the future.
 // `rules` is a Map of merchant_key -> category, built from this user's
 // own bank_transaction_category_rules rows (see "Learning from your
 // picks" below) — checked only after the static keyword list finds
 // nothing, so a merchant you've corrected before never overrides a
 // category the static list already gets right.
-function guessCategory(description, rules) {
+function guessCategory(description, amount, rules) {
   const d = description.toLowerCase();
-  for (const cat of STATEMENT_CATEGORIES) {
+  const eligibleCategories = Number(amount) < 0
+    ? STATEMENT_CATEGORIES.filter((cat) => cat !== 'income')
+    : STATEMENT_CATEGORIES.filter((cat) => cat === 'income');
+  for (const cat of eligibleCategories) {
     const words = CATEGORY_KEYWORDS[cat];
     if (words && words.some((w) => d.includes(w))) return cat;
   }
@@ -599,7 +628,7 @@ function openUploadStatementSheet(ctx, onSaved) {
           });
           if (period.transactions.length) {
             await insertRows(TRANSACTIONS_TABLE, period.transactions.map((t) => {
-              const category = guessCategory(t.description, rules);
+              const category = guessCategory(t.description, t.amount, rules);
               return {
                 household_id: ctx.household.id,
                 statement_id: statement.id,
@@ -682,6 +711,81 @@ function openAddTransactionSheet(ctx, statement, onSaved) {
     submitBtn,
   ]);
   mount(body, form);
+  openSheet(dialog);
+}
+
+// ---- Manage learned categories sheet ------------------------------------
+// Visibility/control for this user's own bank_transaction_category_rules
+// rows (see "Learning from your picks" above) — until now the only way to
+// fix a bad rule (e.g. extractMerchantKey()'s leading-word heuristic
+// picking something too generic, or just a wrong pick) was indirect:
+// re-categorizing some future transaction that happened to match the same
+// merchant_key, which silently overwrites it via the table's
+// (user_id, merchant_key) upsert. This sheet lists every rule, lets you
+// change its category or delete it outright. Doesn't affect anything else
+// on screen (it only ever changes future auto-categorization), so it
+// re-fetches and remounts just its own body on a save/delete rather than
+// re-running the whole tab's render().
+function ruleRow(rule, onChanged) {
+  const categorySelect = h('select', {}, STATEMENT_CATEGORIES.map((c) => h('option', { value: c, selected: c === rule.category }, categoryLabel(c))));
+  const saveBtn = h('button', {
+    class: 'btn secondary small',
+    type: 'button',
+    onclick: async () => {
+      const restore = withBusyLabel(saveBtn, 'Saving…');
+      try {
+        await updateRow(RULES_TABLE, rule.id, { category: categorySelect.value });
+        await onChanged();
+      } catch (err) {
+        alert(err.message);
+        restore();
+      }
+    },
+  }, 'Save');
+  const deleteBtn = h('button', {
+    class: 'btn danger-text small',
+    type: 'button',
+    onclick: async () => {
+      if (!confirm(`Delete the learned rule for "${rule.merchant_key}"? Future transactions from this merchant won’t auto-categorize from it anymore — this can’t be undone.`)) return;
+      const restore = withBusyLabel(deleteBtn, 'Deleting…');
+      try {
+        await deleteRow(RULES_TABLE, rule.id);
+        await onChanged();
+      } catch (err) {
+        alert(err.message);
+        restore();
+      }
+    },
+  }, 'Delete');
+
+  return h('div', { class: 'card' }, [
+    h('div', { class: 'card-row' }, [
+      h('div', {}, [
+        h('h3', {}, rule.merchant_key),
+        h('div', { class: 'meta' }, `Currently auto-categorizes as ${categoryLabel(rule.category)}`),
+      ]),
+    ]),
+    h('div', { class: 'actions-row' }, [categorySelect, saveBtn, deleteBtn]),
+  ]);
+}
+
+function openManageRulesSheet(ctx) {
+  const { dialog, body } = makeSheet('Manage learned categories');
+  document.body.appendChild(dialog);
+  dialog.addEventListener('close', () => dialog.remove());
+
+  async function load() {
+    mount(body, h('div', { class: 'empty-state' }, 'Loading…'));
+    const rules = await fetchRows(RULES_TABLE, ctx.household.id, 'merchant_key', true);
+    mount(body, [
+      h('p', { class: 'meta' }, 'Every merchant your own category picks have taught the app — change a bad guess’s category, or delete the rule outright. This only changes future auto-categorization; it never touches transactions already saved.'),
+      rules.length
+        ? h('div', {}, rules.map((rule) => ruleRow(rule, load)))
+        : h('div', { class: 'empty-state' }, 'No learned rules yet — categorize a transaction the keyword list doesn’t recognize (in "Needs review") and it’ll show up here.'),
+    ]);
+  }
+
+  load();
   openSheet(dialog);
 }
 
@@ -872,6 +976,15 @@ export async function render(container, ctx) {
     ? h('p', { class: 'meta' }, [h('a', { href: folderUrl(ctx.household), target: '_blank' }, 'Open the shared Drive folder')])
     : null;
 
+  // "Manage learned categories" — the management sheet for
+  // bank_transaction_category_rules (see openManageRulesSheet() above).
+  // Same spot/style as the Drive link above it, just a JS action instead
+  // of a navigation, so it's an <a href="#"> rather than a <button> to
+  // match that row's look exactly.
+  const manageRulesRow = h('p', { class: 'meta' }, [
+    h('a', { href: '#', onclick: (e) => { e.preventDefault(); openManageRulesSheet(ctx); } }, 'Manage learned categories'),
+  ]);
+
   const sections = sorted.map((statement, i) => {
     const previous = sorted[i + 1]; // one position further back = the preceding statement chronologically
     return statementSection(
@@ -889,6 +1002,7 @@ export async function render(container, ctx) {
   mount(container, [
     h('p', { class: 'meta' }, 'Upload a bank statement to auto-sort its spending into categories — anything it’s unsure about lands in "Needs review" for you to assign. Private to you — your partner has their own statements here, and can’t see yours.'),
     driveLinkRow,
+    manageRulesRow,
     sections.length ? h('div', {}, sections) : h('div', { class: 'empty-state' }, 'No statements uploaded yet.'),
     h('button', { class: 'fab', 'aria-label': 'Upload bank statement', onclick: () => openUploadStatementSheet(ctx, () => render(container, ctx)) }, '+'),
   ]);

@@ -415,6 +415,22 @@ export const CHANGELOG_ENTRIES = [
       'Added an Income category on statement transactions (salary, refunds, Centrelink, dividends, etc. auto-detect) — expenses still only cover money going out, so this one\'s just for statements',
     ],
   },
+  {
+    id: 45,
+    date: '2026-10-07',
+    title: 'Fixed an incoming rent deposit being miscategorized as a rent expense',
+    items: [
+      'An incoming rent payment could get silently filed as a rent expense instead of income — categorization now checks whether money is coming in or going out before guessing, so this can\'t happen for any category',
+    ],
+  },
+  {
+    id: 46,
+    date: '2026-10-07',
+    title: 'Manage your learned categories',
+    items: [
+      'New "Manage learned categories" link on My Statements — see every merchant you\'ve taught the app, fix a bad guess, or delete it outright',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

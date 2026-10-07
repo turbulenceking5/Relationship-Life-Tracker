@@ -200,19 +200,25 @@ easy to extend as real statements turn up merchants it misses.
 
 `income` keywords (`salary`, `payroll`, `centrelink`, `refund`,
 `reimbursement`, `cashback`, `dividend`, `interest credit`, …) are
-checked in the same single ordered pass as every other category, which
-creates one known collision worth knowing about for **this specific
-household**: `rent`'s existing `rental` keyword (meant for paying your
-own rent/agent fees) matches *before* `income` is ever checked, so an
-incoming rent deposit from the BrackenRidge property's managing agent —
-anything with "rental" in its description — auto-categorizes as `rent`
-(an expense-flavored category) rather than `income`, with no "Needs
-review" prompt at all, since it was confidently auto-matched. Nothing
-stops you correcting it by hand afterwards (which also teaches the app
-that merchant via "Learning from your picks" below), but the first time
-it happens it'll be silent, not flagged — worth a glance at a new
-statement's "All categorized transactions" list, not just "Needs
-review," until real statement text shows what to tighten here.
+checked against the transaction's description, but — unlike every
+expense category — only ever for a **positive-amount** transaction.
+`guessCategory(description, amount, rules)` gates which half of
+`STATEMENT_CATEGORIES` even gets checked before a single keyword is
+matched: a negative amount (money out) only ever matches an expense
+category's keywords, a positive amount (money in) only ever matches
+`income`'s. This is what stops a word two categories happen to
+share — `rent`'s `rental` keyword and an incoming rent deposit from the
+BrackenRidge property's managing agent (e.g. "RENTAL INCOME" or "REAL
+ESTATE AGENCY RENT DEPOSIT") both contain "rental"/"real estate" — from
+colliding: a rent *payment* (negative) can only ever match `rent`, and
+a rent *deposit* (positive) can only ever match `income`, regardless of
+which keyword list happens to contain the same word. A positive-amount
+transaction that doesn't contain an actual income keyword (plain
+"RENTAL INCOME" alone, say) correctly lands in "Needs review" rather
+than being silently misfiled as an expense — this is a general rule,
+not a one-off patch for this specific wording, so it rules out the same
+collision for any other keyword an expense category and `income`
+happen to share, now or in the future.
 
 Dining/takeaway keywords (restaurants, cafes, Uber Eats/Menulog/
 DoorDash/Deliveroo, fast food chains) moved from `leisure` into the new
@@ -383,8 +389,22 @@ step is needed here).
   so a genuinely two-word brand name you type by hand (not already in
   the static list) only ever learns its first word — good enough to
   recognize "the same merchant again" for most real descriptions, not a
-  real NLP normalizer. No UI yet to view, edit, or delete a learned rule
-  directly if one turns out wrong — correcting the transaction again
-  with the right category overwrites it (same `(user_id, merchant_key)`
-  upsert), so a bad rule self-corrects the next time you fix one of its
-  matches, just not proactively.
+  real NLP normalizer. A bad rule is no longer stuck waiting for you to
+  stumble across a matching transaction to overwrite it — see "Manage
+  learned categories" below.
+
+### Manage learned categories
+
+A "Manage learned categories" link (`render()`, next to "Open the
+shared Drive folder") opens a sheet (`openManageRulesSheet()`) listing
+every one of your own `bank_transaction_category_rules` rows —
+`merchant_key` plus its current category, with a category `<select>`
+(from `STATEMENT_CATEGORIES`, so `income` is pickable too) and a Save
+button per row (`ruleRow()`), plus a Delete button to remove a bad rule
+outright. Both are independent per-row actions, not a batch like
+`statementSection()`'s transaction picker — there's no backlog of
+unsaved picks to accumulate here, so there's nothing a bulk button
+would add. Saving or deleting re-fetches and remounts just the sheet's
+own body; it doesn't need to re-run the whole tab's `render()`, since
+this table only ever affects *future* auto-categorization, never
+anything already on screen.
