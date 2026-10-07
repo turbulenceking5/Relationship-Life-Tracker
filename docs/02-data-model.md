@@ -361,12 +361,59 @@ both content and order without extra table/RLS/CRUD overhead.
 | `created_by` | uuid → auth.users | |
 | `created_at` / `updated_at` | timestamptz | |
 
+### `bank_statements`
+See [`27-feature-bank-statements.md`](27-feature-bank-statements.md)
+(surfaced via the Money tab's My Statements segment). One row per
+represented **period**, not per upload — a statement spanning more than
+one calendar month produces several rows sharing the same underlying
+Drive file. Private to its uploader (see RLS summary below), like
+`personal_todos`.
+
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `household_id` | uuid → households | kept so `household_id` can't be forged to point at a household the user isn't actually in; not itself the access boundary |
+| `period_month` | smallint | 1–12 |
+| `period_year` | smallint | |
+| `label` | text | e.g. "March 2026" |
+| `original_filename` | text | the uploaded file's own name |
+| `drive_file_id` | text | shared across every period row from the same upload |
+| `drive_web_view_link` | text | optional |
+| `file_name` | text | the name it was given in Drive (`[Bank Statement] ...`) |
+| `mime_type` | text | optional |
+| `uploaded_by` | uuid → auth.users | the owner — the actual access boundary |
+| `created_at` | timestamptz | |
+
+### `bank_transactions`
+One row per parsed (or manually added) transaction within a statement.
+
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `household_id` | uuid → households | kept for the same forgery-prevention reason as above; ownership is actually checked via `statement_id`'s own `uploaded_by` |
+| `statement_id` | uuid → bank_statements, on delete cascade | |
+| `txn_date` | date | nullable |
+| `description` | text | required |
+| `amount` | numeric | signed — negative = money out |
+| `category` | text | nullable until categorized |
+| `status` | text | `'unknown'` \| `'categorized'` |
+| `categorized_by` | uuid → auth.users | nullable |
+| `created_at` | timestamptz | |
+
 ## Row Level Security summary
 
 Every table above (except `auth.users`, which Supabase manages) has RLS
-enabled. The rule is uniform: **a row is visible/writable only to members
-of its `household_id`**, checked via a `SECURITY DEFINER` helper function
-`is_household_member(household_id)` so policies stay simple and avoid
-recursive-policy pitfalls. `profiles` is visible to yourself and anyone who
-shares a household with you. Full detail in
+enabled. The rule is uniform for most tables: **a row is visible/writable
+only to members of its `household_id`**, checked via a `SECURITY DEFINER`
+helper function `is_household_member(household_id)` so policies stay
+simple and avoid recursive-policy pitfalls. `profiles` is visible to
+yourself and anyone who shares a household with you.
+
+Two tables are the exception, scoped to a single user rather than the
+whole household: `personal_todos` (`user_id = auth.uid()`) and
+`bank_statements`/`bank_transactions` (`uploaded_by = auth.uid()`, via
+the owning statement for `bank_transactions`) — see
+[`20-feature-personal-todos.md`](20-feature-personal-todos.md) and
+[`27-feature-bank-statements.md`](27-feature-bank-statements.md). Full
+detail on the household-scoped majority in
 [`08-auth-households.md`](08-auth-households.md).

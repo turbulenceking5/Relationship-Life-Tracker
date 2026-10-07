@@ -1,11 +1,15 @@
-// Statement overview (Money tab segment) — upload a bank statement
-// (CSV or PDF), store it in the household's shared Google Drive folder
-// renamed to its period, parse it into individual transactions, and
+// My Statements (Money tab segment) — upload a bank statement (CSV or
+// PDF), store it in the household's shared Google Drive folder renamed
+// to its period, parse it into individual transactions, and
 // auto-categorize what it confidently can. Anything it can't lands in
-// "Needs review" for a partner to assign a category to by hand. See
+// "Needs review" for you to assign a category to by hand. Private to the
+// uploader: each partner only ever sees their own statements/
+// transactions, never their partner's — see render() below and
 // docs/27-feature-bank-statements.md for the full design, in particular
 // why this reuses the one existing shared Drive folder rather than a
-// separate "Bank Statements" subfolder.
+// separate "Bank Statements" subfolder (the uploaded file itself is
+// technically visible to a partner who browses that shared Drive folder
+// directly, even though the app itself never shows their parsed data).
 import { h, mount, openSheet, closeSheet, makeSheet, withBusyLabel } from './dom.js';
 import { fetchRows, insertRow, insertRows, updateRow, deleteRow } from './crud.js';
 import { formatMoney, formatDate, todayStr } from './format.js';
@@ -523,7 +527,7 @@ function openUploadStatementSheet(ctx, onSaved) {
   }, [
     h('div', { class: 'field' }, [h('label', {}, 'File'), fileInput]),
     statusEl,
-    h('p', { class: 'meta' }, 'Uploads to the household’s shared Google Drive folder, renamed to its period.'),
+    h('p', { class: 'meta' }, 'Uploads to the household’s shared Google Drive folder, renamed to its period. The file itself is in that shared folder, but the categorized transactions here are only visible to you.'),
     errorEl,
     submitBtn,
   ]);
@@ -727,6 +731,12 @@ function statementSection(ctx, statement, allStatements, transactions, previousT
 // ---- Top-level render ----------------------------------------------------
 
 export async function render(container, ctx) {
+  // RLS restricts bank_statements/bank_transactions to rows uploaded_by
+  // the signed-in user (bank_transactions via its statement's
+  // uploaded_by), so this already returns only the signed-in user's own
+  // statements even though the queries below just filter by household —
+  // same pattern as personal_todos, see docs/27-feature-bank-statements.md.
+
   // render() always rebuilds the whole tab from scratch (same pattern as
   // every other feature module — see docs/14-ui-patterns.md), which
   // would otherwise collapse every open statement/"Needs review"/"All
@@ -767,7 +777,7 @@ export async function render(container, ctx) {
   });
 
   mount(container, [
-    h('p', { class: 'meta' }, 'Upload a bank statement to auto-sort its spending into categories — anything it’s unsure about lands in "Needs review" for you to assign.'),
+    h('p', { class: 'meta' }, 'Upload a bank statement to auto-sort its spending into categories — anything it’s unsure about lands in "Needs review" for you to assign. Private to you — your partner has their own statements here, and can’t see yours.'),
     driveLinkRow,
     sections.length ? h('div', {}, sections) : h('div', { class: 'empty-state' }, 'No statements uploaded yet.'),
     h('button', { class: 'fab', 'aria-label': 'Upload bank statement', onclick: () => openUploadStatementSheet(ctx, () => render(container, ctx)) }, '+'),

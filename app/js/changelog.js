@@ -380,6 +380,15 @@ export const CHANGELOG_ENTRIES = [
       'Categorizing a transaction on a statement no longer closes the whole month — pick categories for as many transactions as you like, then hit one "Save changes" button to save them all at once',
     ],
   },
+  {
+    id: 41,
+    date: '2026-10-07',
+    title: 'Statement overview is now private — renamed "My Statements"',
+    items: [
+      'Your uploaded bank statements and their transactions are now visible only to you, not your partner — same as My To-dos',
+      'Renamed "Statement overview" to "My Statements" in the Money tab to reflect that',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

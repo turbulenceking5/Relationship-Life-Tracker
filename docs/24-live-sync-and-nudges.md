@@ -17,9 +17,12 @@ onChange)`), subscribed to `postgres_changes` on every shared-list table:
 `goal_transactions`, `goal_tasks`, `rent_payments`, `mortgage_payments`,
 `documents`, `grocery_items`, `recipes`, `settlements`, and `households`
 (for the shared sticky note) — each filtered to that one household's
-rows. `personal_todos` is deliberately excluded: it's private per user
-(RLS already restricts it to its own owner), so there's nothing
-cross-partner to sync. `item_comments` is excluded too, for a different
+rows. `personal_todos` and `bank_statements`/`bank_transactions` are
+deliberately excluded: all three are private per user (RLS already
+restricts each to its own owner — see
+[`27-feature-bank-statements.md`](27-feature-bank-statements.md) for the
+statements tables), so there's nothing cross-partner to sync.
+`item_comments` is excluded too, for a different
 reason — its thread only ever shows inside an open comment sheet (see
 [`04-feature-expenses.md`](04-feature-expenses.md) → "Comment thread"),
 which lives outside `main` like every other `<dialog>`, so a live

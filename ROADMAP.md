@@ -213,6 +213,19 @@ status. Check items off as they land.
       multi-month history dump), all sharing the one uploaded Drive
       file. See
       [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md).
+- [x] **My Statements — made private per-user**: Statement overview
+      renamed to "My Statements" and converted from household-shared to
+      owner-only, mirroring My To-dos — each partner now only ever sees
+      their own uploaded statements/transactions, never their partner's.
+      RLS switched from `is_household_member(household_id)` to an
+      `uploaded_by = auth.uid()` check (via the statement's
+      `uploaded_by` for `bank_transactions`), and both tables dropped
+      from the `supabase_realtime` publication. The uploaded statement
+      *file* itself still lands in the one shared household Drive
+      folder (unchanged — see above for why), so it's technically
+      visible to a partner browsing that folder directly even though
+      the app's own UI never shows their parsed data; see
+      [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md).
 
 ## Phase 0 — Foundations ✅ (this session)
 

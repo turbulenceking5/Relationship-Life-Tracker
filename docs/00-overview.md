@@ -19,9 +19,10 @@ that's easy to lose track of:
 - **Grocery List** — a shared shopping checklist.
 - **Recipes** — a shared recipe box, each with ingredients and
   instructions, collapsible to save room.
-- **Statement overview** — upload a bank statement (CSV or PDF) and have
+- **My Statements** — upload a bank statement (CSV or PDF) and have
   it parsed into transactions, auto-categorized where confident, with a
   "Needs review" bucket for the rest and a spending report per statement.
+  Private per-user — each partner only sees their own.
 
 ## Who it's for
 
@@ -69,7 +70,7 @@ backend is configured.
 | [`24-live-sync-and-nudges.md`](24-live-sync-and-nudges.md) | Realtime live sync across phones, the "🔔 Remind" partner nudge, and the weekly digest push |
 | [`25-feature-backup.md`](25-feature-backup.md) | Automatic (opportunistic, not server-scheduled) backup of household data to Google Drive |
 | [`26-feature-install-prompt.md`](26-feature-install-prompt.md) | Pre-signup "Add to Home Screen" interstitial, and why it waits briefly for `beforeinstallprompt` |
-| [`27-feature-bank-statements.md`](27-feature-bank-statements.md) | Statement overview (Money tab): upload a bank statement, auto-categorize its transactions, review "Needs review" unknowns, and a per-statement spending report |
+| [`27-feature-bank-statements.md`](27-feature-bank-statements.md) | My Statements (Money tab): upload a bank statement, auto-categorize its transactions, review "Needs review" unknowns, and a per-statement spending report — private per-user, like personal to-dos |
 
 The top-level [`ROADMAP.md`](../ROADMAP.md) tracks phases and status across
 all of the above, and [`../CHANGELOG.md`](../CHANGELOG.md) is a dated log of

@@ -3,7 +3,7 @@ import { h, mount } from './dom.js';
 const SUB_TABS = [
   { key: 'expenses', label: 'Expenses', mod: () => import('./expenses.js') },
   { key: 'rent', label: 'BrackenRidge', mod: () => import('./rent.js') },
-  { key: 'statements', label: 'Statement overview', mod: () => import('./statements.js') },
+  { key: 'statements', label: 'My Statements', mod: () => import('./statements.js') },
   { key: 'groceries', label: 'Grocery List', mod: () => import('./grocery.js') },
   { key: 'recipes', label: 'Recipes', mod: () => import('./recipes.js') },
   { key: 'todos', label: 'My To-dos', mod: () => import('./personal-todos.js') },

@@ -1,11 +1,48 @@
-# Feature: Statement overview (Money tab)
+# Feature: My Statements (Money tab)
 
-A new segment in the Money tab (alongside Expenses, BrackenRidge, Grocery
+A segment in the Money tab (alongside Expenses, BrackenRidge, Grocery
 List, Recipes, My To-dos): upload a bank statement, have the app parse it
 into individual transactions, auto-categorize what it confidently can, and
-surface anything it's unsure about for a partner to assign a category to
+surface anything it's unsure about for you to assign a category to
 by hand — plus a per-statement spending breakdown and a trend comparison
 against the previous statement, in the spirit of apps like Buddy.
+
+## Private per-user, not shared — like My To-dos
+
+Unlike every other Money tab segment, statements and their transactions
+are **private to the uploader**: each partner only ever sees their own
+uploaded statements, never their partner's — added in migration
+`0038_bank_statements_private.sql`, which converts the original
+household-shared design (`0037_bank_statements.sql`) to the same
+owner-only RLS shape `personal_todos` already uses (see
+[`20-feature-personal-todos.md`](20-feature-personal-todos.md)). In
+practice this means each person's "My Statements" tab shows only their
+own section — there's no single shared list either partner can see both
+halves of, so "two sections, Calum and Natasha" exists at the
+whole-household level (each of them has their own), not as something
+either person sees both of at once.
+
+`bank_statements` already had an `uploaded_by` column (added for
+attribution in `0037_bank_statements.sql`, never used for access control
+until now); `bank_transactions` has no user column of its own, so
+ownership is checked via its statement's `uploaded_by` with an `exists`
+subquery. Both policies still also require `is_household_member
+(household_id)` in their `with check`, same as `personal_todos` — purely
+so a `household_id`/`statement_id` can't be forged to point at a
+household the user isn't actually in; the real privacy boundary is the
+ownership check. Both tables were also dropped from the
+`supabase_realtime` publication (private-per-user data has no partner to
+sync live to).
+
+**One nuance worth knowing**: only the parsed *data* (the `bank_statements`/
+`bank_transactions` rows) is private. The uploaded statement *file* itself
+still lands in the one shared household Google Drive folder (see below for
+why), so a partner who opens that shared folder directly in Drive could
+still see a `[Bank Statement] ...` filename and open it — the app's own UI
+just never shows their parsed transactions. There's no way to give each
+partner a private Drive subfolder under the `drive.file` OAuth scope this
+app uses (see the next section), so this is an accepted, documented gap
+rather than a bug.
 
 ## Why this is NOT a new "Bank Statements (current year)" Drive subfolder
 
@@ -24,9 +61,11 @@ So statements go into the same one shared root folder Documents and
 backups already use, renamed to their period and prefixed
 `[Bank Statement]` (same filename-prefix-for-sorting convention as
 Documents' `[Warranty]`/`[Receipt]` prefixes) — e.g. `[Bank Statement]
-October 2025.pdf`. The Statement overview tab has an "Open the shared
+October 2025.pdf`. The My Statements tab has an "Open the shared
 Drive folder" link rather than a dedicated one; anyone browsing the
-folder directly in Drive still sees statements cluster together by name.
+folder directly in Drive still sees statements cluster together by name
+(including a partner's — see "Private per-user, not shared" above for
+why that's a known, accepted gap).
 
 ## One upload, one or more periods — detected, never asked
 
@@ -223,12 +262,14 @@ New tables (migration `0037_bank_statements.sql`):
   signed amount, `category` (nullable), `status`
   (`'unknown'`/`'categorized'`), `categorized_by`.
 
-Both are household-scoped with the same RLS policy shape as every other
-shared table (`is_household_member(household_id)`), and both are added
-to the `supabase_realtime` publication — a partner categorizing a
-transaction or uploading a new statement shows up live on the other
-phone, same as the rest of the Money tab
-([`24-live-sync-and-nudges.md`](24-live-sync-and-nudges.md)).
+Both are scoped to `household_id`, but — unlike every other table in this
+list — gated by **owner-only** RLS (`uploaded_by = auth.uid()`, see
+"Private per-user, not shared" above), not
+`is_household_member(household_id)`. Neither is in the
+`supabase_realtime` publication: private-per-user data has no partner to
+sync live to, same as `personal_todos`
+([`24-live-sync-and-nudges.md`](24-live-sync-and-nudges.md) covers only
+the shared tables).
 
 Deleting a statement deletes its Drive file (best-effort, same tolerance
 as `removeDocument()` in `documents.js`) **only if no other period row

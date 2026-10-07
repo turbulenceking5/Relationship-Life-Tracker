@@ -8,6 +8,31 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-07 — Statement overview is now private, renamed "My Statements"
+
+- **Statements are now private per-user, not shared across the
+  household**: converted `bank_statements`/`bank_transactions` from
+  `is_household_member(household_id)` RLS to owner-only
+  (`uploaded_by = auth.uid()`, via the owning statement for
+  `bank_transactions`), the same shape `personal_todos` already uses —
+  migration `0038_bank_statements_private.sql`. Each partner now only
+  ever sees their own uploaded statements and parsed transactions; there
+  is no shared list either partner sees both halves of. Both tables were
+  also dropped from the `supabase_realtime` publication (private
+  per-user data has no partner to sync live to).
+- **Renamed "Statement overview" to "My Statements"** in the Money tab's
+  sub-nav (`app/js/money.js`), matching the "My To-dos" naming
+  convention for the other private-per-user segment.
+- **Known, accepted gap**: the uploaded statement *file* itself still
+  lands in the one shared household Google Drive folder (unchanged —
+  the narrow `drive.file` OAuth scope this app uses rules out a private
+  per-partner subfolder, same constraint already documented for
+  Documents), so it's technically visible to a partner who browses that
+  folder directly in Drive, even though the app's own UI never shows
+  their parsed transactions.
+- See [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md)
+  → "Private per-user, not shared — like My To-dos".
+
 ## 2026-10-07 — Bulk category assignment on statement transactions
 
 - **No more per-transaction Save, no more collapsed sections**: picking
