@@ -28,18 +28,25 @@ October 2025.pdf`. The Statement overview tab has an "Open the shared
 Drive folder" link rather than a dedicated one; anyone browsing the
 folder directly in Drive still sees statements cluster together by name.
 
-## Rename-to-period
+## Rename-to-period: detected, not asked
 
 "Rename the file to the listed months and year" is implemented as: on
 choosing a file, the app immediately parses it client-side and guesses
 the statement's period from whichever calendar month most of its parsed
 transactions fall in (a statement period often spans a day or two into
-the next month). That guess pre-fills a month/year picker the user can
-correct before upload — same "smart default, still editable" pattern as
-the add-expense form's remembered last category
-([`04-feature-expenses.md`](04-feature-expenses.md)). The Drive filename
-and the in-app statement label both come from that confirmed month/year,
-not the original filename.
+the next month), via `guessPeriod()`. The upload sheet originally
+pre-filled an editable month/year picker for the uploader to check
+before every single upload — that's exactly the friction a one-tap
+upload shouldn't have, so it's gone: `detectedPeriod` is computed
+silently and used as-is, with the status line underneath the file
+picker simply reporting what was detected ("Found 42 transactions for
+March 2026") rather than asking for confirmation. A file with no
+extractable transactions (a scanned PDF, say) falls back to the current
+calendar month rather than leaving the period undefined. The Drive
+filename and the in-app statement label both come from that detected
+month/year, not the original filename. There's no edit-period action
+after the fact — if the heuristic gets it wrong, delete the statement
+(cascades its transactions) and re-upload.
 
 ## Parsing: CSV is reliable, PDF is best-effort
 

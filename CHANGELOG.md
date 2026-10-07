@@ -39,6 +39,18 @@ one has to stay short enough to read on a phone).
   per-partner-access fork-into-duplicates problem already documented for
   Documents' category folders. See
   [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md).
+- **Period detected, not asked**: the upload sheet originally pre-filled
+  an editable "Statement month"/"Year" pair for the uploader to check on
+  every single upload — removed. `guessPeriod()`'s detected period
+  (whichever calendar month most of the parsed transactions fall in,
+  falling back to the current month when nothing parsed) is now used
+  silently; the status line under the file picker reports what was
+  detected ("Found 4 transactions for March 2026") rather than asking
+  for confirmation. There's no edit-period action afterward — a wrong
+  guess means delete the statement (cascades its transactions) and
+  re-upload. See
+  [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md)
+  → "Rename-to-period: detected, not asked".
 
 ## 2026-10-06 — Rolling retention on Drive backups
 

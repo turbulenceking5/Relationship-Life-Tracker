@@ -357,7 +357,7 @@ export const CHANGELOG_ENTRIES = [
     date: '2026-10-07',
     title: 'New "Statement overview" tab for bank statements',
     items: [
-      'Upload a bank statement (CSV or PDF) and it\'s parsed into transactions, auto-categorized where confident',
+      'Upload a bank statement (CSV or PDF) and it\'s parsed into transactions, auto-categorized where confident — the statement month is detected automatically too, nothing to pick or confirm',
       'Anything it can\'t confidently categorize lands in "Needs review" for you to assign a category to',
       'Each statement gets a spending-by-category breakdown plus a trend vs. your last statement',
       'Statements upload into your existing shared Drive folder, renamed to their month/year',

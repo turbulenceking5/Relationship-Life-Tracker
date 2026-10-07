@@ -206,7 +206,9 @@ status. Check items off as they land.
       Statements upload into the household's existing shared Drive
       folder (not a new dedicated subfolder — same `drive.file`
       per-partner-access constraint documented for Documents' category
-      folders applies here too), renamed to their period. See
+      folders applies here too), renamed to their period — detected
+      automatically from the parsed transactions, not asked for on
+      every upload. See
       [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md).
 
 ## Phase 0 — Foundations ✅ (this session)

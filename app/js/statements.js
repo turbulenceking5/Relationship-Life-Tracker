@@ -392,14 +392,18 @@ function openUploadStatementSheet(ctx, onSaved) {
   }
 
   const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
-  const now = new Date();
-  const monthSelect = h('select', {}, MONTH_NAMES.map((name, i) => h('option', { value: i + 1, selected: i + 1 === now.getMonth() + 1 }, name)));
-  const yearInput = h('input', { type: 'number', inputmode: 'numeric', value: now.getFullYear(), min: '2000', max: '2100' });
   const fileInput = h('input', { type: 'file', required: true, accept: '.csv,.pdf,text/csv,application/pdf' });
   const statusEl = h('p', { class: 'meta' }, 'Choose a CSV or PDF export from your bank.');
   const submitBtn = h('button', { class: 'btn primary', type: 'submit', disabled: true }, 'Upload statement');
 
   let parsedTransactions = [];
+  // Detected from the parsed transactions (guessPeriod() — whichever
+  // calendar month most of them fall in), not asked for: this used to be
+  // an editable "Statement month"/"Year" pair the uploader had to check
+  // on every upload, which is exactly the friction a bank statement
+  // upload shouldn't have. Still shown, just as a status line rather
+  // than something to confirm — transparent, not a prompt.
+  let detectedPeriod = guessPeriod([]);
 
   fileInput.addEventListener('change', async () => {
     const file = fileInput.files[0];
@@ -407,12 +411,11 @@ function openUploadStatementSheet(ctx, onSaved) {
     submitBtn.disabled = true;
     statusEl.textContent = 'Reading statement…';
     parsedTransactions = await parseStatementFile(file);
-    const guess = guessPeriod(parsedTransactions);
-    monthSelect.value = guess.month;
-    yearInput.value = guess.year;
+    detectedPeriod = guessPeriod(parsedTransactions);
+    const periodLabel = statementLabel(detectedPeriod.month, detectedPeriod.year);
     statusEl.textContent = parsedTransactions.length
-      ? `Found ${parsedTransactions.length} transaction${parsedTransactions.length === 1 ? '' : 's'} — check the guessed month/year below, then upload.`
-      : 'Couldn’t automatically read any transactions from this file (common for scanned PDFs) — it’ll still upload, and you can add transactions by hand afterwards.';
+      ? `Found ${parsedTransactions.length} transaction${parsedTransactions.length === 1 ? '' : 's'} for ${periodLabel}.`
+      : `Couldn’t automatically read any transactions from this file (common for scanned PDFs) — filing it under ${periodLabel}. It’ll still upload, and you can add transactions by hand afterwards.`;
     submitBtn.disabled = false;
   });
 
@@ -424,8 +427,7 @@ function openUploadStatementSheet(ctx, onSaved) {
       if (!file) return;
       const restore = withBusyLabel(submitBtn, 'Uploading…');
       try {
-        const month = Number(monthSelect.value);
-        const year = Number(yearInput.value);
+        const { month, year } = detectedPeriod;
         const label = statementLabel(month, year);
         const ext = file.name.includes('.') ? file.name.slice(file.name.lastIndexOf('.')) : '';
         const uploaded = await uploadFileToDrive(ctx, file, `${DRIVE_PREFIX} ${label}${ext}`);
@@ -466,10 +468,6 @@ function openUploadStatementSheet(ctx, onSaved) {
   }, [
     h('div', { class: 'field' }, [h('label', {}, 'File'), fileInput]),
     statusEl,
-    h('div', { class: 'field-row' }, [
-      h('div', { class: 'field' }, [h('label', {}, 'Statement month'), monthSelect]),
-      h('div', { class: 'field' }, [h('label', {}, 'Year'), yearInput]),
-    ]),
     h('p', { class: 'meta' }, 'Uploads to the household’s shared Google Drive folder, renamed to its period.'),
     errorEl,
     submitBtn,
