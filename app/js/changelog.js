@@ -407,6 +407,14 @@ export const CHANGELOG_ENTRIES = [
       'Saving also re-checks everything else still in "Needs review" against what you\'ve taught it, across every statement, so your existing backlog gets cleaned up too, not just future uploads',
     ],
   },
+  {
+    id: 44,
+    date: '2026-10-07',
+    title: 'Income category for money coming into your account',
+    items: [
+      'Added an Income category on statement transactions (salary, refunds, Centrelink, dividends, etc. auto-detect) — expenses still only cover money going out, so this one\'s just for statements',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

@@ -8,6 +8,35 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-07 — Income category for money coming into your account
+
+- **Added `income`** as a category option on bank statement
+  transactions — but deliberately *not* to `expenses.js`'s shared
+  `CATEGORIES` list: a logged expense is always an outflow, so "Income"
+  would be a nonsensical option on the Add Expense form. New
+  `STATEMENT_CATEGORIES` constant in `app/js/statements.js`
+  (`[...CATEGORIES, 'income']`) is what the statement-side category
+  pickers and keyword matcher use instead; `expenses.js`'s own
+  `CATEGORIES` is untouched.
+- **New `income` keywords** in `CATEGORY_KEYWORDS`: `salary`, `payroll`,
+  `wages`, `centrelink`, `refund`, `reimbursement`, `cashback`,
+  `dividend`, `interest credit`. Checked in the same single ordered
+  pass as every other category.
+- **Known collision, specific to this household**: the existing `rent`
+  category's `rental` keyword (for paying rent/agent fees) matches
+  *before* `income` is checked, so an incoming rent deposit from the
+  BrackenRidge property's managing agent — any description containing
+  "rental" — currently auto-categorizes as `rent` instead of `income`,
+  silently (it's a confident auto-match, so it never surfaces in "Needs
+  review"). Correcting it by hand also teaches the app that merchant via
+  the category-learning feature above. Left as a known gap rather than
+  guessed at further without real statement text to tune against — see
+  [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md)
+  → "Auto-categorization and 'Needs review'".
+- Income transactions never appear in the spend category-breakdown chart
+  or the "Compared to last statement" trend (both already filter to
+  `amount < 0`), so no chart/color changes were needed for this.
+
 ## 2026-10-07 — Statement categorization now learns from your picks
 
 - **New `bank_transaction_category_rules` table** (migration

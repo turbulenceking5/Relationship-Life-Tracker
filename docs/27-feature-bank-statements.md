@@ -184,14 +184,35 @@ code alone.
 ## Auto-categorization and "Needs review"
 
 `guessCategory()` matches a transaction's description against a plain
-keyword map (`CATEGORY_KEYWORDS`) onto the **same `CATEGORIES` list
-expenses use** (`groceries`/`bills`/`rent`/`transport`/`household`/
-`leisure`/`other`/`food`/`pet`/`online shopping`), exported from
-`app/js/expenses.js` specifically so this doesn't fork into a second,
-slightly-different taxonomy to keep in
-sync by hand. Deliberately not a learned/ML classifier — a short,
-readable keyword list that's easy to extend as real statements turn up
-merchants it misses.
+keyword map (`CATEGORY_KEYWORDS`) onto `STATEMENT_CATEGORIES` — the
+**same `CATEGORIES` list expenses use** (`groceries`/`bills`/`rent`/
+`transport`/`household`/`leisure`/`other`/`food`/`pet`/`online
+shopping`), exported from `app/js/expenses.js` specifically so this
+doesn't fork into a second, slightly-different taxonomy to keep in sync
+by hand, **plus one extra: `income`**. `income` only exists in
+`statements.js`'s own `STATEMENT_CATEGORIES` (`[...CATEGORIES,
+'income']`), not in `expenses.js`'s `CATEGORIES` itself — a logged
+expense is always an outflow, so "Income" would be a nonsensical option
+on the Add Expense form; a bank transaction can be either direction,
+so it gets the one category the other feature doesn't need. Deliberately
+not a learned/ML classifier — a short, readable keyword list that's
+easy to extend as real statements turn up merchants it misses.
+
+`income` keywords (`salary`, `payroll`, `centrelink`, `refund`,
+`reimbursement`, `cashback`, `dividend`, `interest credit`, …) are
+checked in the same single ordered pass as every other category, which
+creates one known collision worth knowing about for **this specific
+household**: `rent`'s existing `rental` keyword (meant for paying your
+own rent/agent fees) matches *before* `income` is ever checked, so an
+incoming rent deposit from the BrackenRidge property's managing agent —
+anything with "rental" in its description — auto-categorizes as `rent`
+(an expense-flavored category) rather than `income`, with no "Needs
+review" prompt at all, since it was confidently auto-matched. Nothing
+stops you correcting it by hand afterwards (which also teaches the app
+that merchant via "Learning from your picks" below), but the first time
+it happens it'll be silent, not flagged — worth a glance at a new
+statement's "All categorized transactions" list, not just "Needs
+review," until real statement text shows what to tighten here.
 
 Dining/takeaway keywords (restaurants, cafes, Uber Eats/Menulog/
 DoorDash/Deliveroo, fast food chains) moved from `leisure` into the new

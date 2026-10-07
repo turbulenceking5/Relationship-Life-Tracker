@@ -395,7 +395,7 @@ One row per parsed (or manually added) transaction within a statement.
 | `txn_date` | date | nullable |
 | `description` | text | required |
 | `amount` | numeric | signed — negative = money out |
-| `category` | text | nullable until categorized |
+| `category` | text | nullable until categorized; one of `STATEMENT_CATEGORIES` in `app/js/statements.js` — `CATEGORIES` plus `income`, since a bank transaction (unlike a logged expense) can be money in as well as out |
 | `status` | text | `'unknown'` \| `'categorized'` |
 | `categorized_by` | uuid → auth.users | nullable |
 | `created_at` | timestamptz | |

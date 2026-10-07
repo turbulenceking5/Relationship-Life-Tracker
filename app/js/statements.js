@@ -21,6 +21,15 @@ const TRANSACTIONS_TABLE = 'bank_transactions';
 const RULES_TABLE = 'bank_transaction_category_rules';
 const DRIVE_PREFIX = '[Bank Statement]';
 
+// A bank transaction can be money IN as well as money out, unlike a
+// logged expense (always an outflow) — 'income' extends the shared
+// expense CATEGORIES with one extra category that only makes sense
+// here, so it never shows up as a nonsensical option on the Add Expense
+// form itself. Everything below that offers a category picker or
+// matches keywords for statement transactions uses this list, not the
+// bare CATEGORIES import, for exactly that reason.
+const STATEMENT_CATEGORIES = [...CATEGORIES, 'income'];
+
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 function statementLabel(month, year) {
@@ -51,6 +60,11 @@ const CATEGORY_KEYWORDS = {
   food: ['restaurant', 'cafe', 'bar ', 'pub ', 'uber eats', 'menulog', 'doordash', 'deliveroo', 'mcdonald', 'kfc', 'subway', 'domino\'s', 'hungry jack', 'guzman', 'grill\'d', 'bakery'],
   pet: ['petbarn', 'pet circle', 'petstock', 'vet ', 'veterinary', 'vetwest', 'greencross'],
   'online shopping': ['amazon', 'ebay', 'aliexpress', 'shein', 'temu', 'asos', 'the iconic', 'etsy', 'catch.com'],
+  // Money coming in, not out — deliberately specific phrases rather
+  // than a bare 'interest' or 'rent' (which would collide with the
+  // existing 'rent' category's 'rental' keyword above, wrongly filing
+  // rental income from the BrackenRidge property as a rent *expense*).
+  income: ['salary', 'payroll', 'wages', 'centrelink', 'refund', 'reimbursement', 'cashback', 'dividend', 'interest credit'],
 };
 
 // `rules` is a Map of merchant_key -> category, built from this user's
@@ -60,7 +74,7 @@ const CATEGORY_KEYWORDS = {
 // category the static list already gets right.
 function guessCategory(description, rules) {
   const d = description.toLowerCase();
-  for (const cat of CATEGORIES) {
+  for (const cat of STATEMENT_CATEGORIES) {
     const words = CATEGORY_KEYWORDS[cat];
     if (words && words.some((w) => d.includes(w))) return cat;
   }
@@ -628,7 +642,7 @@ function openAddTransactionSheet(ctx, statement, onSaved) {
   const amountInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', required: true, placeholder: 'e.g. -45.00 (negative = money out)' });
   const descInput = h('input', { type: 'text', required: true, placeholder: 'e.g. Woolworths' });
   const dateInput = h('input', { type: 'date', value: todayStr() });
-  const categorySelect = h('select', {}, [h('option', { value: '' }, 'Unknown — categorize later'), ...CATEGORIES.map((c) => h('option', { value: c }, categoryLabel(c)))]);
+  const categorySelect = h('select', {}, [h('option', { value: '' }, 'Unknown — categorize later'), ...STATEMENT_CATEGORIES.map((c) => h('option', { value: c }, categoryLabel(c)))]);
   const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Add transaction');
 
   const form = h('form', {
@@ -692,7 +706,7 @@ function transactionRow(ctx, txn, currency, pendingChanges, onDirtyChange) {
       else pendingChanges.set(txn.id, val);
       onDirtyChange();
     },
-  }, [h('option', { value: '' }, 'Unknown'), ...CATEGORIES.map((c) => h('option', { value: c, selected: c === txn.category }, categoryLabel(c)))]);
+  }, [h('option', { value: '' }, 'Unknown'), ...STATEMENT_CATEGORIES.map((c) => h('option', { value: c, selected: c === txn.category }, categoryLabel(c)))]);
 
   return h('div', { class: 'card' }, [
     h('div', { class: 'card-row' }, [
