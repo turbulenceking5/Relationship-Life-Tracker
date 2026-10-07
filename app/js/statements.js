@@ -284,24 +284,35 @@ async function parseStatementFile(file) {
   return [];
 }
 
-// Guesses the statement's period from whichever month the most parsed
-// transactions fall in (statements often span a day or two into the
-// next calendar month) — falls back to the current month/year when
-// nothing parsed, so the picker always has a sane starting point for
-// the user to confirm or correct.
-function guessPeriod(transactions) {
+// Splits parsed transactions into one group per calendar month they
+// actually fall in, sorted chronologically — a single uploaded
+// statement file can cover more than one month (a billing-cycle export
+// running e.g. the 15th to the 15th, or a multi-month history dump), so
+// forcing the whole upload under one guessed month would file the
+// transactions from the "wrong" end of that range under an inaccurate
+// label. Each group becomes its own bank_statements row (see
+// openUploadStatementSheet() below) — multiple rows can share the same
+// underlying Drive file when they came from the same upload. Falls back
+// to a single empty current-month group when nothing parsed (a scanned
+// PDF, say), so there's always at least one row for the uploaded file
+// to attach to.
+function splitIntoPeriods(transactions) {
   if (!transactions.length) {
     const d = new Date();
-    return { month: d.getMonth() + 1, year: d.getFullYear() };
+    return [{ month: d.getMonth() + 1, year: d.getFullYear(), transactions: [] }];
   }
-  const counts = new Map();
+  const groups = new Map();
   for (const t of transactions) {
     const key = t.txn_date.slice(0, 7);
-    counts.set(key, (counts.get(key) || 0) + 1);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(t);
   }
-  const [best] = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-  const [y, m] = best[0].split('-');
-  return { month: Number(m), year: Number(y) };
+  return [...groups.entries()]
+    .map(([key, txns]) => {
+      const [y, m] = key.split('-');
+      return { month: Number(m), year: Number(y), transactions: txns };
+    })
+    .sort((a, b) => (a.year - b.year) || (a.month - b.month));
 }
 
 // ---- Report: category breakdown + trend vs the previous statement ------
@@ -396,26 +407,33 @@ function openUploadStatementSheet(ctx, onSaved) {
   const statusEl = h('p', { class: 'meta' }, 'Choose a CSV or PDF export from your bank.');
   const submitBtn = h('button', { class: 'btn primary', type: 'submit', disabled: true }, 'Upload statement');
 
-  let parsedTransactions = [];
-  // Detected from the parsed transactions (guessPeriod() — whichever
-  // calendar month most of them fall in), not asked for: this used to be
-  // an editable "Statement month"/"Year" pair the uploader had to check
-  // on every upload, which is exactly the friction a bank statement
-  // upload shouldn't have. Still shown, just as a status line rather
-  // than something to confirm — transparent, not a prompt.
-  let detectedPeriod = guessPeriod([]);
+  // One group per calendar month actually represented in the file
+  // (splitIntoPeriods()), not asked for: this used to be a single
+  // editable "Statement month"/"Year" pair the uploader had to check on
+  // every upload, which both added friction and was simply wrong for a
+  // statement spanning more than one month (a billing-cycle export, a
+  // multi-month history dump) — forcing everything under one guessed
+  // label would file some transactions under the wrong month. Still
+  // shown, just as a status line rather than something to confirm.
+  let periods = splitIntoPeriods([]);
 
   fileInput.addEventListener('change', async () => {
     const file = fileInput.files[0];
     if (!file) return;
     submitBtn.disabled = true;
     statusEl.textContent = 'Reading statement…';
-    parsedTransactions = await parseStatementFile(file);
-    detectedPeriod = guessPeriod(parsedTransactions);
-    const periodLabel = statementLabel(detectedPeriod.month, detectedPeriod.year);
-    statusEl.textContent = parsedTransactions.length
-      ? `Found ${parsedTransactions.length} transaction${parsedTransactions.length === 1 ? '' : 's'} for ${periodLabel}.`
-      : `Couldn’t automatically read any transactions from this file (common for scanned PDFs) — filing it under ${periodLabel}. It’ll still upload, and you can add transactions by hand afterwards.`;
+    const parsedTransactions = await parseStatementFile(file);
+    periods = splitIntoPeriods(parsedTransactions);
+    if (!parsedTransactions.length) {
+      const only = statementLabel(periods[0].month, periods[0].year);
+      statusEl.textContent = `Couldn’t automatically read any transactions from this file (common for scanned PDFs) — filing it under ${only}. It’ll still upload, and you can add transactions by hand afterwards.`;
+    } else if (periods.length === 1) {
+      const only = statementLabel(periods[0].month, periods[0].year);
+      statusEl.textContent = `Found ${parsedTransactions.length} transaction${parsedTransactions.length === 1 ? '' : 's'} for ${only}.`;
+    } else {
+      const breakdown = periods.map((p) => `${statementLabel(p.month, p.year)} (${p.transactions.length})`).join(', ');
+      statusEl.textContent = `Found ${parsedTransactions.length} transactions across ${periods.length} periods: ${breakdown}.`;
+    }
     submitBtn.disabled = false;
   });
 
@@ -427,36 +445,44 @@ function openUploadStatementSheet(ctx, onSaved) {
       if (!file) return;
       const restore = withBusyLabel(submitBtn, 'Uploading…');
       try {
-        const { month, year } = detectedPeriod;
-        const label = statementLabel(month, year);
         const ext = file.name.includes('.') ? file.name.slice(file.name.lastIndexOf('.')) : '';
-        const uploaded = await uploadFileToDrive(ctx, file, `${DRIVE_PREFIX} ${label}${ext}`);
-        const statement = await insertRow(STATEMENTS_TABLE, {
-          household_id: ctx.household.id,
-          period_month: month,
-          period_year: year,
-          label,
-          original_filename: file.name,
-          drive_file_id: uploaded.id,
-          drive_web_view_link: uploaded.webViewLink,
-          file_name: `${DRIVE_PREFIX} ${label}${ext}`,
-          mime_type: file.type,
-          uploaded_by: ctx.user.id,
-        });
-        if (parsedTransactions.length) {
-          await insertRows(TRANSACTIONS_TABLE, parsedTransactions.map((t) => {
-            const category = guessCategory(t.description);
-            return {
-              household_id: ctx.household.id,
-              statement_id: statement.id,
-              txn_date: t.txn_date,
-              description: t.description,
-              amount: t.amount,
-              category,
-              status: category ? 'categorized' : 'unknown',
-            };
-          }));
-        }
+        // One uploaded file can produce several bank_statements rows
+        // (one per represented month) that all point at this same Drive
+        // file — its name reflects the full span, not just one of them.
+        const driveLabel = periods.length === 1
+          ? statementLabel(periods[0].month, periods[0].year)
+          : `${statementLabel(periods[0].month, periods[0].year)} – ${statementLabel(periods[periods.length - 1].month, periods[periods.length - 1].year)}`;
+        const fileName = `${DRIVE_PREFIX} ${driveLabel}${ext}`;
+        const uploaded = await uploadFileToDrive(ctx, file, fileName);
+        await Promise.all(periods.map(async (period) => {
+          const label = statementLabel(period.month, period.year);
+          const statement = await insertRow(STATEMENTS_TABLE, {
+            household_id: ctx.household.id,
+            period_month: period.month,
+            period_year: period.year,
+            label,
+            original_filename: file.name,
+            drive_file_id: uploaded.id,
+            drive_web_view_link: uploaded.webViewLink,
+            file_name: fileName,
+            mime_type: file.type,
+            uploaded_by: ctx.user.id,
+          });
+          if (period.transactions.length) {
+            await insertRows(TRANSACTIONS_TABLE, period.transactions.map((t) => {
+              const category = guessCategory(t.description);
+              return {
+                household_id: ctx.household.id,
+                statement_id: statement.id,
+                txn_date: t.txn_date,
+                description: t.description,
+                amount: t.amount,
+                category,
+                status: category ? 'categorized' : 'unknown',
+              };
+            }));
+          }
+        }));
         closeSheet(dialog);
         onSaved();
       } catch (err) {
@@ -564,7 +590,7 @@ function transactionRow(ctx, txn, currency, onSaved) {
 
 // ---- One statement's collapsible section --------------------------------
 
-function statementSection(ctx, statement, transactions, previousTransactions, currency, open, onSaved) {
+function statementSection(ctx, statement, allStatements, transactions, previousTransactions, currency, open, onSaved) {
   const spent = transactions.filter((t) => Number(t.amount) < 0).reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
   const received = transactions.filter((t) => Number(t.amount) > 0).reduce((s, t) => s + Number(t.amount), 0);
   const unknown = transactions.filter((t) => t.status === 'unknown');
@@ -579,7 +605,12 @@ function statementSection(ctx, statement, transactions, previousTransactions, cu
         type: 'button',
         onclick: async () => {
           if (!confirm('Delete this statement and all its transactions? This can’t be undone.')) return;
-          await deleteDriveFile(statement.drive_file_id).catch(() => {});
+          // A multi-month upload (splitIntoPeriods()) produces several
+          // statement rows sharing one Drive file — only delete that
+          // file once nothing else still points at it, or every sibling
+          // period's "Open file in Drive" link breaks.
+          const sharedByOthers = allStatements.some((s) => s.id !== statement.id && s.drive_file_id === statement.drive_file_id);
+          if (!sharedByOthers) await deleteDriveFile(statement.drive_file_id).catch(() => {});
           await deleteRow(STATEMENTS_TABLE, statement.id);
           onSaved();
         },
@@ -652,6 +683,7 @@ export async function render(container, ctx) {
     return statementSection(
       ctx,
       statement,
+      sorted,
       txnsByStatement(statement.id),
       previous ? txnsByStatement(previous.id) : null,
       currency,

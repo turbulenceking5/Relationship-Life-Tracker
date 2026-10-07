@@ -208,7 +208,10 @@ status. Check items off as they land.
       per-partner-access constraint documented for Documents' category
       folders applies here too), renamed to their period — detected
       automatically from the parsed transactions, not asked for on
-      every upload. See
+      every upload, and split into one row per represented month when a
+      single statement spans more than one (a billing-cycle export, a
+      multi-month history dump), all sharing the one uploaded Drive
+      file. See
       [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md).
 
 ## Phase 0 — Foundations ✅ (this session)

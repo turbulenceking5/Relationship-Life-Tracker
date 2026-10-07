@@ -39,18 +39,30 @@ one has to stay short enough to read on a phone).
   per-partner-access fork-into-duplicates problem already documented for
   Documents' category folders. See
   [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md).
-- **Period detected, not asked**: the upload sheet originally pre-filled
-  an editable "Statement month"/"Year" pair for the uploader to check on
-  every single upload — removed. `guessPeriod()`'s detected period
-  (whichever calendar month most of the parsed transactions fall in,
-  falling back to the current month when nothing parsed) is now used
-  silently; the status line under the file picker reports what was
-  detected ("Found 4 transactions for March 2026") rather than asking
-  for confirmation. There's no edit-period action afterward — a wrong
-  guess means delete the statement (cascades its transactions) and
-  re-upload. See
+- **Period(s) detected, not asked, and split correctly across months**:
+  the upload sheet originally pre-filled an editable "Statement
+  month"/"Year" pair for the uploader to check on every single upload —
+  removed. Worse, it also forced the *whole* upload under one guessed
+  month, which is wrong for a statement that spans more than one
+  calendar month (a billing-cycle export, a multi-month history dump).
+  `splitIntoPeriods()` now groups the parsed transactions by the
+  calendar month each one's own date actually falls in, and the upload
+  creates one `bank_statements` row **per represented month**, not one
+  row per upload — all sharing the same underlying Drive file (one
+  file, uploaded once; its name reflects the full span, e.g.
+  `"[Bank Statement] February 2026 – April 2026.pdf"`), each with its
+  own exact month as its label for reporting/trend purposes. The status
+  line under the file picker reports what was detected — one period
+  ("Found 4 transactions for March 2026") or several ("Found 87
+  transactions across 2 periods: October 2026 (52), November 2026
+  (35)") — rather than asking for confirmation. Deleting one period
+  from a multi-period upload only deletes that period's row; the
+  shared Drive file is only removed once no other period still
+  references it. There's no edit-period action afterward — a wrong
+  guess means correcting it by hand or deleting that period and
+  re-uploading. See
   [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md)
-  → "Rename-to-period: detected, not asked".
+  → "One upload, one or more periods — detected, never asked".
 
 ## 2026-10-06 — Rolling retention on Drive backups
 

@@ -28,25 +28,48 @@ October 2025.pdf`. The Statement overview tab has an "Open the shared
 Drive folder" link rather than a dedicated one; anyone browsing the
 folder directly in Drive still sees statements cluster together by name.
 
-## Rename-to-period: detected, not asked
+## One upload, one or more periods — detected, never asked
 
-"Rename the file to the listed months and year" is implemented as: on
-choosing a file, the app immediately parses it client-side and guesses
-the statement's period from whichever calendar month most of its parsed
-transactions fall in (a statement period often spans a day or two into
-the next month), via `guessPeriod()`. The upload sheet originally
-pre-filled an editable month/year picker for the uploader to check
-before every single upload — that's exactly the friction a one-tap
-upload shouldn't have, so it's gone: `detectedPeriod` is computed
-silently and used as-is, with the status line underneath the file
-picker simply reporting what was detected ("Found 42 transactions for
-March 2026") rather than asking for confirmation. A file with no
-extractable transactions (a scanned PDF, say) falls back to the current
-calendar month rather than leaving the period undefined. The Drive
-filename and the in-app statement label both come from that detected
-month/year, not the original filename. There's no edit-period action
-after the fact — if the heuristic gets it wrong, delete the statement
-(cascades its transactions) and re-upload.
+The upload sheet originally pre-filled an editable month/year picker
+for the uploader to check before every single upload — that's exactly
+the friction a one-tap upload shouldn't have, so it's gone entirely.
+Worse, forcing a *single* guessed month onto the whole upload was
+simply wrong for a statement that spans more than one calendar month —
+a billing-cycle export running e.g. the 15th to the 15th, or a
+multi-month history dump both produce transactions on both sides of a
+month boundary, and whichever side lost the "most transactions" vote
+would get filed under the wrong month entirely.
+
+So instead, `splitIntoPeriods()` (`app/js/statements.js`) groups the
+parsed transactions by the calendar month each one's own date actually
+falls in, and the upload creates **one `bank_statements` row per
+represented month**, not one row per upload. All of them share the
+*same* underlying Drive file (one file, uploaded once) — its name
+reflects the full span (`"[Bank Statement] February 2026 – April
+2026.pdf"` for a 3-month statement), while each row's own `label` is
+its single exact month (`"March 2026"`), since that's what the
+per-period spending report and "Compared to last statement" trend
+actually group and compare by. A single-month upload is just the
+one-row case of the same logic, so there's no special-casing it.
+
+The status line underneath the file picker reports what was detected —
+`"Found 42 transactions for March 2026"` for one period, or `"Found 87
+transactions across 2 periods: October 2026 (52), November 2026
+(35)"`— rather than asking for confirmation. A file with no extractable
+transactions (a scanned PDF, say) falls back to a single row for the
+current calendar month rather than leaving the period undefined.
+
+There's no edit-period action after the fact — if the heuristic gets a
+transaction's date wrong (mis-parsed by `parseCsvStatement()`/
+`parsePdfTransactions()`), the fix is "+ Add transaction" on the
+correct period's card plus deleting the wrong one by hand, or deleting
+and re-uploading if it's more than a one-off. Deleting one period
+belonging to a multi-period upload only deletes that period's row (and
+its own transactions) — the shared Drive file is only actually removed
+once no other period row still points at it (checked in
+`statementSection()`'s delete handler), so deleting one month out of a
+multi-month statement doesn't dangle every other month's "Open file in
+Drive" link.
 
 ## Parsing: CSV is reliable, PDF is best-effort
 
@@ -114,9 +137,11 @@ Each statement's card shows:
 ## Data
 
 New tables (migration `0037_bank_statements.sql`):
-- `bank_statements` — one row per upload: period month/year, label,
-  original + Drive filename, `drive_file_id`/`drive_web_view_link`,
-  who uploaded it.
+- `bank_statements` — one row per represented **period**, not per
+  upload (see "One upload, one or more periods" above — a multi-month
+  upload produces several rows sharing one Drive file): period
+  month/year, label, original + Drive filename, `drive_file_id`/
+  `drive_web_view_link`, who uploaded it.
 - `bank_transactions` — one row per parsed (or manually added)
   transaction: `statement_id` (cascades on delete), date, description,
   signed amount, `category` (nullable), `status`
@@ -130,9 +155,12 @@ phone, same as the rest of the Money tab
 ([`24-live-sync-and-nudges.md`](24-live-sync-and-nudges.md)).
 
 Deleting a statement deletes its Drive file (best-effort, same tolerance
-as `removeDocument()` in `documents.js`) and the `bank_statements` row;
-its transactions cascade via the real FK (unlike the polymorphic
-`item_comments` table, no manual delete-children step is needed here).
+as `removeDocument()` in `documents.js`) **only if no other period row
+from the same upload still references that `drive_file_id`** — see
+"One upload, one or more periods" above — and always deletes the
+`bank_statements` row itself; its transactions cascade via the real FK
+(unlike the polymorphic `item_comments` table, no manual delete-children
+step is needed here).
 
 ## Not done (possible follow-ups)
 
