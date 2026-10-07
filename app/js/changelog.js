@@ -372,6 +372,14 @@ export const CHANGELOG_ENTRIES = [
       'Fixed the actual transaction amount sometimes being swapped for the running balance shown next to it on bank statements that list one',
     ],
   },
+  {
+    id: 40,
+    date: '2026-10-07',
+    title: 'Bulk category assignment on statement transactions',
+    items: [
+      'Categorizing a transaction on a statement no longer closes the whole month — pick categories for as many transactions as you like, then hit one "Save changes" button to save them all at once',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

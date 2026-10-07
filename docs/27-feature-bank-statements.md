@@ -155,11 +155,42 @@ merchants it misses.
 
 Anything that doesn't match a keyword gets `status = 'unknown'` and
 shows up in a "Needs review" section (open by default whenever it's
-non-empty) with an inline category picker + Save per transaction —
-picking a category sets `status = 'categorized'` and `categorized_by`.
-Already-categorized transactions sit in a collapsed "All categorized
-transactions" section below, using the same row/picker so a wrong guess
-can be corrected just as easily as an unknown one assigned.
+non-empty) with an inline category picker per transaction. Picking a
+category doesn't save it immediately — there's no per-row Save button
+at all. Instead, every pick in a statement (across both "Needs review"
+and the collapsed "All categorized transactions" section below it, same
+row/picker so a wrong guess is corrected the same way) is recorded in
+that statement's own `pendingChanges` map (`statementSection()` in
+`app/js/statements.js`), and one **"Save changes (N)"** button in the
+statement's own actions row commits all of them in a single batch —
+re-picking back to a transaction's original category removes it from
+the pending set rather than queuing a no-op write. This replaced an
+earlier one-Save-per-transaction design for two reasons at once:
+categorizing several transactions used to mean clicking Save, and
+sitting through a tab re-render, once per transaction; and that re-render
+(`render()` always rebuilds the whole tab, see below) used to collapse
+the very statement section you were working in back to closed every
+single time, since nothing preserved which sections had been manually
+opened.
+
+### Open sections survive a save — matched by key, not title
+
+`render()` rebuilds the whole tab from scratch on every save (same
+"re-fetch and redraw" pattern as every other feature module, see
+[`14-ui-patterns.md`](14-ui-patterns.md)), which would otherwise reset
+every `<details>` — the statement itself, "Needs review", "All
+categorized transactions" — back to its default open/closed state and
+jump scroll to the top, on every single "Save changes" click. Fixed the
+same way `app.js`'s own Realtime refresh guard already does for the
+main app shell: capture which `<details>` are open before rebuilding,
+reopen the matching ones after. The one difference from `app.js`'s
+version: that one matches by summary *text*, which works there because
+an event or goal's title doesn't change between renders — it would
+silently fail here, since "Needs review (N)" and "All categorized
+transactions (N)"'s own counts change on exactly the save this needs to
+survive. So each `<details>` instead carries a stable `data-key`
+(`stmt:<id>`, `needs:<id>`, `cat:<id>`) that `render()` matches against
+instead of relying on text at all.
 
 ## Report: category breakdown + trend vs. the previous statement
 

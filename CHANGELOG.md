@@ -8,6 +8,35 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-07 — Bulk category assignment on statement transactions
+
+- **No more per-transaction Save, no more collapsed sections**: picking
+  a category for a statement transaction used to save immediately and
+  re-render the whole Statement overview tab — which, since nothing
+  preserved `<details>` open/closed state across that rebuild, closed
+  the very statement section you were working in on every single pick.
+  `transactionRow()` (`app/js/statements.js`) no longer has a per-row
+  Save button at all; picking a category just records it in that
+  statement's own `pendingChanges` map (re-picking back to the original
+  value removes it from the map, not queuing a no-op write), and one
+  **"Save changes (N)"** button per statement commits everything
+  pending in one batch. Categorize three, ten, or every transaction in
+  a statement, then save once.
+- **Open sections now survive a save**: `render()` captures which
+  `<details>` are open before rebuilding and reopens the matching ones
+  after — same trick `app.js`'s Realtime refresh guard already uses for
+  the main app shell, except matched by a stable `data-key`
+  (`stmt:<id>`/`needs:<id>`/`cat:<id>`) rather than summary text, since
+  "Needs review (N)"/"All categorized transactions (N)"'s own counts
+  change on exactly the save this needs to survive — text-matching
+  would've silently failed for those two. Scroll position is restored
+  the same way. Verified against two statements: opening one manually,
+  saving a category inside it, and confirming it stays open while the
+  untouched one stays closed exactly as before.
+- See [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md)
+  → "Auto-categorization and 'Needs review'" and "Open sections survive
+  a save — matched by key, not title".
+
 ## 2026-10-07 — Fixed PDF statement parsing: broken library + wrong amounts
 
 Found by uploading a real statement and getting "$0.00 spent / No

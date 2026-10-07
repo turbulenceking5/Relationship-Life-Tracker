@@ -584,27 +584,27 @@ function openAddTransactionSheet(ctx, statement, onSaved) {
 }
 
 // ---- Transaction row (shared by "Needs review" and "All transactions") -
-
-function transactionRow(ctx, txn, currency, onSaved) {
-  const categorySelect = h('select', {}, [h('option', { value: '' }, 'Unknown'), ...CATEGORIES.map((c) => h('option', { value: c, selected: c === txn.category }, categoryLabel(c)))]);
-  const saveBtn = h('button', {
-    class: 'btn secondary small',
-    type: 'button',
-    onclick: async () => {
-      const restore = withBusyLabel(saveBtn, 'Saving…');
-      try {
-        await updateRow(TRANSACTIONS_TABLE, txn.id, {
-          category: categorySelect.value || null,
-          status: categorySelect.value ? 'categorized' : 'unknown',
-          categorized_by: categorySelect.value ? ctx.user.id : null,
-        });
-        onSaved();
-      } catch (err) {
-        alert(err.message);
-        restore();
-      }
+//
+// No per-row Save button — picking a category just records the change
+// in the statement-level `pendingChanges` map (keyed by txn.id) and lets
+// the statement's one "Save changes" button commit everything at once.
+// This used to save (and re-render the whole tab) on every single pick,
+// which is both why assigning several transactions in a row meant
+// clicking Save N times, and why the section you were working in
+// collapsed back to closed after each one (see render()'s open-state
+// preservation below — that fixes re-renders in general, but removing
+// the per-pick save is what makes multi-transaction categorizing not
+// need N round-trips and N re-renders in the first place).
+function transactionRow(ctx, txn, currency, pendingChanges, onDirtyChange) {
+  const originalCategory = txn.category || null;
+  const categorySelect = h('select', {
+    onchange: () => {
+      const val = categorySelect.value || null;
+      if (val === originalCategory) pendingChanges.delete(txn.id);
+      else pendingChanges.set(txn.id, val);
+      onDirtyChange();
     },
-  }, 'Save');
+  }, [h('option', { value: '' }, 'Unknown'), ...CATEGORIES.map((c) => h('option', { value: c, selected: c === txn.category }, categoryLabel(c)))]);
 
   return h('div', { class: 'card' }, [
     h('div', { class: 'card-row' }, [
@@ -613,7 +613,7 @@ function transactionRow(ctx, txn, currency, onSaved) {
         h('div', { class: 'meta' }, `${txn.txn_date ? formatDate(txn.txn_date) + ' · ' : ''}${formatMoney(Math.abs(Number(txn.amount)), currency)}${Number(txn.amount) < 0 ? ' out' : ' in'}`),
       ]),
     ]),
-    h('div', { class: 'actions-row' }, [categorySelect, saveBtn]),
+    h('div', { class: 'actions-row' }, [categorySelect]),
   ]);
 }
 
@@ -625,10 +625,43 @@ function statementSection(ctx, statement, allStatements, transactions, previousT
   const unknown = transactions.filter((t) => t.status === 'unknown');
   const categorized = transactions.filter((t) => t.status !== 'unknown');
 
+  // Keyed by txn.id -> new category value (or null for "Unknown"),
+  // populated by transactionRow()'s onchange below and committed in one
+  // batch when bulkSaveBtn is clicked — lets you re-categorize several
+  // transactions in this statement before saving any of them, instead
+  // of one round-trip (and one tab re-render) per transaction.
+  const pendingChanges = new Map();
+  const bulkSaveBtn = h('button', {
+    class: 'btn primary small',
+    type: 'button',
+    disabled: true,
+    onclick: async () => {
+      const restore = withBusyLabel(bulkSaveBtn, 'Saving…');
+      try {
+        await Promise.all([...pendingChanges.entries()].map(([id, category]) => updateRow(TRANSACTIONS_TABLE, id, {
+          category,
+          status: category ? 'categorized' : 'unknown',
+          categorized_by: category ? ctx.user.id : null,
+        })));
+        pendingChanges.clear();
+        onSaved();
+      } catch (err) {
+        alert(err.message);
+        restore();
+      }
+    },
+  }, 'Save changes');
+  function updateBulkSaveBtn() {
+    const n = pendingChanges.size;
+    bulkSaveBtn.disabled = n === 0;
+    bulkSaveBtn.textContent = n ? `Save changes (${n})` : 'Save changes';
+  }
+
   const content = [
     h('div', { class: 'actions-row' }, [
       h('a', { href: statement.drive_web_view_link || `https://drive.google.com/file/d/${statement.drive_file_id}/view`, target: '_blank', class: 'btn secondary small' }, 'Open file in Drive'),
       h('button', { class: 'btn secondary small', type: 'button', onclick: () => openAddTransactionSheet(ctx, statement, onSaved) }, '+ Add transaction'),
+      bulkSaveBtn,
       h('button', {
         class: 'btn danger-text small',
         type: 'button',
@@ -668,16 +701,16 @@ function statementSection(ctx, statement, allStatements, transactions, previousT
   }
 
   if (unknown.length) {
-    content.push(h('details', { class: 'goal-section', open: true }, [
+    content.push(h('details', { class: 'goal-section', open: true, 'data-key': `needs:${statement.id}` }, [
       h('summary', {}, `Needs review (${unknown.length})`),
-      h('div', { class: 'goal-section-body' }, unknown.map((t) => transactionRow(ctx, t, currency, onSaved))),
+      h('div', { class: 'goal-section-body' }, unknown.map((t) => transactionRow(ctx, t, currency, pendingChanges, updateBulkSaveBtn))),
     ]));
   }
 
   if (categorized.length) {
-    content.push(h('details', { class: 'goal-section' }, [
+    content.push(h('details', { class: 'goal-section', 'data-key': `cat:${statement.id}` }, [
       h('summary', {}, `All categorized transactions (${categorized.length})`),
-      h('div', { class: 'goal-section-body' }, categorized.map((t) => transactionRow(ctx, t, currency, onSaved))),
+      h('div', { class: 'goal-section-body' }, categorized.map((t) => transactionRow(ctx, t, currency, pendingChanges, updateBulkSaveBtn))),
     ]));
   }
 
@@ -685,7 +718,7 @@ function statementSection(ctx, statement, allStatements, transactions, previousT
     content.push(h('div', { class: 'empty-state' }, 'No transactions yet — add them by hand with "+ Add transaction" above.'));
   }
 
-  return h('details', { class: 'goal-section', open }, [
+  return h('details', { class: 'goal-section', open, 'data-key': `stmt:${statement.id}` }, [
     h('summary', {}, statement.label),
     h('div', { class: 'goal-section-body' }, content),
   ]);
@@ -694,6 +727,18 @@ function statementSection(ctx, statement, allStatements, transactions, previousT
 // ---- Top-level render ----------------------------------------------------
 
 export async function render(container, ctx) {
+  // render() always rebuilds the whole tab from scratch (same pattern as
+  // every other feature module — see docs/14-ui-patterns.md), which
+  // would otherwise collapse every open statement/"Needs review"/"All
+  // categorized transactions" section back to its default state and
+  // reset scroll to the top on every single save. Matched by a stable
+  // data-key, not summary text (app.js's own version of this trick uses
+  // summary text, but "Needs review (N)"/"All categorized transactions
+  // (N)"'s own counts change on exactly the save this is meant to
+  // survive, so text-matching would silently fail for those two).
+  const openKeys = new Set([...container.querySelectorAll('details[open][data-key]')].map((d) => d.dataset.key));
+  const scrollY = window.scrollY;
+
   const [statements, allTransactions] = await Promise.all([
     fetchRows(STATEMENTS_TABLE, ctx.household.id, 'created_at', false),
     fetchRows(TRANSACTIONS_TABLE, ctx.household.id, 'txn_date', false),
@@ -727,4 +772,9 @@ export async function render(container, ctx) {
     sections.length ? h('div', {}, sections) : h('div', { class: 'empty-state' }, 'No statements uploaded yet.'),
     h('button', { class: 'fab', 'aria-label': 'Upload bank statement', onclick: () => openUploadStatementSheet(ctx, () => render(container, ctx)) }, '+'),
   ]);
+
+  for (const d of container.querySelectorAll('details[data-key]')) {
+    if (openKeys.has(d.dataset.key)) d.open = true;
+  }
+  window.scrollTo(0, scrollY);
 }
