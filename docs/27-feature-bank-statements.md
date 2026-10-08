@@ -546,16 +546,20 @@ step is needed here).
 
 ### Manage learned categories
 
-A "Manage learned categories" link (`render()`, next to "Open the
-shared Drive folder") opens a sheet (`openManageRulesSheet()`) listing
-every one of your own `bank_transaction_category_rules` rows —
+A "Manage learned categories" action chip (`render()`, next to "Open
+the shared Drive folder") opens a sheet (`openManageRulesSheet()`)
+listing every one of your own `bank_transaction_category_rules` rows —
 `merchant_key` plus its current category, with a category `<select>`
 (from `STATEMENT_CATEGORIES`, so `income` is pickable too) and a Save
 button per row (`ruleRow()`), plus a Delete button to remove a bad rule
-outright. Both are independent per-row actions, not a batch like
-`statementSection()`'s transaction picker — there's no backlog of
-unsaved picks to accumulate here, so there's nothing a bulk button
-would add. Saving or deleting re-fetches and remounts just the sheet's
-own body; it doesn't need to re-run the whole tab's `render()`, since
-this table only ever affects *future* auto-categorization, never
-anything already on screen.
+outright. Saving/deleting a single row are independent per-row actions,
+not a batch like `statementSection()`'s transaction picker — there's no
+backlog of unsaved picks to accumulate here. A "Delete all (N)" button
+above the list does the one thing per-row actions can't: clear the
+whole set in a single `confirm()` instead of click-then-confirm N times
+— added once the exact-match fix above left a backlog of rules learned
+from an overly generic leading word that were only worth clearing out
+wholesale. Saving, deleting, or deleting all re-fetches and remounts
+just the sheet's own body; it doesn't need to re-run the whole tab's
+`render()`, since this table only ever affects *future*
+auto-categorization, never anything already on screen.

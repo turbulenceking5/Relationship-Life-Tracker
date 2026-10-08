@@ -481,6 +481,14 @@ export const CHANGELOG_ENTRIES = [
       'A learned category rule (e.g. "blue" → Food, from "Blue Mountains Cafe") could wrongly match any other transaction that merely contained that word anywhere, like "Westpac Blue Card Fee" — it now only matches a transaction whose own leading word is the same',
     ],
   },
+  {
+    id: 53,
+    date: '2026-10-08',
+    title: '"Delete all" for learned categories',
+    items: [
+      'New "Delete all" button on "Manage learned categories" clears every learned rule in one tap and one confirm, instead of deleting them one at a time',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

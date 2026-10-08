@@ -8,6 +8,16 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-08 — "Delete all" for learned categories
+
+- New "Delete all" button at the top of "Manage learned categories"
+  (`openManageRulesSheet()`, `app/js/statements.js`) — one `confirm()`
+  for the whole list, then `Promise.all()` over every rule's
+  `deleteRow()`, instead of needing a click-then-confirm per row. Added
+  after the exact-match fix below left a bunch of rules learned from an
+  overly generic leading word worth clearing out wholesale rather than
+  one at a time.
+
 ## 2026-10-08 — Fixed learned categories matching unrelated transactions
 
 - `guessCategory()` and `applyLearnedRulesToUnknown()`

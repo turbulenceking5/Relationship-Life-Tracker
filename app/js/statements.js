@@ -858,10 +858,29 @@ function openManageRulesSheet(ctx) {
   async function load() {
     mount(body, h('div', { class: 'empty-state' }, 'Loading…'));
     const rules = await fetchRows(RULES_TABLE, ctx.household.id, 'merchant_key', true);
+    // One confirm for the whole list instead of one per row — added after
+    // the pre-exact-match fix above left a bunch of rules learned from an
+    // overly generic leading word (see CHANGELOG.md), which were only
+    // worth clearing out wholesale rather than one at a time.
+    const deleteAllBtn = h('button', {
+      class: 'btn danger-text small',
+      type: 'button',
+      onclick: async () => {
+        if (!confirm(`Delete all ${rules.length} learned rules? Future transactions won’t auto-categorize from any of them anymore — this can’t be undone.`)) return;
+        const restore = withBusyLabel(deleteAllBtn, 'Deleting…');
+        try {
+          await Promise.all(rules.map((rule) => deleteRow(RULES_TABLE, rule.id)));
+          await load();
+        } catch (err) {
+          alert(err.message);
+          restore();
+        }
+      },
+    }, `Delete all (${rules.length})`);
     mount(body, [
       h('p', { class: 'meta' }, 'Every merchant your own category picks have taught the app — change a bad guess’s category, or delete the rule outright. This only changes future auto-categorization; it never touches transactions already saved.'),
       rules.length
-        ? h('div', {}, rules.map((rule) => ruleRow(rule, load)))
+        ? h('div', {}, [h('div', { class: 'actions-row' }, [deleteAllBtn]), ...rules.map((rule) => ruleRow(rule, load))])
         : h('div', { class: 'empty-state' }, 'No learned rules yet — categorize a transaction the keyword list doesn’t recognize (in "Needs review") and it’ll show up here.'),
     ]);
   }
