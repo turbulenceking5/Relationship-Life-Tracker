@@ -89,6 +89,12 @@ opens a `<dialog>` instead; those live outside `main` and are never at risk.
   little extra `margin-left` before `.btn.danger-text` specifically —
   Edit/Mark-done/Delete sitting edge-to-edge at a smaller size used to be
   an easy mis-tap, Delete especially.
+- A secondary action that used to be a plain inline text link (e.g.
+  "Manage categories") is an `.action-chip` — same `color-mix(in srgb,
+  var(--X) N%, transparent)` idiom as `.pill`, but with `--accent`
+  instead of a status color, since it's a tappable action rather than a
+  status. Several on the same screen go in one `.action-chip-row`
+  (`display: flex; flex-wrap: wrap`) rather than one per line.
 
 ## Submit buttons: always disable during the async request
 

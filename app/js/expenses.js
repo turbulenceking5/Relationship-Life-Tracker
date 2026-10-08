@@ -803,8 +803,8 @@ export async function render(container, ctx) {
       h('span', { class: 'value' }, formatMoney(total, ctx.household.default_currency || 'AUD')),
     ]),
     monthlyBreakdown(rows, ctx.household.default_currency || 'AUD'),
-    h('p', { class: 'meta' }, [
-      h('a', { href: '#', onclick: (e) => { e.preventDefault(); openManageCategoriesSheet(ctx, () => render(container, ctx)); } }, 'Manage categories'),
+    h('div', { class: 'action-chip-row' }, [
+      h('a', { class: 'action-chip', href: '#', onclick: (e) => { e.preventDefault(); openManageCategoriesSheet(ctx, () => render(container, ctx)); } }, 'Manage categories'),
     ]),
     balanceBanner,
     recurringSection,

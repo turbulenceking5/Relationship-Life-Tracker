@@ -465,6 +465,14 @@ export const CHANGELOG_ENTRIES = [
       'Added an "Export PDF" button there — opens a printable report for that period you can save as a PDF from your browser’s print dialog',
     ],
   },
+  {
+    id: 51,
+    date: '2026-10-08',
+    title: 'Colorful action chips on My Statements and Expenses',
+    items: [
+      '"Open the shared Drive folder", "Manage learned categories" and "Manage categories" are now colorful tappable chips instead of plain text links',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

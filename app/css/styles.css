@@ -94,6 +94,7 @@
   :root:not([data-theme="light"]) .pill.overdue { box-shadow: 0 0 10px -3px var(--danger); }
   :root:not([data-theme="light"]) .pill.due-soon { box-shadow: 0 0 10px -3px var(--warning); }
   :root:not([data-theme="light"]) .pill.ok { box-shadow: 0 0 10px -3px var(--accent-2); }
+  :root:not([data-theme="light"]) .action-chip { box-shadow: 0 0 10px -4px var(--accent); }
 
   :root:not([data-theme="light"]) .pill.upcoming {
     background: color-mix(in srgb, var(--accent-2) 20%, transparent);
@@ -142,6 +143,7 @@
 :root[data-theme="dark"] .pill.overdue { box-shadow: 0 0 10px -3px var(--danger); }
 :root[data-theme="dark"] .pill.due-soon { box-shadow: 0 0 10px -3px var(--warning); }
 :root[data-theme="dark"] .pill.ok { box-shadow: 0 0 10px -3px var(--accent-2); }
+:root[data-theme="dark"] .action-chip { box-shadow: 0 0 10px -4px var(--accent); }
 
 :root[data-theme="dark"] .pill.upcoming {
   background: color-mix(in srgb, var(--accent-2) 20%, transparent);
@@ -352,6 +354,38 @@ main {
 .pill.overdue { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); }
 .pill.due-soon { background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); }
 .pill.ok { background: color-mix(in srgb, var(--accent-2) 18%, transparent); color: var(--accent-2); }
+
+/* Secondary-action link styled as a colorful tappable chip instead of
+   plain inline text — "Open the shared Drive folder" / "Manage learned
+   categories" / "Manage categories" on My Statements, "Manage
+   categories" on Expenses. Same color-mix(accent%, transparent) idiom
+   as the .pill variants above, so it stays theme-correct across light/
+   dark/glow automatically rather than a hardcoded color. A row of these
+   wraps via .action-chip-row below rather than sitting one-per-line. */
+.action-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.action-chip:hover, .action-chip:focus-visible { background: color-mix(in srgb, var(--accent) 24%, transparent); }
+.action-chip:active { background: color-mix(in srgb, var(--accent) 32%, transparent); }
+
+.action-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
 
 .amount { font-weight: 700; font-variant-numeric: tabular-nums; }
 .amount.owed_to_us, .amount.positive { color: var(--accent-2); }

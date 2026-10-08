@@ -8,6 +8,21 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-08 — Colorful action chips on My Statements and Expenses
+
+- Restyled the "Open the shared Drive folder", "Manage learned
+  categories" and "Manage categories" links on My Statements — and the
+  "Manage categories" link on Expenses — from plain `<p class="meta">`
+  text links into `.action-chip` pill buttons: `color-mix(in srgb,
+  var(--accent) 14%, transparent)` background, `var(--accent)` text,
+  same theme-matching idiom as the existing `.pill` variants (and the
+  same dark-mode glow `box-shadow` treatment, in both the
+  `prefers-color-scheme` and forced-dark-toggle CSS blocks).
+- The three My Statements links now sit in one `.action-chip-row`
+  (flex-wrap) instead of two separate `<p>` rows with a `·` separator.
+- Purely visual/markup — `href`/`target`/`onclick` behavior for all
+  four links is unchanged.
+
 ## 2026-10-08 — "By Category" bar chart and PDF export for My Statements
 
 - **New "By Category" tab** on the same `.segmented` toggle as the

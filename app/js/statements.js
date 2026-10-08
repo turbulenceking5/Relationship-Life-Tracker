@@ -1132,20 +1132,18 @@ export async function render(container, ctx) {
   const sorted = [...statements].sort((a, b) => (b.period_year - a.period_year) || (b.period_month - a.period_month));
   const txnsByStatement = (id) => allTransactions.filter((t) => t.statement_id === id);
 
-  const driveLinkRow = isDriveConnected(ctx.household)
-    ? h('p', { class: 'meta' }, [h('a', { href: folderUrl(ctx.household), target: '_blank' }, 'Open the shared Drive folder')])
+  // Secondary actions for this tab, styled as colorful tappable chips
+  // (see .action-chip / .action-chip-row in styles.css) instead of plain
+  // inline text links.
+  const driveChip = isDriveConnected(ctx.household)
+    ? h('a', { class: 'action-chip', href: folderUrl(ctx.household), target: '_blank' }, 'Open the shared Drive folder')
     : null;
 
-  // "Manage learned categories" — the management sheet for
-  // bank_transaction_category_rules (see openManageRulesSheet() above).
-  // Same spot/style as the Drive link above it, just a JS action instead
-  // of a navigation, so it's an <a href="#"> rather than a <button> to
-  // match that row's look exactly.
-  const manageRulesRow = h('p', { class: 'meta' }, [
-    h('a', { href: '#', onclick: (e) => { e.preventDefault(); openManageRulesSheet(ctx); } }, 'Manage learned categories'),
-    ' · ',
-    h('a', { href: '#', onclick: (e) => { e.preventDefault(); openManageCategoriesSheet(ctx, () => render(container, ctx)); } }, 'Manage categories'),
-  ]);
+  const manageRulesChip = h('a', { class: 'action-chip', href: '#', onclick: (e) => { e.preventDefault(); openManageRulesSheet(ctx); } }, 'Manage learned categories');
+
+  const manageCategoriesChip = h('a', { class: 'action-chip', href: '#', onclick: (e) => { e.preventDefault(); openManageCategoriesSheet(ctx, () => render(container, ctx)); } }, 'Manage categories');
+
+  const actionChipRow = h('div', { class: 'action-chip-row' }, [driveChip, manageRulesChip, manageCategoriesChip]);
 
   // Spending trend chart (app/js/statementsChart.js) — a separate
   // sub-container so its own Month/Year/Custom controls can re-render
@@ -1226,8 +1224,7 @@ export async function render(container, ctx) {
 
   mount(container, [
     h('p', { class: 'meta' }, 'Upload a bank statement to auto-sort its spending into categories — anything it’s unsure about lands in "Needs review" for you to assign. Private to you — your partner has their own statements here, and can’t see yours.'),
-    driveLinkRow,
-    manageRulesRow,
+    actionChipRow,
     chartContainer,
     viewToggle,
     mainContent,
