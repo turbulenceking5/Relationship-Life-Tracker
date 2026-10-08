@@ -473,6 +473,14 @@ export const CHANGELOG_ENTRIES = [
       '"Open the shared Drive folder", "Manage learned categories" and "Manage categories" are now colorful tappable chips instead of plain text links',
     ],
   },
+  {
+    id: 52,
+    date: '2026-10-08',
+    title: 'Fixed learned categories matching unrelated transactions',
+    items: [
+      'A learned category rule (e.g. "blue" → Food, from "Blue Mountains Cafe") could wrongly match any other transaction that merely contained that word anywhere, like "Westpac Blue Card Fee" — it now only matches a transaction whose own leading word is the same',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

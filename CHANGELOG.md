@@ -8,6 +8,29 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-08 — Fixed learned categories matching unrelated transactions
+
+- `guessCategory()` and `applyLearnedRulesToUnknown()`
+  (`app/js/statements.js`) matched a learned
+  `bank_transaction_category_rules` row via `description.includes(key)`
+  — a substring scan against the whole raw description. A rule learned
+  from "Blue Mountains Cafe" (merchant key `"blue"`, since
+  `extractMerchantKey()` takes the leading word) would then also fire on
+  any unrelated transaction whose description merely *contained* "blue"
+  anywhere — e.g. "Westpac Blue Card Fee" — silently mis-categorizing it.
+- Fixed by running the transaction being matched through the same
+  `extractMerchantKey()` used to learn the rule, then looking that key
+  up in the rules map by exact equality instead of scanning for a
+  substring. A rule now only ever fires for another transaction whose
+  own leading word is the same, which is as specific as this
+  single-word merchant-key scheme can get.
+- Rules already learned before this fix aren't retroactively
+  recomputed (there's no way to recover what the original 2+ word
+  description was from an already-reduced single-word key) — they just
+  stop being able to match outside their own merchant now that lookups
+  are exact. See "Manage learned categories" to fix or remove one by
+  hand if it still looks wrong.
+
 ## 2026-10-08 — Colorful action chips on My Statements and Expenses
 
 - Restyled the "Open the shared Drive folder", "Manage learned

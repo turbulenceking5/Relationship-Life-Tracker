@@ -149,20 +149,19 @@ function guessCategory(description, amount, rules) {
     if (words && words.some((w) => d.includes(w))) return cat;
   }
   if (rules) {
-    for (const [key, cat] of rules) {
-      // Defensive, independent of whether extractMerchantKey() can still
-      // produce a bad key (see its own guard below): `d.includes(key)` is
-      // true for EVERY description when `key` is '' (every string
-      // includes the empty string), and effectively true for almost every
-      // real-world description when `key` is a single character (e.g. a
-      // merchant_key of 'x' matches "NETFLIX.COM", "COLES EXPRESS", any
-      // description containing the letter at all) — either would silently
-      // override every other transaction's category with one bad learned
-      // rule. Guards against that regardless of how the bad key got into
-      // bank_transaction_category_rules (a row from before this fix, or
-      // any future write path), not just the one below.
-      if (key && key.length >= MIN_MERCHANT_KEY_LENGTH && d.includes(key)) return cat;
-    }
+    // Exact lookup, not a substring scan: this description's OWN leading
+    // word goes through the same extractMerchantKey() normalization used
+    // to learn every rule, then it's matched against the rules map by
+    // equality. Used to be `d.includes(key)` for every stored key — a
+    // single generic leading word like 'blue' or 'boost' then matched
+    // against ANY description that merely contained that word anywhere
+    // ("WESTPAC BLUE CARD FEE", "JAM BOOST DRINKS"), not just one with
+    // the same actual merchant, silently mis-categorizing unrelated
+    // transactions. Comparing two descriptions' own leading words for
+    // equality is as specific as this merchant-key scheme can get.
+    const key = extractMerchantKey(description);
+    const cat = key && key.length >= MIN_MERCHANT_KEY_LENGTH ? rules.get(key) : undefined;
+    if (cat) return cat;
   }
   return null;
 }
@@ -179,16 +178,15 @@ function guessCategory(description, amount, rules) {
 // with common filler stripped, is a good enough proxy for it.
 const KEY_STOPWORDS = new Set(['the', 'a', 'an']);
 // Floor for a usable merchant key. guessCategory()'s (and
-// applyLearnedRulesToUnknown()'s) matching is a plain `description.
-// includes(key)` substring check, so a key below this length is no longer
-// a "merchant" signal — it's a near-universal match. '' is the extreme
-// case (every string includes the empty string), but a single character is
-// nearly as bad in practice: a saved rule keyed on 'x' alone wrongly
-// recategorizes any description that merely contains the letter x
-// ("NETFLIX.COM", "COLES EXPRESS", "EXPRESS LANE TOLL", ...), confirmed
-// while fixing this. 2 is the floor, not more, specifically so real short
-// brand names still work as a learned key — e.g. 'bp' (also matched
-// statically via CATEGORY_KEYWORDS' transport list's 'bp ' entry).
+// applyLearnedRulesToUnknown()'s) matching is now an exact lookup against
+// the rules map rather than a substring scan, so a key this short can no
+// longer cause a near-universal match the way it could before — but a '' or
+// single-character key is still worth rejecting outright, as pure noise
+// that was never a real merchant signal in the first place (an empty
+// description, or one that's all digits/punctuation). 2 is the floor, not
+// more, specifically so real short brand names still work as a learned key
+// — e.g. 'bp' (also matched statically via CATEGORY_KEYWORDS' transport
+// list's 'bp ' entry).
 const MIN_MERCHANT_KEY_LENGTH = 2;
 function extractMerchantKey(description) {
   const lower = description.toLowerCase();
@@ -247,16 +245,12 @@ async function applyLearnedRulesToUnknown(ctx) {
     .filter((t) => t.status === 'unknown');
   const updates = [];
   for (const t of unknown) {
-    const d = t.description.toLowerCase();
-    for (const [key, cat] of rules) {
-      // Same defensive floor as guessCategory()'s rules loop above — a
-      // '' or single-character key here would reassign every single
-      // "Needs review" transaction to one bad rule's category on every
-      // sweep, not just fail to match.
-      if (key && key.length >= MIN_MERCHANT_KEY_LENGTH && d.includes(key)) {
-        updates.push(updateRow(TRANSACTIONS_TABLE, t.id, { category: cat, status: 'categorized', categorized_by: ctx.user.id }));
-        break;
-      }
+    // Same exact-lookup match as guessCategory() above, not a substring
+    // scan — see its comment for why.
+    const key = extractMerchantKey(t.description);
+    const cat = key && key.length >= MIN_MERCHANT_KEY_LENGTH ? rules.get(key) : undefined;
+    if (cat) {
+      updates.push(updateRow(TRANSACTIONS_TABLE, t.id, { category: cat, status: 'categorized', categorized_by: ctx.user.id }));
     }
   }
   await Promise.all(updates);
