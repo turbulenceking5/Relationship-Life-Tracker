@@ -439,6 +439,15 @@ export const CHANGELOG_ENTRIES = [
       'A blank or near-blank transaction description (or a very short pick, like a single letter) could silently learn a rule that matched almost every transaction, overriding its real category — learning and matching now both ignore a key that short or empty',
     ],
   },
+  {
+    id: 48,
+    date: '2026-10-08',
+    title: 'Spending trend chart and a Yearly view for My Statements',
+    items: [
+      'A new line chart on My Statements shows your spending and income over time, with Month/Year/Custom date range options',
+      'My Statements can now also be viewed condensed by Year instead of by month, with the same category breakdown and year-over-year trend',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

@@ -15,6 +15,7 @@ import { fetchRows, insertRow, insertRows, updateRow, deleteRow, upsertRow } fro
 import { formatMoney, formatDate, todayStr } from './format.js';
 import { isConfigured, isDriveConnected, hasLocalDriveAccess, uploadFileToDrive, deleteDriveFile, folderUrl } from './googleDrive.js';
 import { CATEGORIES, categoryColor } from './expenses.js';
+import { renderSpendingTrendChart } from './statementsChart.js';
 
 const STATEMENTS_TABLE = 'bank_statements';
 const TRANSACTIONS_TABLE = 'bank_transactions';
@@ -584,7 +585,12 @@ function categoryTotals(transactions) {
 // preceding one. A >15% rise is flagged as worth a look; a drop is
 // shown as a quiet win. Categories with no spend in either statement
 // are skipped entirely rather than shown as a meaningless 0% change.
-function trendVsPrevious(current, previous, currency) {
+// `comparisonLabel` is purely the per-row "vs ___" wording — defaults to
+// the original "last statement" so every existing (monthly) call site is
+// unchanged, but yearSection() (Yearly view, below) passes "last year"
+// instead so its rows don't confusingly say "statement" while comparing
+// two calendar years.
+function trendVsPrevious(current, previous, currency, comparisonLabel = 'last statement') {
   if (!previous) return null;
   const curTotals = categoryTotals(current);
   const prevTotals = categoryTotals(previous);
@@ -607,7 +613,7 @@ function trendVsPrevious(current, previous, currency) {
     const color = flagged ? 'var(--danger)' : (r.diff < 0 ? 'var(--accent-2)' : 'var(--text-muted)');
     const arrow = r.diff > 0 ? '↑' : r.diff < 0 ? '↓' : '→';
     return h('div', { class: 'meta', style: `color:${color};margin-bottom:4px` },
-      `${arrow} ${categoryLabel(r.cat)}: ${formatMoney(r.cur, currency)} (${r.diff === 0 ? 'no change' : `${r.pct > 0 ? '+' : ''}${r.pct}% vs last statement`})${flagged ? ' — worth a look' : ''}`);
+      `${arrow} ${categoryLabel(r.cat)}: ${formatMoney(r.cur, currency)} (${r.diff === 0 ? 'no change' : `${r.pct > 0 ? '+' : ''}${r.pct}% vs ${comparisonLabel}`})${flagged ? ' — worth a look' : ''}`);
   }));
 }
 
@@ -1012,7 +1018,76 @@ function statementSection(ctx, statement, allStatements, transactions, previousT
   ]);
 }
 
+// ---- One year's read-only rollup card (Yearly view) ---------------------
+// Groups every statement whose period_year matches into one card,
+// aggregating the UNION of their transactions — same total-banner/
+// category-breakdown/trend building blocks statementSection() uses per
+// month, just fed a year's combined transactions instead of one
+// statement's. Deliberately read-only: editing operates on individual
+// statements/transactions, and a year is just a rollup of several of
+// them, so there's no category picker and none of statementSection()'s
+// "+ Add transaction"/"Delete"/"Open file in Drive" actions here — just
+// one .meta line pointing back to Monthly for that. data-key is
+// `year:<year>`, a sibling convention to statementSection()'s
+// `stmt:<id>`/`needs:<id>`/`cat:<id>`, so render()'s open-state
+// preservation below (matched by data-key, see the comment there) keeps
+// working for these cards unchanged.
+function yearSection(year, transactions, previousTransactions, currency, open) {
+  const spent = transactions.filter((t) => Number(t.amount) < 0).reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
+  const received = transactions.filter((t) => Number(t.amount) > 0).reduce((s, t) => s + Number(t.amount), 0);
+
+  const content = [
+    h('div', { class: 'total-banner' }, [
+      h('span', {}, 'Spent this year'),
+      h('span', { class: 'value' }, formatMoney(spent, currency)),
+    ]),
+    received > 0 ? h('div', { class: 'total-banner' }, [
+      h('span', {}, 'Received this year'),
+      h('span', { class: 'value' }, formatMoney(received, currency)),
+    ]) : null,
+  ];
+
+  const breakdown = categoryBreakdown(transactions, currency);
+  if (breakdown) {
+    content.push(h('div', { class: 'section-title' }, 'Category breakdown'));
+    content.push(breakdown);
+  }
+
+  // Fed this year's combined transactions as `current` and the
+  // immediately preceding *represented* year's as `previous` — same
+  // trendVsPrevious() the monthly cards use, just handed two years'
+  // worth of combined transactions instead of two statements'. A gap
+  // year with no statements at all is simply never passed in here (see
+  // render() below), so it's skipped the same way trendVsPrevious()
+  // already handles `previous` being null/absent.
+  const trend = trendVsPrevious(transactions, previousTransactions, currency, 'last year');
+  if (trend) {
+    content.push(h('div', { class: 'section-title' }, 'Compared to last year'));
+    content.push(trend);
+  }
+
+  if (!transactions.length) {
+    content.push(h('div', { class: 'empty-state' }, 'No transactions recorded for this year.'));
+  }
+
+  content.push(h('p', { class: 'meta' }, 'Switch to Monthly to see individual statements and edit transactions.'));
+
+  return h('details', { class: 'goal-section', open, 'data-key': `year:${year}` }, [
+    h('summary', {}, String(year)),
+    h('div', { class: 'goal-section-body' }, content),
+  ]);
+}
+
 // ---- Top-level render ----------------------------------------------------
+
+// Monthly (one card per bank_statements row, today's exact existing
+// behavior) or Yearly (one read-only rollup card per represented
+// calendar year) — a module-level `let`, same pattern money.js's own
+// `activeSub` uses for its sub-nav, so the chosen view survives render()
+// rebuilding the whole tab from scratch after every save/mutation (see
+// the open-state-preservation comment inside render() below for why that
+// rebuild happens at all).
+let viewMode = 'monthly';
 
 export async function render(container, ctx) {
   // RLS restricts bank_statements/bank_transactions to rows uploaded_by
@@ -1029,7 +1104,10 @@ export async function render(container, ctx) {
   // data-key, not summary text (app.js's own version of this trick uses
   // summary text, but "Needs review (N)"/"All categorized transactions
   // (N)"'s own counts change on exactly the save this is meant to
-  // survive, so text-matching would silently fail for those two).
+  // survive, so text-matching would silently fail for those two). The
+  // Monthly/Yearly toggle below reuses the exact same data-key
+  // convention (`year:<year>` alongside `stmt:<id>`/`needs:<id>`/
+  // `cat:<id>`) so this keeps working for yearly cards too.
   const openKeys = new Set([...container.querySelectorAll('details[open][data-key]')].map((d) => d.dataset.key));
   const scrollY = window.scrollY;
 
@@ -1055,25 +1133,90 @@ export async function render(container, ctx) {
     h('a', { href: '#', onclick: (e) => { e.preventDefault(); openManageRulesSheet(ctx); } }, 'Manage learned categories'),
   ]);
 
-  const sections = sorted.map((statement, i) => {
-    const previous = sorted[i + 1]; // one position further back = the preceding statement chronologically
-    return statementSection(
-      ctx,
-      statement,
-      sorted,
-      txnsByStatement(statement.id),
-      previous ? txnsByStatement(previous.id) : null,
-      currency,
-      sorted.length === 1,
-      () => render(container, ctx),
-    );
-  });
+  // Spending trend chart (app/js/statementsChart.js) — a separate
+  // sub-container so its own Month/Year/Custom controls can re-render
+  // just the chart (via the module's own closure over this same
+  // container) without statements.js re-fetching/rebuilding the whole
+  // tab. Fed every one of the user's transactions across every
+  // statement, bucketed by each transaction's own txn_date — independent
+  // of the Monthly/Yearly toggle below, which only governs the list of
+  // statement/year cards underneath it.
+  const chartContainer = h('div', {});
+  renderSpendingTrendChart(chartContainer, statements, allTransactions, currency);
+
+  // ---- Monthly / Yearly view toggle ----
+  // Same .segmented button-group markup/class pattern as money.js's own
+  // Money-tab sub-nav — writes to the module-level `viewMode` (declared
+  // above) instead of something scoped to this one render() call, so the
+  // choice survives render() rebuilding the whole tab from scratch after
+  // every save (same reasoning as the open-state preservation above).
+  const viewToggle = h('div', { class: 'segmented' }, [
+    h('button', {
+      class: viewMode === 'monthly' ? 'active' : '',
+      type: 'button',
+      onclick: () => { viewMode = 'monthly'; render(container, ctx); },
+    }, 'Monthly'),
+    h('button', {
+      class: viewMode === 'yearly' ? 'active' : '',
+      type: 'button',
+      onclick: () => { viewMode = 'yearly'; render(container, ctx); },
+    }, 'Yearly'),
+  ]);
+
+  let mainContent;
+  if (viewMode === 'yearly') {
+    // One group per represented period_year — a transaction's own
+    // statement_id says which statement it belongs to, and that
+    // statement's period_year says which year, so every one of that
+    // year's statements' transactions gets concatenated together
+    // (txnsByYear() below) before handing the UNION to yearSection().
+    const yearGroups = new Map();
+    for (const statement of sorted) {
+      if (!yearGroups.has(statement.period_year)) yearGroups.set(statement.period_year, []);
+      yearGroups.get(statement.period_year).push(statement);
+    }
+    const years = [...yearGroups.keys()].sort((a, b) => b - a); // newest first, same convention as `sorted` above
+    const txnsByYear = (year) => yearGroups.get(year).flatMap((statement) => txnsByStatement(statement.id));
+
+    const yearCards = years.map((year, i) => {
+      // Next entry in this same represented-years list = the
+      // immediately preceding REPRESENTED year, skipping clean over any
+      // gap year with no statements at all (it's simply never one of
+      // `years`' entries to begin with).
+      const previous = years[i + 1];
+      return yearSection(
+        year,
+        txnsByYear(year),
+        previous !== undefined ? txnsByYear(previous) : null,
+        currency,
+        years.length === 1,
+      );
+    });
+    mainContent = yearCards.length ? h('div', {}, yearCards) : h('div', { class: 'empty-state' }, 'No statements uploaded yet.');
+  } else {
+    const sections = sorted.map((statement, i) => {
+      const previous = sorted[i + 1]; // one position further back = the preceding statement chronologically
+      return statementSection(
+        ctx,
+        statement,
+        sorted,
+        txnsByStatement(statement.id),
+        previous ? txnsByStatement(previous.id) : null,
+        currency,
+        sorted.length === 1,
+        () => render(container, ctx),
+      );
+    });
+    mainContent = sections.length ? h('div', {}, sections) : h('div', { class: 'empty-state' }, 'No statements uploaded yet.');
+  }
 
   mount(container, [
     h('p', { class: 'meta' }, 'Upload a bank statement to auto-sort its spending into categories — anything it’s unsure about lands in "Needs review" for you to assign. Private to you — your partner has their own statements here, and can’t see yours.'),
     driveLinkRow,
     manageRulesRow,
-    sections.length ? h('div', {}, sections) : h('div', { class: 'empty-state' }, 'No statements uploaded yet.'),
+    chartContainer,
+    viewToggle,
+    mainContent,
     h('button', { class: 'fab', 'aria-label': 'Upload bank statement', onclick: () => openUploadStatementSheet(ctx, () => render(container, ctx)) }, '+'),
   ]);
 

@@ -334,6 +334,62 @@ survive. So each `<details>` instead carries a stable `data-key`
 (`stmt:<id>`, `needs:<id>`, `cat:<id>`) that `render()` matches against
 instead of relying on text at all.
 
+## Spending trend chart (Month / Year / Custom)
+
+Above the statement list, `renderSpendingTrendChart()` (new module
+`app/js/statementsChart.js`) plots the signed-in user's total Spent and
+Received per period as a plain inline-SVG line chart — the first real
+chart in this app (everything else is the `.contribution-bar` segmented
+bar); no charting library, no canvas, consistent with the app's
+zero-dependency, no-build-step approach. A `.segmented` toggle (the same
+markup/class pattern as every other sub-nav in this app) switches between:
+
+- **Month** (default) — one point per calendar month that actually has a
+  transaction, spanning the real data range.
+- **Year** — one point per represented calendar year.
+- **Custom** — a Start/End date pair (defaulting to the earliest/latest
+  transaction date on file the first time it's shown) plus an Apply
+  button; bucketed by month within the applied range.
+
+Buckets are built purely from each transaction's own `txn_date`, never
+from a `bank_statements` row's `period_month`/`period_year` — the same
+reasoning as "One upload, one or more periods" above: a multi-month
+statement's individual transactions can land on real dates outside that
+statement's own label, so the transaction date is the only reliable
+ground truth for a time series.
+
+Colors are `var(--accent)` (Spent) / `var(--accent-2)` (Received), not
+`var(--danger)` — spending isn't inherently bad, and `--danger` is
+reserved elsewhere for overdue/alert states. Since `--accent`/`--accent-2`
+aren't a validated color-blind-safe pair (unlike `--series-1`...`--series-8`,
+see docs/14-ui-patterns.md), the Received line is also dashed and both
+are named in a text legend — identity is never color-alone. The chosen
+range mode (and any applied Custom dates) lives in module-level variables
+inside `statementsChart.js` itself, the same pattern `money.js` uses for
+its own `activeSub` — otherwise it would silently reset to Month on every
+single save, since `render()` below re-mounts this chart on every rebuild.
+
+## Yearly view: condensing statements by calendar year
+
+The Monthly/Yearly `.segmented` toggle beneath the chart switches the
+statement list itself between today's one-card-per-statement view
+("Monthly", unchanged) and one read-only rollup card per represented
+`period_year` ("Yearly"). A yearly card concatenates the transactions of
+every statement sharing that year and feeds the union through the exact
+same `categoryBreakdown()`/`trendVsPrevious()` helpers the monthly cards
+already use (the latter via an optional `comparisonLabel` parameter —
+"last year" instead of the default "last statement" — so the per-row
+wording doesn't say "statement" while comparing two calendar years).
+Deliberately read-only: no category picker, no "+ Add transaction", no
+Delete, no "Open file in Drive" at the year level, since editing operates
+on individual statements/transactions and a year is just a rollup of
+several — a card instead carries one line pointing back to Monthly for
+that. Like Monthly's own `stmt:<id>`/`needs:<id>`/`cat:<id>` keys, each
+yearly card carries `data-key="year:<year>"` so `render()`'s open-state
+preservation (see below) keeps it remembered across re-renders. The
+chosen view mode is a module-level `let` in `statements.js`, same pattern
+as the chart's own state and as `money.js`'s `activeSub`.
+
 ## Report: category breakdown + trend vs. the previous statement
 
 Each statement's card shows:

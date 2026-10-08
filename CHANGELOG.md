@@ -8,6 +8,31 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-08 — Spending trend chart and a Yearly view for My Statements
+
+- **New "Spending trend" line chart** (`app/js/statementsChart.js`) at
+  the top of My Statements — a plain inline-SVG chart (no library, no
+  canvas) plotting total Spent/Received per period across every one of
+  your bank transactions, bucketed purely by each transaction's own
+  `txn_date` (not a statement's own period label, since a multi-month
+  statement's transactions can span real dates outside it — see
+  `splitIntoPeriods()`/docs/27-feature-bank-statements.md). A `.segmented`
+  Month/Year/Custom toggle switches the bucketing; Custom shows a
+  Start/End date pair (defaulting to your data's own earliest/latest
+  dates) with an Apply button. The chosen mode (and any applied custom
+  range) is kept in module state so it survives this tab's
+  re-fetch-and-redraw-everything pattern instead of resetting to Month on
+  every save.
+- **New Monthly/Yearly view toggle** for the statement list itself,
+  underneath the chart. Monthly is exactly today's existing per-statement
+  cards, unchanged. Yearly condenses every statement into one read-only
+  rollup card per represented calendar year — total spent/received,
+  category breakdown, and a "Compared to last year" trend (reusing the
+  same `categoryBreakdown()`/`trendVsPrevious()` the monthly "Compared to
+  last statement" trend already uses, just fed a whole year's combined
+  transactions instead of one statement's). No per-transaction editing at
+  the year level — a card points back to Monthly for that.
+
 ## 2026-10-07 — Fixed a learned category that could override everything else
 
 - **`extractMerchantKey()` now refuses to produce (and `learnCategoryRule()`
