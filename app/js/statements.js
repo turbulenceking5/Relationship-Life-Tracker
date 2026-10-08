@@ -14,7 +14,7 @@ import { h, mount, openSheet, closeSheet, makeSheet, withBusyLabel } from './dom
 import { fetchRows, insertRow, insertRows, updateRow, deleteRow, upsertRow } from './crud.js';
 import { formatMoney, formatDate, todayStr } from './format.js';
 import { isConfigured, isDriveConnected, hasLocalDriveAccess, uploadFileToDrive, deleteDriveFile, folderUrl } from './googleDrive.js';
-import { CATEGORIES, categoryColor } from './expenses.js';
+import { CATEGORIES, categoryColor, fetchCustomCategories, mergeCategories, openManageCategoriesSheet } from './expenses.js';
 import { renderSpendingTrendChart } from './statementsChart.js';
 
 const STATEMENTS_TABLE = 'bank_statements';
@@ -24,41 +24,52 @@ const DRIVE_PREFIX = '[Bank Statement]';
 
 // A bank transaction can be money IN as well as money out, unlike a
 // logged expense (always an outflow) — 'income' extends the shared
-// expense CATEGORIES with one extra category that only makes sense
+// expense category list with one extra category that only makes sense
 // here, so it never shows up as a nonsensical option on the Add Expense
 // form itself. Everything below that offers a category picker or
-// matches keywords for statement transactions uses this list, not the
-// bare CATEGORIES import, for exactly that reason.
+// matches keywords for statement transactions uses STATEMENT_CATEGORIES/
+// CATEGORY_DIRECTION/CATEGORIES_BY_DIRECTION below, not the bare
+// CATEGORIES import, for exactly that reason.
 //
-// Each category's money direction is declared here too, explicitly,
-// rather than left for guessCategory() (or anything else) to infer by
-// checking whether a category's name happens to equal the string
-// 'income'. Every expense category is 'out' (money leaving the
-// account); 'income' is the only 'in' entry today, but it doesn't have
-// to stay the only one — splitting it into, say, 'salary'/'refund'/
-// 'dividend' sub-categories down the line is then one more line in this
-// map, not a scattered name-equality check to track down and update.
-// STATEMENT_CATEGORIES itself is derived from this map's keys (same
-// order CATEGORIES already defines, 'income' last), so the two can never
-// drift apart, and every existing call site that just wants the flat
-// list of category names (for a <select>'s options, say) keeps working
-// unchanged.
-const CATEGORY_DIRECTION = Object.fromEntries(CATEGORIES.map((cat) => [cat, 'out']));
-CATEGORY_DIRECTION.income = 'in';
+// Each category's money direction is declared explicitly (CATEGORY_
+// DIRECTION), rather than left for guessCategory() (or anything else)
+// to infer by checking whether a category's name happens to equal the
+// string 'income'. Every hardcoded expense category is 'out' (money
+// leaving the account); a household's own custom categories
+// (expenses.js's mergeCategories(), from custom_categories — see
+// supabase/migrations/0040_custom_categories.sql) declare their own
+// direction when added; 'income' is always 'in'. Splitting 'income'
+// into further sub-categories down the line (or adding a custom one) is
+// then just another entry in this map, not a scattered name-equality
+// check to track down and update.
+//
+// All three are refreshed once per render() (refreshCategories() below)
+// rather than computed once at module load, since custom categories are
+// fetched from the database and can change at any time — plain
+// module-level `let`s that survive a render() rebuild, same pattern
+// money.js's own `activeSub` already uses. Initialized to the
+// hardcoded-only defaults so the module still works (if slightly stale)
+// for anything that could theoretically run before the first render().
+let STATEMENT_CATEGORIES = [...CATEGORIES, 'income'];
+let CATEGORY_DIRECTION = Object.fromEntries(STATEMENT_CATEGORIES.map((cat) => [cat, cat === 'income' ? 'in' : 'out']));
+let CATEGORIES_BY_DIRECTION = { out: CATEGORIES, in: ['income'] };
 
-const STATEMENT_CATEGORIES = Object.keys(CATEGORY_DIRECTION);
-
-// guessCategory() below only ever needs one of these two per call, picked
-// purely by the transaction amount's sign — and since CATEGORY_DIRECTION
-// never changes at runtime, neither does the result of splitting
-// STATEMENT_CATEGORIES by it. Computed once here instead of via a fresh
-// .filter() pass on every single guessCategory() invocation, which
-// matters since it's called once per parsed transaction in a tight loop
-// when a statement uploads (see openUploadStatementSheet() below) — a
-// statement with hundreds of transactions otherwise did hundreds of
-// redundant filter passes for a result that's identical every time.
-const CATEGORIES_BY_DIRECTION = { out: [], in: [] };
-for (const cat of STATEMENT_CATEGORIES) CATEGORIES_BY_DIRECTION[CATEGORY_DIRECTION[cat]].push(cat);
+// guessCategory() only ever needs one of CATEGORIES_BY_DIRECTION.out/.in
+// per call, picked purely by the transaction amount's sign — computed
+// once per render() here instead of via a fresh .filter() pass on every
+// single guessCategory() invocation, which matters since it's called
+// once per parsed transaction in a tight loop when a statement uploads
+// (see openUploadStatementSheet() below).
+async function refreshCategories(ctx) {
+  const customRows = await fetchCustomCategories(ctx.household.id);
+  const { names, direction } = mergeCategories(customRows);
+  names.push('income');
+  direction.income = 'in';
+  STATEMENT_CATEGORIES = names;
+  CATEGORY_DIRECTION = direction;
+  CATEGORIES_BY_DIRECTION = { out: [], in: [] };
+  for (const cat of STATEMENT_CATEGORIES) CATEGORIES_BY_DIRECTION[CATEGORY_DIRECTION[cat]].push(cat);
+}
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -1114,6 +1125,7 @@ export async function render(container, ctx) {
   const [statements, allTransactions] = await Promise.all([
     fetchRows(STATEMENTS_TABLE, ctx.household.id, 'created_at', false),
     fetchRows(TRANSACTIONS_TABLE, ctx.household.id, 'txn_date', false),
+    refreshCategories(ctx),
   ]);
   const currency = ctx.household.default_currency || 'AUD';
 
@@ -1131,6 +1143,8 @@ export async function render(container, ctx) {
   // match that row's look exactly.
   const manageRulesRow = h('p', { class: 'meta' }, [
     h('a', { href: '#', onclick: (e) => { e.preventDefault(); openManageRulesSheet(ctx); } }, 'Manage learned categories'),
+    ' · ',
+    h('a', { href: '#', onclick: (e) => { e.preventDefault(); openManageCategoriesSheet(ctx, () => render(container, ctx)); } }, 'Manage categories'),
   ]);
 
   // Spending trend chart (app/js/statementsChart.js) — a separate

@@ -448,6 +448,23 @@ export const CHANGELOG_ENTRIES = [
       'My Statements can now also be viewed condensed by Year instead of by month, with the same category breakdown and year-over-year trend',
     ],
   },
+  {
+    id: 49,
+    date: '2026-10-08',
+    title: 'Add your own categories',
+    items: [
+      'New "Manage categories" link on Expenses (and My Statements) lets you add your own category, shared with your partner, on top of the built-in list',
+    ],
+  },
+  {
+    id: 50,
+    date: '2026-10-08',
+    title: '"By Category" bar chart and PDF export for My Statements',
+    items: [
+      'New "By Category" tab on My Statements’ chart shows a bar for each category’s spending in a month or year you pick',
+      'Added an "Export PDF" button there — opens a printable report for that period you can save as a PDF from your browser’s print dialog',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

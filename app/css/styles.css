@@ -631,6 +631,16 @@ dialog::backdrop { background: rgba(0,0,0,0.45); }
   margin: 4px 0 10px;
 }
 
+/* "By Category" bar chart (app/js/statementsChart.js, buildCategoryBarsSvg())
+   — same responsive viewBox-scaling technique as .spending-trend-chart
+   above, just a separate class since it's a visually distinct chart. */
+.category-bars-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin: 4px 0 10px;
+}
+
 .chart-axis-label {
   font-size: 9px;
   fill: var(--text-muted);

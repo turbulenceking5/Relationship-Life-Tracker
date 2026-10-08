@@ -30,6 +30,7 @@
 // doesn't read anything off it.
 import { h, mount } from './dom.js';
 import { formatMoney } from './format.js';
+import { categoryColor } from './expenses.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -40,14 +41,17 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 // those re-renders. A plain top-level `let` — not state scoped to one call
 // — is what survives that, exactly the pattern money.js already uses for
 // its own `activeSub` sub-tab variable.
-let activeRange = 'month'; // 'month' | 'year' | 'custom'
+let activeRange = 'month'; // 'month' | 'year' | 'custom' | 'category'
 let customStart = null; // set to the earliest txn date the first time Custom is ever shown
 let customEnd = null; // set to the latest txn date the first time Custom is ever shown
+let categoryPeriodType = 'month'; // 'month' | 'year', for the "By Category" tab's single-period picker
+let categoryPeriodValue = null; // "YYYY-MM" or "YYYY" depending on categoryPeriodType — set to the most recent period with data the first time "By Category" is ever shown
 
 const RANGE_TABS = [
   { key: 'month', label: 'Month' },
   { key: 'year', label: 'Year' },
   { key: 'custom', label: 'Custom' },
+  { key: 'category', label: 'By Category' },
 ];
 
 const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -233,6 +237,244 @@ function buildLegend() {
   ]);
 }
 
+// ---- "By Category" bar chart + PDF export ---------------------------------
+// A separate view from the trend line above: one horizontal bar per
+// category, for a single selected month or year, so two categories'
+// totals are directly comparable by bar length — the stacked
+// `.contribution-bar` used elsewhere in this tab (and in expenses.js) is
+// good for "share of the whole" at a glance, but its segments start at
+// different x-positions, which makes "which of these two categories was
+// bigger" a width-estimation exercise, not a direct comparison. This is
+// deliberately its own chart type for that reason, not a restyle of the
+// existing one.
+function categoryBarLabel(cat) {
+  return cat.charAt(0).toUpperCase() + cat.slice(1);
+}
+
+function periodKeyLength(periodType) {
+  return periodType === 'year' ? 4 : 7; // "YYYY" vs "YYYY-MM"
+}
+
+// Spend only (amount < 0, summed as a positive magnitude) — same
+// convention as every other category breakdown in this app
+// (statements.js's categoryBreakdown(), expenses.js's monthlyBreakdown()).
+// `category` falls back to 'unknown' for anything still sitting in
+// "Needs review", same fallback categoryBreakdown() already uses, so an
+// uncategorized transaction still counts toward the period's real total
+// instead of silently vanishing from it.
+function categoryTotalsForPeriod(transactions, periodType, periodValue) {
+  const keyLen = periodKeyLength(periodType);
+  const inPeriod = transactions.filter((t) => t.txn_date && t.txn_date.slice(0, keyLen) === periodValue && Number(t.amount) < 0);
+  const totals = new Map();
+  for (const t of inPeriod) {
+    const cat = t.category || 'unknown';
+    totals.set(cat, (totals.get(cat) || 0) + Math.abs(Number(t.amount)));
+  }
+  const total = [...totals.values()].reduce((a, b) => a + b, 0);
+  const entries = [...totals.entries()]
+    .map(([cat, amount]) => ({ cat, amount, color: cat === 'unknown' ? 'var(--text-muted)' : categoryColor(cat) }))
+    .sort((a, b) => b.amount - a.amount);
+  return { entries, total, transactionCount: inPeriod.length };
+}
+
+// Fixed label/value columns either side of the bar area (see the
+// gridlines in buildChartSvg() above for the equivalent "nice number"
+// idea on the trend chart) means a bar's length can never collide with
+// its own value label, regardless of how long that bar is — simpler and
+// more robust here than computing per-row label placement.
+function buildCategoryBarsSvg(entries, currency) {
+  const width = 400;
+  const rowH = 22;
+  const gap = 8;
+  const padTop = 6;
+  const padLeft = 4;
+  const padRight = 4;
+  const labelW = 104;
+  const valueColW = 70;
+  const barAreaW = width - padLeft - labelW - valueColW - padRight;
+  const height = padTop * 2 + entries.length * (rowH + gap) - gap;
+  const maxAmount = Math.max(...entries.map((e) => e.amount), 1);
+  const barX = padLeft + labelW;
+
+  const rows = entries.flatMap((e, i) => {
+    const y = padTop + i * (rowH + gap);
+    const barW = Math.max(3, (e.amount / maxAmount) * barAreaW);
+    return [
+      svgEl('text', { x: padLeft, y: y + rowH / 2 + 4, 'text-anchor': 'start', class: 'chart-axis-label' }, categoryBarLabel(e.cat)),
+      svgEl('rect', { x: barX, y, width: barW, height: rowH - 4, rx: 4, ry: 4, fill: e.color }),
+      svgEl('text', { x: width - padRight, y: y + rowH / 2 + 4, 'text-anchor': 'end', class: 'chart-axis-label' }, formatMoney(e.amount, currency)),
+    ];
+  });
+
+  return svgEl('svg', {
+    viewBox: `0 0 ${width} ${height}`,
+    class: 'category-bars-chart',
+    role: 'img',
+    'aria-label': 'Spending by category for the selected period',
+  }, rows);
+}
+
+// Escapes untrusted text (a category name, a transaction description)
+// before it's dropped into the print report via document.write() below —
+// this is a real injection risk otherwise, not just a style nitpick: a
+// manually-typed description containing `<script>`-like text must never
+// execute in that new document.
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// Opens a plain, self-contained HTML document in a new tab/window and
+// triggers the browser's native print dialog on it — "Save as PDF" from
+// there is what actually produces a PDF file, same as any other
+// print-to-PDF flow, rather than this app generating one directly (no
+// PDF-writing library, consistent with the rest of this app's
+// no-build-step/zero-dependency approach). The new document defines its
+// own `:root` with the same `--series-1..8`/`--text-muted` values
+// styles.css's LIGHT theme uses (never the user's current dark/glow
+// theme — a printed report should stay light/ink-friendly regardless),
+// so `categoryColor()`'s `var(--series-N)` strings resolve correctly
+// here too even though this is a completely separate document.
+// `window.open()` is called synchronously from the button's own click
+// handler (never after an `await`), since calling it any later is what
+// trips a popup blocker.
+function exportCategoryPdf(periodLabel, entries, total, currency, transactions) {
+  const win = window.open('', '_blank');
+  if (!win) {
+    alert('Your browser blocked the new tab this report opens in — allow popups for this site and try again.');
+    return;
+  }
+  const rows = entries.map((e) => `
+    <div class="row">
+      <div class="label">${escapeHtml(categoryBarLabel(e.cat))}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.max(2, (e.amount / entries[0].amount) * 100)}%;background:${e.color}"></div></div>
+      <div class="value">${escapeHtml(formatMoney(e.amount, currency))}</div>
+      <div class="pct">${total ? Math.round((e.amount / total) * 100) : 0}%</div>
+    </div>`).join('');
+  const txnRows = [...transactions]
+    .sort((a, b) => (a.txn_date < b.txn_date ? -1 : 1))
+    .map((t) => `<tr><td>${escapeHtml(t.txn_date || '')}</td><td>${escapeHtml(t.description)}</td><td>${escapeHtml(categoryBarLabel(t.category || 'unknown'))}</td><td class="num">${escapeHtml(formatMoney(Number(t.amount), currency))}</td></tr>`)
+    .join('');
+
+  win.document.write(`<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Spending report — ${escapeHtml(periodLabel)}</title>
+<style>
+  :root {
+    --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100;
+    --series-5: #e87ba4; --series-6: #008300; --series-7: #4a3aa7; --series-8: #e34948;
+    --text: #241f1a; --text-muted: #766e63; --border: #e4ddd1;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, system-ui, sans-serif; color: var(--text); margin: 32px; }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; }
+  .meta { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px; }
+  .total { font-size: 1.1rem; font-weight: 700; margin-bottom: 20px; }
+  .row { display: flex; align-items: center; gap: 10px; margin: 8px 0; font-size: 0.85rem; }
+  .label { width: 130px; flex-shrink: 0; }
+  .bar-track { flex: 1; background: #eee; border-radius: 4px; height: 14px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; }
+  .value { width: 90px; text-align: right; flex-shrink: 0; }
+  .pct { width: 48px; text-align: right; color: var(--text-muted); flex-shrink: 0; }
+  table { width: 100%; border-collapse: collapse; margin-top: 28px; font-size: 0.82rem; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); }
+  .num { text-align: right; }
+  @media print { body { margin: 12px; } }
+</style>
+</head>
+<body>
+  <h1>Spending report</h1>
+  <div class="meta">${escapeHtml(periodLabel)}</div>
+  <div class="total">Total spent: ${escapeHtml(formatMoney(total, currency))}</div>
+  ${rows}
+  ${transactions.length ? `<table><thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="num">Amount</th></tr></thead><tbody>${txnRows}</tbody></table>` : ''}
+</body>
+</html>`);
+  win.document.close();
+  win.focus();
+  // A brief delay so the new document has actually laid out before
+  // print() runs — calling it immediately after document.write()/close()
+  // can otherwise print a blank/partial page in some browsers.
+  setTimeout(() => win.print(), 250);
+}
+
+// Renders the "By Category" tab's whole body — period-type toggle
+// (Month/Year), the matching native picker, the "Export PDF" button, and
+// the bar chart itself — into `parts` (statementsChart.js's caller below
+// mounts whatever this pushes, same as the trend-chart branches do for
+// their own controls).
+function buildCategoryView(parts, transactions, currency, rerender) {
+  const valid = transactions.filter((t) => t && t.txn_date);
+  if (!valid.length) {
+    parts.push(h('div', { class: 'empty-state' }, 'No transactions yet.'));
+    return;
+  }
+  const sortedDates = valid.map((t) => t.txn_date).sort();
+  const minDate = sortedDates[0];
+  const maxDate = sortedDates[sortedDates.length - 1];
+  if (categoryPeriodValue === null) {
+    categoryPeriodValue = maxDate.slice(0, periodKeyLength(categoryPeriodType));
+  }
+
+  const typeToggle = h('div', { class: 'segmented' }, [
+    h('button', {
+      class: categoryPeriodType === 'month' ? 'active' : '',
+      type: 'button',
+      onclick: () => { categoryPeriodType = 'month'; categoryPeriodValue = maxDate.slice(0, 7); rerender(); },
+    }, 'Month'),
+    h('button', {
+      class: categoryPeriodType === 'year' ? 'active' : '',
+      type: 'button',
+      onclick: () => { categoryPeriodType = 'year'; categoryPeriodValue = maxDate.slice(0, 4); rerender(); },
+    }, 'Year'),
+  ]);
+
+  const periodInput = categoryPeriodType === 'year'
+    ? h('input', {
+        type: 'number', inputmode: 'numeric', min: minDate.slice(0, 4), max: maxDate.slice(0, 4), value: categoryPeriodValue,
+        onchange: (e) => { categoryPeriodValue = e.target.value; rerender(); },
+      })
+    : h('input', {
+        type: 'month', min: minDate.slice(0, 7), max: maxDate.slice(0, 7), value: categoryPeriodValue,
+        onchange: (e) => { if (e.target.value) { categoryPeriodValue = e.target.value; rerender(); } },
+      });
+
+  const { entries, total, transactionCount } = categoryTotalsForPeriod(valid, categoryPeriodType, categoryPeriodValue);
+  const periodLabel = categoryPeriodType === 'year'
+    ? categoryPeriodValue
+    : new Date(`${categoryPeriodValue}-01T00:00:00`).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
+  const exportBtn = h('button', {
+    class: 'btn secondary small',
+    type: 'button',
+    disabled: !transactionCount,
+    onclick: () => exportCategoryPdf(
+      periodLabel,
+      entries,
+      total,
+      currency,
+      valid.filter((t) => t.txn_date.slice(0, periodKeyLength(categoryPeriodType)) === categoryPeriodValue),
+    ),
+  }, 'Export PDF');
+
+  parts.push(h('div', { class: 'field-row' }, [
+    h('div', { class: 'field' }, [h('label', {}, 'View by'), typeToggle]),
+    h('div', { class: 'field' }, [h('label', {}, categoryPeriodType === 'year' ? 'Year' : 'Month'), periodInput]),
+  ]));
+  parts.push(h('div', { class: 'actions-row' }, [exportBtn]));
+
+  if (!entries.length) {
+    parts.push(h('div', { class: 'empty-state' }, `No spending in ${periodLabel}.`));
+    return;
+  }
+  parts.push(h('div', { class: 'total-banner' }, [
+    h('span', {}, `Spent in ${periodLabel}`),
+    h('span', { class: 'value' }, formatMoney(total, currency)),
+  ]));
+  parts.push(buildCategoryBarsSvg(entries, currency));
+}
+
 /**
  * Renders a line chart of the signed-in user's bank-statement spending
  * (and income) over time into `container`, with Month/Year/Custom
@@ -272,7 +514,13 @@ export function renderSpendingTrendChart(container, statements, transactions, cu
     onclick: () => { activeRange = tab.key; rerender(); },
   }, tab.label)));
 
-  const parts = [h('div', { class: 'section-title' }, 'Spending trend'), subNav];
+  const parts = [h('div', { class: 'section-title' }, 'Spending'), subNav];
+
+  if (activeRange === 'category') {
+    buildCategoryView(parts, valid, currency, rerender);
+    mount(container, parts);
+    return;
+  }
 
   let buckets;
   if (activeRange === 'year') {

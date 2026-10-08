@@ -111,6 +111,22 @@ embed failed with "Could not find a relationship."
 | `created_by` | uuid → auth.users | |
 | `created_at` / `updated_at` | timestamptz | |
 
+### `custom_categories`
+See [`04-feature-expenses.md`](04-feature-expenses.md) → "Custom
+categories". A household-added category on top of the hardcoded
+`CATEGORIES` list in `app/js/expenses.js` — shared across the
+household and across features (also pickable on My Statements, see
+[`27-feature-bank-statements.md`](27-feature-bank-statements.md)).
+
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `household_id` | uuid → households | |
+| `name` | text | unique per household |
+| `direction` | text | `'out'` (expense) \| `'in'` (income); default `'out'`. Only meaningful on My Statements — a logged expense is always an outflow |
+| `created_by` | uuid → auth.users | |
+| `created_at` | timestamptz | |
+
 ### `recurring_expenses`
 See [`04-feature-expenses.md`](04-feature-expenses.md). A template that
 auto-logs a matching `expenses` row each period via a daily `pg_cron`

@@ -185,18 +185,25 @@ code alone.
 
 `guessCategory()` matches a transaction's description against a plain
 keyword map (`CATEGORY_KEYWORDS`) onto `STATEMENT_CATEGORIES` — the
-**same `CATEGORIES` list expenses use** (`groceries`/`bills`/`rent`/
+**same category list expenses use** (`groceries`/`bills`/`rent`/
 `transport`/`household`/`leisure`/`other`/`food`/`pet`/`online
-shopping`), exported from `app/js/expenses.js` specifically so this
-doesn't fork into a second, slightly-different taxonomy to keep in sync
-by hand, **plus one extra: `income`**. `income` only exists in
-`statements.js`'s own `STATEMENT_CATEGORIES` (`[...CATEGORIES,
-'income']`), not in `expenses.js`'s `CATEGORIES` itself — a logged
-expense is always an outflow, so "Income" would be a nonsensical option
-on the Add Expense form; a bank transaction can be either direction,
-so it gets the one category the other feature doesn't need. Deliberately
-not a learned/ML classifier — a short, readable keyword list that's
-easy to extend as real statements turn up merchants it misses.
+shopping`, plus whatever a household has added itself — see "Custom
+categories" in [`04-feature-expenses.md`](04-feature-expenses.md) →
+"Manage categories"), refreshed once per `render()`
+(`refreshCategories()`, since a household's custom categories are
+fetched from the database and can change at any time) specifically so
+this doesn't fork into a second, slightly-different taxonomy to keep in
+sync by hand, **plus one extra `income` always appended on top**.
+`income` only exists in `statements.js`'s own `STATEMENT_CATEGORIES`,
+not in `expenses.js`'s hardcoded `CATEGORIES` itself — a logged expense
+is always an outflow, so "Income" would be a nonsensical option on the
+Add Expense form; a bank transaction can be either direction, so it
+gets the one category the other feature doesn't need. Deliberately not
+a learned/ML classifier — a short, readable keyword list that's easy to
+extend as real statements turn up merchants it misses (a custom
+category never gets its own keyword entry, only "Learning from your
+picks" below teaches the app one from real use — same as any other
+category someone picks by hand).
 
 `income` keywords (`salary`, `payroll`, `centrelink`, `refund`,
 `reimbursement`, `cashback`, `dividend`, `interest credit`, …) are
@@ -368,6 +375,56 @@ range mode (and any applied Custom dates) lives in module-level variables
 inside `statementsChart.js` itself, the same pattern `money.js` uses for
 its own `activeSub` — otherwise it would silently reset to Month on every
 single save, since `render()` below re-mounts this chart on every rebuild.
+
+## "By Category" bar chart + PDF export
+
+A fourth tab on the same `.segmented` toggle as the trend chart above
+(Month/Year/Custom/**By Category**) switches `statementsChart.js`'s
+whole body over to a different chart entirely: one horizontal bar per
+category, for a single selected month or year, rather than a line
+across many periods. This is deliberately a separate chart type, not a
+restyle of the trend line or of the existing `.contribution-bar`
+segmented-bar breakdown used elsewhere (statements' own per-statement
+report, expenses.js's "This month" card): a stacked bar's segments
+start at different x-positions, which makes "was Food or Transport
+bigger this month" a width-estimation exercise rather than a direct
+comparison — separate bars, each starting from the same baseline, are
+what actually answer that question at a glance.
+
+- A **Month/Year** toggle plus the matching native picker
+  (`<input type="month">` or a plain year number input) selects the one
+  period the chart (and the export below) covers — defaulting to the
+  most recent period that actually has transactions, same "lazy init,
+  never silently reset on a later re-render" pattern the trend chart's
+  own Custom range already uses.
+- Bars are colored via the exact same `categoryColor()` (`expenses.js`)
+  every other category breakdown in this app uses, including the same
+  fold-into-`var(--text-muted)` treatment for anything beyond the 8
+  fixed hues — a category never gets a different color depending on
+  which chart happens to be showing it.
+- Spend only (`amount < 0`, summed as a positive magnitude) — the same
+  convention as every other breakdown in this file. An uncategorized
+  transaction still counts toward the period's total under "Unknown"
+  rather than silently vanishing from it.
+
+**Export PDF**: a button next to the picker opens a new browser
+tab/window containing a complete, self-contained HTML report for that
+exact selected period (period label, total spent, the same category
+breakdown as a list of proportional bars, and a plain table of every
+transaction in that period) and calls the browser's native
+`print()` on it. There's no PDF-writing library involved — "Save as
+PDF" from the browser's own print dialog is what actually produces a
+file, consistent with this app's zero-dependency, no-build-step
+approach (the same reasoning that kept the trend chart above to plain
+inline SVG rather than a charting library). The new document defines
+its own `:root` with the **light theme's** `--series-1`..`--series-8`/
+`--text-muted` hex values (never whatever theme you're currently using
+in the app) so `categoryColor()`'s `var(--series-N)` strings resolve
+correctly in that completely separate document too — a printed report
+stays light/ink-friendly regardless of your in-app theme, the same
+reasoning print stylesheets everywhere use. `window.open()` is called
+synchronously from the button's own click handler specifically because
+calling it after an `await` is what gets a popup blocked.
 
 ## Yearly view: condensing statements by calendar year
 

@@ -10,7 +10,7 @@ import { supabase } from './supabaseClient.js';
 const SHARED_TABLES = [
   'events', 'expenses', 'recurring_expenses', 'custom_goals',
   'goal_transactions', 'goal_tasks', 'rent_payments', 'mortgage_payments',
-  'documents', 'grocery_items', 'recipes', 'settlements',
+  'documents', 'grocery_items', 'recipes', 'settlements', 'custom_categories',
 ];
 
 // One channel for the whole household, covering every shared table —

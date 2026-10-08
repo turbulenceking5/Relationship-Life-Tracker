@@ -15,9 +15,9 @@ Realtime channel per household (`subscribeHousehold(householdId,
 onChange)`), subscribed to `postgres_changes` on every shared-list table:
 `events`, `expenses`, `recurring_expenses`, `custom_goals`,
 `goal_transactions`, `goal_tasks`, `rent_payments`, `mortgage_payments`,
-`documents`, `grocery_items`, `recipes`, `settlements`, and `households`
-(for the shared sticky note) — each filtered to that one household's
-rows. `personal_todos`, `bank_statements`/`bank_transactions`, and
+`documents`, `grocery_items`, `recipes`, `settlements`, `custom_categories`,
+and `households` (for the shared sticky note) — each filtered to that
+one household's rows. `personal_todos`, `bank_statements`/`bank_transactions`, and
 `bank_transaction_category_rules` are deliberately excluded: all four
 are private per user (RLS already restricts each to its own owner —
 see [`27-feature-bank-statements.md`](27-feature-bank-statements.md)

@@ -8,6 +8,56 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-08 — "By Category" bar chart and PDF export for My Statements
+
+- **New "By Category" tab** on the same `.segmented` toggle as the
+  existing Spending trend chart (`app/js/statementsChart.js`) — a
+  horizontal bar chart, one bar per category, for a single selected
+  month or year (a Month/Year toggle plus the matching native picker,
+  defaulting to the most recent period with transactions). Separate
+  bars starting from the same baseline, unlike the stacked
+  `.contribution-bar` used elsewhere in this app, so two categories'
+  totals are directly comparable by length rather than by estimating
+  segment widths.
+- Spend only (`amount < 0`), colored via the same `categoryColor()`
+  every other breakdown in the app uses — a category never has a
+  different color depending on which chart is showing it.
+- **New "Export PDF" button**: opens a new tab containing a complete,
+  self-contained HTML report for the selected period (total, the
+  category breakdown, and a transaction table) and calls the browser's
+  native print dialog — "Save as PDF" from there is what produces an
+  actual file. No PDF-writing library added; the new document defines
+  its own `:root` with the light theme's category colors (not whatever
+  theme you're currently using) so the report stays printer-friendly
+  regardless.
+- See [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md)
+  → "'By Category' bar chart + PDF export".
+
+## 2026-10-08 — Add your own categories
+
+- **New `custom_categories` table** (migration
+  `0040_custom_categories.sql`): household-shared (every member can add
+  one, every member sees all of them) — `name`, `direction` (`'out'`
+  expense \| `'in'` income, default `'out'`). Added to the
+  `supabase_realtime` publication, same as the rest of this app's
+  shared lists.
+- **New "Manage categories" sheet** (`openManageCategoriesSheet()`,
+  exported from `app/js/expenses.js` so `statements.js` can open the
+  exact same one): add a category (name + direction) or delete one
+  already added. Deleting only stops it being offered going forward —
+  nothing already saved under that category changes.
+- **Every category `<select>` now reads a merged list**: `expenses.js`'s
+  own module-private `categoryNames`, and `statements.js`'s
+  `STATEMENT_CATEGORIES`/`CATEGORY_DIRECTION`/`CATEGORIES_BY_DIRECTION`,
+  all refreshed once per `render()` (`mergeCategories()` in
+  `expenses.js`) rather than computed once and cached forever, since a
+  partner's addition should show up without a reload.
+- A custom category gets no `categoryColor()` hue of its own — it folds
+  into the shared neutral along with `pet`/`online shopping` and
+  anything else past the 8 fixed colors.
+- See [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md) →
+  "Custom categories".
+
 ## 2026-10-08 — Spending trend chart and a Yearly view for My Statements
 
 - **New "Spending trend" line chart** (`app/js/statementsChart.js`) at

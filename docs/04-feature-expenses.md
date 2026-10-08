@@ -139,6 +139,45 @@ place this mapping lives, shared by this file's breakdown and
 `statements.js`'s, so the two charts can never color the same category
 differently.
 
+## Custom categories (shipped)
+
+A "Manage categories" link (next to the "This month" card) opens a
+sheet (`openManageCategoriesSheet()`, exported from `app/js/expenses.js`
+so `statements.js` can open the exact same one) where a household can
+add its own category on top of the hardcoded `CATEGORIES` list —
+household-shared (`custom_categories` table, see "Data" below), so
+either partner's addition shows up for both, same as the rest of this
+app's shared lists.
+
+Every `<select>` that offers a category — here and on My Statements —
+reads a merged list instead of the bare `CATEGORIES` constant:
+`categoryNames` (a module-private `let` in `expenses.js`, refreshed
+once per `render()` via `mergeCategories(await fetchCustomCategories(
+ctx.household.id))`) for this file's own forms, and
+`STATEMENT_CATEGORIES` (`statements.js`'s own refreshed-per-render `let`,
+built the same way plus its own `income` entry on top) for the
+statement-side ones. Neither is computed once and cached forever — a
+household's custom categories live in the database and can change at
+any time (including from the other partner's phone), so each file
+re-fetches and re-merges on every tab render instead of going stale
+until a full page reload.
+
+A custom category declares a **direction** (`'out'` for an expense,
+`'in'` for income) when added — the Add Expense form never exposes or
+needs this (a logged expense is always an outflow), but the table
+itself is shared with My Statements, where a direction-aware category
+genuinely matters (see `CATEGORY_DIRECTION` in
+[`27-feature-bank-statements.md`](27-feature-bank-statements.md)).
+Deleting a custom category removes it from future pickers but doesn't
+touch anything already saved under its name — same "stop offering it
+going forward, don't retroactively change history" tolerance the rest
+of this app's deletes already use.
+
+A custom category never gets a `categoryColor()` hue of its own (see
+"Monthly total + category breakdown" above) — it folds into the shared
+neutral along with anything else past the 8th fixed color, exactly like
+`pet`/`online shopping` already do.
+
 ## Sort/group by month (shipped)
 The expense list groups into collapsible per-month sections (`<details
 class="goal-section">`, same pattern as Goals/Recipes) instead of one
@@ -189,11 +228,18 @@ call or shared secret involved, since it never leaves the database.
 - Multi-currency: convert to household default currency for totals while
   keeping the original entry currency visible.
 - CSV export.
-- Simple charts (spend by category, spend over time) — see
-  [`10-suggestions.md`](10-suggestions.md).
+- Simple charts (spend by category, spend over time) for *this tab's own*
+  `expenses` data — see [`10-suggestions.md`](10-suggestions.md). The
+  analogous charts (a spending trend line, a "By Category" bar chart,
+  and a PDF export) already shipped for My Statements' bank-transaction
+  data instead — see
+  [`27-feature-bank-statements.md`](27-feature-bank-statements.md) →
+  "Spending trend chart" and "'By Category' bar chart + PDF export" —
+  but that's a different, private-per-user data source, not this tab's
+  shared `expenses` table.
 
 ## Data
-See `expenses` and `settlements` tables in
+See `expenses`, `settlements`, and `custom_categories` tables in
 [`02-data-model.md`](02-data-model.md), and `split_percent` on
 `household_members`.
 

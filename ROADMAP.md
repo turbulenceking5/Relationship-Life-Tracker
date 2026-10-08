@@ -247,6 +247,27 @@ status. Check items off as they land.
       it's learned, and a guard against a near-empty merchant key ever
       learning a rule that silently matches almost everything. See
       [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md).
+- [x] **My Statements — charting and reporting**: a "Spending trend"
+      line chart (Month/Year/Custom date range) plotting total
+      Spent/Received over time, plus a Yearly view condensing the
+      statement list by calendar year instead of by month; a "By
+      Category" tab on that same chart showing a horizontal bar per
+      category for one selected month or year (separate baselines, so
+      two categories' totals are directly comparable, unlike the
+      stacked `.contribution-bar` breakdown used elsewhere); and an
+      "Export PDF" button there that opens a printable report for the
+      selected period — no PDF library, just the browser's own print
+      dialog. All plain inline SVG, no charting library, consistent
+      with this app's zero-dependency approach. See
+      [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md).
+- [x] **Custom categories**: a household can now add its own category
+      (name + direction: expense or income) on top of the hardcoded
+      list, shared across the household and across both Expenses and
+      My Statements — new `custom_categories` table, a "Manage
+      categories" sheet, and every category picker now reading a
+      per-render-refreshed merged list instead of the old hardcoded
+      constant directly. See
+      [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md).
 
 ## Phase 0 — Foundations ✅ (this session)
 
