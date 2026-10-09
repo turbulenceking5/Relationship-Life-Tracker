@@ -489,6 +489,15 @@ export const CHANGELOG_ENTRIES = [
       'New "Delete all" button on "Manage learned categories" clears every learned rule in one tap and one confirm, instead of deleting them one at a time',
     ],
   },
+  {
+    id: 54,
+    date: '2026-10-09',
+    title: 'Document notes',
+    items: [
+      'Documents can now have a free-text note, shown on their card',
+      'Searching documents now also matches notes, not just the title',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

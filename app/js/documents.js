@@ -60,6 +60,7 @@ export function openEditDocumentSheet(row, onSaved) {
   const categorySelect = h('select', {}, DOCUMENT_CATEGORIES.map((c) => h('option', { value: c, selected: c === row.category }, c)));
   const expiryInput = h('input', { type: 'date', value: row.expiry_date || '' });
   const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save changes');
+  const notesInput = h('textarea', { rows: '2', placeholder: 'Optional notes' }, row.notes || '');
 
   const form = h('form', {
     onsubmit: async (e) => {
@@ -71,6 +72,7 @@ export function openEditDocumentSheet(row, onSaved) {
           title: titleInput.value.trim(),
           category: categorySelect.value,
           expiry_date: expiryInput.value || null,
+          notes: notesInput.value.trim() || null,
         });
         closeSheet(dialog);
         onSaved();
@@ -86,6 +88,7 @@ export function openEditDocumentSheet(row, onSaved) {
       h('div', { class: 'field' }, [h('label', {}, 'Category'), categorySelect]),
       h('div', { class: 'field' }, [h('label', {}, 'Expiry date (optional)'), expiryInput]),
     ]),
+    h('div', { class: 'field' }, [h('label', {}, 'Notes (optional)'), notesInput]),
     h('p', { class: 'meta' }, 'To replace the file itself, delete this and upload a new one.'),
     errorEl,
     submitBtn,
@@ -118,6 +121,7 @@ export function openUploadDocumentSheet(ctx, { sheetTitle = 'Add document', rela
   const titleInput = h('input', { type: 'text', required: true, placeholder: 'e.g. Boiler warranty' });
   const categorySelect = h('select', {}, DOCUMENT_CATEGORIES.map((c) => h('option', { value: c }, c)));
   const expiryInput = h('input', { type: 'date' });
+  const notesInput = h('textarea', { rows: '2', placeholder: 'Optional notes' });
   // No `accept`/`capture` restriction: documents are any file type, not
   // just photos/PDFs (a `capture` attribute here used to force Android
   // straight into the camera, hiding the file picker entirely — see
@@ -145,6 +149,7 @@ export function openUploadDocumentSheet(ctx, { sheetTitle = 'Add document', rela
           file_name: file.name,
           mime_type: file.type,
           expiry_date: expiryInput.value || null,
+          notes: notesInput.value.trim() || null,
           related_type: relatedType,
           related_id: relatedId,
           uploaded_by: ctx.user.id,
@@ -164,6 +169,7 @@ export function openUploadDocumentSheet(ctx, { sheetTitle = 'Add document', rela
       h('div', { class: 'field' }, [h('label', {}, 'Expiry date (optional)'), expiryInput]),
     ]),
     h('div', { class: 'field' }, [h('label', {}, 'File'), fileInput]),
+    h('div', { class: 'field' }, [h('label', {}, 'Notes (optional)'), notesInput]),
     h('p', { class: 'meta' }, 'Uploads to the household’s Google Drive folder.'),
     errorEl,
     submitBtn,
@@ -172,7 +178,7 @@ export function openUploadDocumentSheet(ctx, { sheetTitle = 'Add document', rela
   openSheet(dialog);
 }
 
-// Matches title, category, or linked-goal name — case-insensitive
+// Matches title, category, notes, or linked-goal name — case-insensitive
 // substring, no fancy tokenizing.
 function matchesSearch(row, goalTitle, query) {
   if (!query) return true;
@@ -181,6 +187,7 @@ function matchesSearch(row, goalTitle, query) {
   return (
     row.title.toLowerCase().includes(q) ||
     (row.category || '').toLowerCase().includes(q) ||
+    (row.notes || '').toLowerCase().includes(q) ||
     (linkedGoal || '').toLowerCase().includes(q)
   );
 }
@@ -203,6 +210,7 @@ export async function render(container, ctx) {
         h('div', {}, [
           h('h3', {}, row.title),
           h('div', { class: 'meta' }, `${row.category || 'document'} · added ${formatDate(row.created_at.slice(0, 10))}${addedBy ? ' by ' + addedBy : ''}${row.expiry_date ? ' · expires ' + formatDate(row.expiry_date) : ''}${linkedGoal ? ' · linked to ' + linkedGoal : ''}`),
+          row.notes ? h('div', { class: 'meta' }, row.notes) : null,
         ]),
         status && status.cls !== 'ok' ? h('span', { class: `pill ${status.cls}` }, status.label) : null,
       ]),

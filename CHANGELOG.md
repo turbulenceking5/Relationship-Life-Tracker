@@ -8,6 +8,21 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-09 — Document notes, searchable
+
+- New "Notes (optional)" textarea on both the upload and edit sheets in
+  `app/js/documents.js`, surfacing the `documents.notes` column that
+  already existed in the schema but was never read or written by the
+  UI. No migration needed.
+- Shown on the document's card only when set (an empty note doesn't
+  leave a blank line behind).
+- The existing title/category search box now also matches against
+  `notes`, so a detail only written in a note (e.g. a serial number, a
+  broker's name) still surfaces the document. Still a single plain
+  substring filter, no tags yet — see
+  [`docs/07-feature-documents.md`](docs/07-feature-documents.md#notes-shipped)
+  and the Phase 4 line in `ROADMAP.md`.
+
 ## 2026-10-08 — "Delete all" for learned categories
 
 - New "Delete all" button at the top of "Manage learned categories"

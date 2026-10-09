@@ -479,7 +479,12 @@ schema.
       [`docs/12-feature-goals.md`](docs/12-feature-goals.md)); linking to
       an expense or event too is a possible follow-up
 - [ ] Thumbnail previews for images/PDFs in the documents list
-- [ ] Tags and full-text search over document titles/notes
+- [x] **Document notes field, searchable alongside title**: a free-text
+      "Notes (optional)" field on upload/edit (surfacing the `notes`
+      column that already existed in the schema), shown on the card when
+      set, and matched by the existing search box. See
+      [`docs/07-feature-documents.md`](docs/07-feature-documents.md#notes-shipped).
+- [ ] Tags for documents
 - [ ] Bulk export/download of all documents (zip) as a personal backup
 
 ## Phase 5 — Nice-to-haves / stretch
