@@ -498,6 +498,15 @@ export const CHANGELOG_ENTRIES = [
       'Searching documents now also matches notes, not just the title',
     ],
   },
+  {
+    id: 55,
+    date: '2026-10-09',
+    title: 'CSV export for expenses and goals',
+    items: [
+      'Export CSV on the Expenses tab downloads your full expense list — handy for taxes or your own records',
+      'Each goal gets its own Export CSV next to "+ Add transaction", for just that goal\'s saved/spent history',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

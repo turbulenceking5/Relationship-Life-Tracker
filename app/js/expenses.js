@@ -4,6 +4,7 @@ import { formatDate, formatMoney, todayStr } from './format.js';
 import { getHouseholdMembers } from './household.js';
 import { computeBalance } from './balance.js';
 import { getCommentCounts, deleteCommentsFor, openCommentsSheet } from './comments.js';
+import { toCsv, downloadCsv } from './csv.js';
 
 const ENTITY_TYPE = 'expense';
 
@@ -505,6 +506,32 @@ function matchesSearch(row, memberName, query) {
   );
 }
 
+// Same "split A x/B y" vs "Default" distinction shown on an expense's
+// card (see `card()`'s splitNote), as its own plain string for the CSV
+// export — a household's accountant/tax-time use of this file cares
+// whether a given expense tracked the household default split or had
+// its own override, same as someone reading the card in the app.
+function splitLabel(row, members) {
+  if (row.split_percent == null || members.length !== 2) return 'Default';
+  const [a, b] = members;
+  const pctA = row.split_percent_user_id === a.user_id ? Number(row.split_percent) : 100 - Number(row.split_percent);
+  return `${a.display_name} ${Math.round(pctA)}/${b.display_name} ${Math.round(100 - pctA)}`;
+}
+
+function exportExpensesCsv(rows, members, memberName) {
+  const csv = toCsv(rows, [
+    { label: 'Date', value: (r) => r.expense_date },
+    { label: 'Title', value: (r) => r.title },
+    { label: 'Category', value: (r) => r.category || 'uncategorized' },
+    { label: 'Amount', value: (r) => r.amount },
+    { label: 'Currency', value: (r) => r.currency },
+    { label: 'Paid by', value: (r) => memberName(r.paid_by) },
+    { label: 'Split', value: (r) => splitLabel(r, members) },
+    { label: 'Notes', value: (r) => r.notes || '' },
+  ]);
+  downloadCsv(`expenses-${todayStr()}.csv`, csv);
+}
+
 export async function render(container, ctx) {
   const [rows, members, settlements, recurringRows, commentCounts, customCategories] = await Promise.all([
     fetchRows(TABLE, ctx.household.id, 'expense_date', false),
@@ -802,6 +829,11 @@ export async function render(container, ctx) {
       h('span', {}, 'Total logged'),
       h('span', { class: 'value' }, formatMoney(total, ctx.household.default_currency || 'AUD')),
     ]),
+    rows.length
+      ? h('div', { style: 'display:flex;justify-content:flex-end;margin-bottom:10px' }, [
+          h('button', { class: 'btn secondary small', onclick: () => exportExpensesCsv(rows, members, memberName) }, 'Export CSV'),
+        ])
+      : null,
     monthlyBreakdown(rows, ctx.household.default_currency || 'AUD'),
     h('div', { class: 'action-chip-row' }, [
       h('a', { class: 'action-chip', href: '#', onclick: (e) => { e.preventDefault(); openManageCategoriesSheet(ctx, () => render(container, ctx)); } }, 'Manage categories'),

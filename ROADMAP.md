@@ -470,7 +470,13 @@ schema.
       month" total and category breakdown. See
       [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md).
 - [ ] Multi-currency support (per-entry currency + household default)
-- [ ] CSV export of expenses and goal transactions for taxes/records
+- [x] **CSV export of expenses and goal transactions**: an "Export CSV"
+      action on the Expenses tab downloads the full expense list, and
+      each goal gets its own "Export CSV" next to "+ Add transaction"
+      for just that goal's ledger — both built with a small local
+      `toCsv()`/`downloadCsv()` pair (`app/js/csv.js`), no library. See
+      [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md) and
+      [`docs/12-feature-goals.md`](docs/12-feature-goals.md).
 - [ ] Simple charts: spend by category, spend over time
 
 ## Phase 4 — Documents that pull their weight

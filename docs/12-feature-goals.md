@@ -80,6 +80,15 @@ target and running ledger.
   it plays once per goal per browser, not on every render — the "🎉 Goal
   reached!" text itself isn't one-time, it shows any time the goal is at
   or past target.
+- **Export CSV**: next to "+ Add transaction" in each goal's Transactions
+  section, downloads just that goal's `goal_transactions` as
+  `goal-<slugified-title>-transactions.csv` — date, type (Saved/Spent),
+  title, amount, notes, and who logged it (resolved to a display name).
+  Only shown once the goal has at least one transaction. Uses the same
+  `toCsv()`/`downloadCsv()` helpers in `app/js/csv.js` as the Expenses
+  tab's export, kept per-goal rather than one combined export since
+  tax-time records are usually wanted per goal (e.g. "receipts for the
+  Europe trip").
 
 ## Data
 

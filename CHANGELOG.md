@@ -8,6 +8,25 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-09 — CSV export for expenses and goals
+
+- New "Export CSV" action on the Expenses tab (next to the running
+  total) downloads the household's full expense list — date, title,
+  category, amount, currency, paid by, split, and notes — as
+  `expenses-<today>.csv`. See
+  [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md).
+- New "Export CSV" action per goal, next to "+ Add transaction" in each
+  goal's Transactions section, downloads just that goal's
+  `goal_transactions` as `goal-<slugified-title>-transactions.csv` —
+  date, type, title, amount, notes, and who logged it. See
+  [`docs/12-feature-goals.md`](docs/12-feature-goals.md).
+- Both built on a new small, dependency-free `app/js/csv.js` — a
+  `toCsv(rows, columns)` builder with RFC 4180-style escaping (a field
+  with a comma, quote or newline gets quoted, internal quotes doubled)
+  and a `downloadCsv(filename, content)` helper that triggers the
+  browser download via a Blob + a temporary `<a download>` element, no
+  library, no server round-trip.
+
 ## 2026-10-09 — Document notes, searchable
 
 - New "Notes (optional)" textarea on both the upload and edit sheets in

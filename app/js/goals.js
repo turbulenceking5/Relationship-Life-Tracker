@@ -3,6 +3,7 @@ import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
 import { formatDate, formatMoney, daysUntil, todayStr } from './format.js';
 import { viewDocument, removeDocument, openEditDocumentSheet, openUploadDocumentSheet } from './documents.js';
 import { getHouseholdMembers } from './household.js';
+import { toCsv, downloadCsv, slugify } from './csv.js';
 
 const GOALS_TABLE = 'custom_goals';
 const TXN_TABLE = 'goal_transactions';
@@ -156,6 +157,24 @@ function contributionBreakdown(transactions, members, currency) {
       h('span', {}, `${c.display_name} · ${formatMoney(c.amount, currency)} (${Math.round((c.amount / total) * 100)}%)`),
     ]))),
   ]);
+}
+
+// One goal's saved/spent ledger as a CSV download — independent of the
+// household-wide Expenses export, since a goal's transactions are their
+// own table (`goal_transactions`) and tax-time records are usually
+// wanted per-goal (e.g. "receipts for the Europe trip") rather than
+// mixed in with everything else.
+function exportGoalTransactionsCsv(goal, transactions, members) {
+  const memberName = (id) => members.find((m) => m.user_id === id)?.display_name || 'Someone';
+  const csv = toCsv(transactions, [
+    { label: 'Date', value: (t) => t.transaction_date },
+    { label: 'Type', value: (t) => (t.type === 'saved' ? 'Saved' : 'Spent') },
+    { label: 'Title', value: (t) => t.title },
+    { label: 'Amount', value: (t) => t.amount },
+    { label: 'Notes', value: (t) => t.notes || '' },
+    { label: 'Logged by', value: (t) => memberName(t.created_by) },
+  ]);
+  downloadCsv(`goal-${slugify(goal.title)}-transactions.csv`, csv);
 }
 
 async function renderGoalBody(section, ctx, goal, members, editing = false, onDeleted) {
@@ -451,7 +470,10 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
 
   content.push(h('div', { class: 'section-title' }, 'Transactions'));
   content.push(contributionBreakdown(transactions, members, currency));
-  content.push(h('button', { class: 'btn secondary small', style: 'margin-bottom:10px', onclick: () => openSheet(dialog) }, '+ Add transaction'));
+  content.push(h('div', { style: 'display:flex;gap:8px;margin-bottom:10px' }, [
+    h('button', { class: 'btn secondary small', onclick: () => openSheet(dialog) }, '+ Add transaction'),
+    transactions.length ? h('button', { class: 'btn secondary small', onclick: () => exportGoalTransactionsCsv(goal, transactions, members) }, 'Export CSV') : null,
+  ]));
   content.push(transactions.length ? h('div', {}, transactions.map(txnCard)) : h('div', { class: 'empty-state' }, 'No transactions logged yet.'));
   content.push(dialog);
 

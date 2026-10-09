@@ -224,10 +224,22 @@ missed, so no period silently disappears) and advances `next_due_date`
 past today. It's pure SQL — unlike `notify-due-items` there's no HTTP
 call or shared secret involved, since it never leaves the database.
 
+## CSV export (shipped)
+An "Export CSV" action (`exportExpensesCsv()` in `app/js/expenses.js`,
+next to the running total) downloads the household's full expense list —
+not just whatever's currently filtered by search — as
+`expenses-<today>.csv`: date, title, category, amount, currency, paid
+by (resolved to a display name), split (the household default, or the
+specific override shown on the card, e.g. "Alex 70/Sam 30"), and notes.
+Built with a small local `toCsv()`/`downloadCsv()` pair in the new
+`app/js/csv.js` — no library, same Blob + temporary `<a download>`
+element approach used elsewhere in the app for client-side downloads.
+Fields containing a comma, quote, or newline are quoted per RFC 4180,
+with internal quotes doubled.
+
 ## Phase 3 (remaining)
 - Multi-currency: convert to household default currency for totals while
   keeping the original entry currency visible.
-- CSV export.
 - Simple charts (spend by category, spend over time) for *this tab's own*
   `expenses` data — see [`10-suggestions.md`](10-suggestions.md). The
   analogous charts (a spending trend line, a "By Category" bar chart,
