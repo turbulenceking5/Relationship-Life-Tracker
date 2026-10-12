@@ -4,6 +4,7 @@ import { formatDate, daysUntil, dayThresholdStatus } from './format.js';
 import { supabase } from './supabaseClient.js';
 import { isConfigured, isDriveConnected, hasLocalDriveAccess, uploadFileToDrive, deleteDriveFile } from './googleDrive.js';
 import { getHouseholdMembers } from './household.js';
+import { maybeCompressImage } from './imageCompress.js';
 
 export const DOCUMENT_TABLE = 'documents';
 export const DOCUMENT_BUCKET = 'documents';
@@ -133,10 +134,12 @@ export function openUploadDocumentSheet(ctx, { sheetTitle = 'Add document', rela
     onsubmit: async (e) => {
       e.preventDefault();
       errorEl.style.display = 'none';
-      const file = fileInput.files[0];
-      if (!file) return;
-      const restore = withBusyLabel(submitBtn, 'Uploading…');
+      const originalFile = fileInput.files[0];
+      if (!originalFile) return;
+      const restore = withBusyLabel(submitBtn, 'Compressing…');
       try {
+        const file = await maybeCompressImage(originalFile);
+        submitBtn.textContent = 'Uploading…';
         const driveFileName = `[${categoryLabel(categorySelect.value)}] ${file.name}`;
         const uploaded = await uploadFileToDrive(ctx, file, driveFileName);
         await insertRow(DOCUMENT_TABLE, {
@@ -170,7 +173,7 @@ export function openUploadDocumentSheet(ctx, { sheetTitle = 'Add document', rela
     ]),
     h('div', { class: 'field' }, [h('label', {}, 'File'), fileInput]),
     h('div', { class: 'field' }, [h('label', {}, 'Notes (optional)'), notesInput]),
-    h('p', { class: 'meta' }, 'Uploads to the household’s Google Drive folder.'),
+    h('p', { class: 'meta' }, 'Uploads to the household’s Google Drive folder. A photo is automatically resized and compressed first to keep it small — the original quality isn’t needed to read a receipt or warranty plate.'),
     errorEl,
     submitBtn,
   ]);

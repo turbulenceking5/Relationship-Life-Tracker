@@ -111,6 +111,26 @@ rather than Supabase JWT verification, because its only caller is
   every member.
 - A subscription that the push service reports as gone (HTTP 404/410,
   e.g. uninstalled app, cleared browser data) is deleted automatically.
+- Any other `webpush.sendNotification()` failure — not just the 404/410
+  case above — is logged (`console.error`, visible in the function's
+  Supabase logs) with the subscription's `user_id`, the push service
+  host, the HTTP status code, and the error message, so "notifications
+  aren't arriving for one specific person" is diagnosable from server
+  logs rather than invisible. Deliberately *not* logged: the full
+  endpoint URL or the subscription's `p256dh`/`auth_key` — those are
+  effectively per-device send credentials, not just an identifier.
+  `notify-due-items`, `weekly-digest`, and `remind-partner` all do this
+  the same way. This was added after confirming (by reading the actual
+  query, not assuming) that household-wide notifications were never
+  scoped to who created the item in the first place — every source here
+  queries every `push_subscriptions` row for the whole household — so a
+  report of "my partner created it and I'm not getting notified" is a
+  delivery problem (a stale/revoked subscription on one specific device,
+  or the push service silently not displaying it — common on iOS if
+  notification permission for the installed PWA was turned off after
+  subscribing, which doesn't invalidate the subscription itself) rather
+  than a scoping bug, and this logging is what makes that distinction
+  checkable next time rather than guessed at.
 
 ## Proactively asking to enable notifications
 

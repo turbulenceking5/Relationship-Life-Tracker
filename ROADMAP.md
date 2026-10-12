@@ -277,6 +277,22 @@ status. Check items off as they land.
       already-shipped "By Category" chart (which answers "how much did
       I spend on X this month") rather than replacing it. See
       [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md).
+- [x] **Document photos compressed before upload; push failure
+      logging**: a document photo is now automatically resized (1600px
+      long edge) and re-encoded (JPEG, quality 0.8) client-side before
+      uploading to Drive, no library — a multi-MB phone photo becomes a
+      few hundred KB. Skipped for non-photos and anything already small.
+      Separately, all three push-sending edge functions
+      (`notify-due-items`, `weekly-digest`, `remind-partner`) now log
+      *why* an individual push delivery failed instead of only noticing
+      a 404/410 "subscription gone" — confirmed along the way that
+      household-wide notifications were never tied to who created the
+      item (every source already queries every household member's
+      subscriptions), so an "I'm not getting notified" report is a
+      delivery issue on one device, now diagnosable from logs, not a
+      scoping bug. See
+      [`docs/21-google-drive-documents.md`](docs/21-google-drive-documents.md)
+      and [`docs/11-push-notifications.md`](docs/11-push-notifications.md).
 
 ## Phase 0 — Foundations ✅ (this session)
 

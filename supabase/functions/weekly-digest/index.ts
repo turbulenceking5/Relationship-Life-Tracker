@@ -108,7 +108,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: subs } = await admin
       .from("push_subscriptions")
-      .select("endpoint, p256dh, auth_key")
+      .select("endpoint, p256dh, auth_key, user_id")
       .eq("household_id", h.id);
 
     for (const sub of subs ?? []) {
@@ -121,6 +121,13 @@ Deno.serve(async (req: Request) => {
       } catch (err) {
         failed++;
         const statusCode = (err as { statusCode?: number }).statusCode;
+        // See notify-due-items for why this logs user/host/status rather
+        // than the full endpoint.
+        console.error(
+          `push failed: household=${h.id} user=${sub.user_id} ` +
+          `host=${new URL(sub.endpoint).host} status=${statusCode ?? "?"} ` +
+          `message=${(err as Error).message ?? err}`,
+        );
         if (statusCode === 404 || statusCode === 410) {
           await admin.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
         }

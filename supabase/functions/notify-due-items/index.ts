@@ -293,7 +293,7 @@ Deno.serve(async (req: Request) => {
   for (const note of notifications) {
     let subsQuery = admin
       .from("push_subscriptions")
-      .select("endpoint, p256dh, auth_key")
+      .select("endpoint, p256dh, auth_key, user_id")
       .eq("household_id", note.household_id);
     // Personal to-dos are private — only push to the owning user's own
     // devices, not every device in the household.
@@ -310,6 +310,15 @@ Deno.serve(async (req: Request) => {
       } catch (err) {
         failed++;
         const statusCode = (err as { statusCode?: number }).statusCode;
+        // Logged with enough to diagnose "why isn't this one user getting
+        // pushes" (user_id, which push service host, the status code and
+        // message) without leaking the full endpoint URL/keys, which are
+        // effectively credentials for sending to that specific device.
+        console.error(
+          `push failed: table=${note.table} id=${note.id} user=${sub.user_id} ` +
+          `host=${new URL(sub.endpoint).host} status=${statusCode ?? "?"} ` +
+          `message=${(err as Error).message ?? err}`,
+        );
         if (statusCode === 404 || statusCode === 410) {
           // Subscription is gone (browser data cleared, app uninstalled, etc).
           await admin.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);

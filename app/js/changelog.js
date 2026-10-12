@@ -516,6 +516,15 @@ export const CHANGELOG_ENTRIES = [
       'Change its category right there and it saves immediately — works on already-categorized transactions too, not just ones in "Needs review"',
     ],
   },
+  {
+    id: 57,
+    date: '2026-10-12',
+    title: 'Photos are compressed before upload',
+    items: [
+      'A document photo (receipt, warranty plate, etc.) is now automatically resized and compressed before uploading to Drive — a multi-MB phone photo becomes a few hundred KB, with no real loss in readability',
+      'Skipped for anything already small, or that isn’t a photo — a PDF or other file type uploads exactly as before',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

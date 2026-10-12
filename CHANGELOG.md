@@ -8,6 +8,44 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-12 — Photo compression on document upload; push failure logging
+
+- **Photo compression**: a new `app/js/imageCompress.js` (`maybeCompressImage()`)
+  resizes a document photo to a 1600px long edge and re-encodes it as
+  JPEG at quality 0.8 before `uploadFileToDrive()` — a multi-MB phone
+  photo becomes a few hundred KB. No library: `createImageBitmap()` (with
+  `imageOrientation: 'from-image'` so a portrait phone photo doesn't come
+  out sideways, since a canvas carries no EXIF of its own) decodes and
+  applies orientation, a canvas does the resize, `canvas.toBlob()`
+  re-encodes. Skipped entirely for anything under 300KB (not worth the
+  quality/CPU cost for a small win) or not an `image/*` MIME type (a PDF
+  upload is untouched) — and falls back to the original file if the
+  "compressed" result would actually come out larger. The upload sheet's
+  submit button now shows "Compressing…" then "Uploading…" as two
+  distinct stages. Verified directly (`maybeCompressImage()` called with
+  controlled inputs): a 505KB test photo compresses to 210KB; a 1.1KB
+  test photo returns byte-identical (same object reference, confirming
+  the skip path, not a coincidentally-equal recompress); a non-image file
+  passes through completely unchanged.
+- **Push notification failure logging**: `notify-due-items`,
+  `weekly-digest`, and `remind-partner` all silently swallowed the actual
+  `webpush.sendNotification()` error beyond a bare `failed++` counter —
+  only a 404/410 ("subscription gone") got any follow-up action
+  (deleting the stale row), and nothing else was ever logged, so a
+  real delivery failure to one specific person was undiagnosable from
+  server logs. All three now `console.error()` the user id, the push
+  service host, the status code, and the error message on every failure
+  (never the full endpoint/keys, which are effectively per-device
+  send credentials). Not a change in *who* gets notified — every
+  shared-item source (rent, mortgage, events, goals, documents,
+  the weekly digest) already queried every `push_subscriptions` row for
+  the whole household, not anything scoped to who created the item;
+  confirmed directly against the live data (both household members'
+  subscriptions exist, same household, and a notification fired to both
+  on schedule) rather than assumed. This at least makes the next
+  "notifications aren't arriving for one of us" report diagnosable
+  without first adding the logging that should already have been there.
+
 ## 2026-10-09 — Find & fix any transaction's category
 
 - New "Find & fix a transaction" search box at the top of My Statements

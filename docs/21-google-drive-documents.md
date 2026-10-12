@@ -117,6 +117,36 @@ OAuth flow.
   replacing it; resets to "All" on every re-render, same as the search
   box's typed text not persisting across an add/edit/delete.
 
+## Photo compression before upload
+
+`openUploadDocumentSheet()`'s submit handler runs the selected file
+through `maybeCompressImage()` (`app/js/imageCompress.js`) before calling
+`uploadFileToDrive()` — a phone photo of a receipt/warranty plate is
+routinely several MB at full camera resolution, which is slow to upload
+on a weak connection and pointless: nobody needs to zoom past "can I
+read the serial number." No library: `createImageBitmap(file,
+{ imageOrientation: 'from-image' })` decodes the image and applies its
+EXIF rotation (a canvas has no EXIF tag of its own to carry that forward,
+so without this a portrait photo routinely comes out sideways after
+re-encoding), a canvas resizes it to a 1600px long edge, and
+`canvas.toBlob()` re-encodes it as JPEG at quality 0.8.
+
+Skipped entirely — the original `file` is returned untouched — for
+anything that isn't an `image/*` MIME type (a PDF, the common case here
+alongside photos, is never touched), anything already ≤300KB (not worth
+the CPU/quality cost for a small win), and the rare case where the
+"compressed" result actually comes out larger than the original (a
+small, already-efficient source image). The returned file is always
+renamed to a `.jpg` extension when it *was* recompressed, so Drive never
+ends up with a `.png` name holding JPEG bytes.
+
+The upload sheet's submit button reflects this as two stages —
+"Compressing…" then "Uploading…" — rather than one opaque "Uploading…"
+the whole time, via the same `withBusyLabel()` button mutated mid-flight
+(its `restore()` closure captured the *original* label before either
+stage, so it still restores correctly on error regardless of which
+stage failed).
+
 ## Why category organization is filename-prefix, not real Drive subfolders
 A category subfolder per type (e.g. a "Warranties" folder) sounds like
 the obvious way to organize the shared Drive folder, but it collides with
