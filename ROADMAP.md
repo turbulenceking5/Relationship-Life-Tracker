@@ -304,7 +304,12 @@ status. Check items off as they land.
       `0041_rent_mortgage_undo.sql`, remembers which row that was). If
       the auto-created period has since been paid itself or deleted by
       hand, only the mistaken row reverts — never guesses which row to
-      remove by matching date/amount instead of the stored id. See
+      remove by matching date/amount instead of the stored id. A legacy
+      row (no `next_period_id`, from before this column existed) can
+      still leave a second unpaid period showing after Undo; when
+      exactly one other unpaid period exists, Undo now offers to remove
+      it too via an explicit confirm naming its own due date/amount,
+      never an automatic match. See
       [`docs/23-feature-rent-mortgage.md`](docs/23-feature-rent-mortgage.md).
 
 ## Phase 0 — Foundations ✅ (this session)

@@ -95,6 +95,19 @@ can't be reconstructed from `due_date`/`interval_days` alone with any
 confidence (the real next row might since have been edited, paid, or
 deleted), so guessing would risk deleting the wrong thing.
 
+That simple revert can leave two unpaid cards showing at once — the
+row just reverted, plus whatever unpaid period already existed
+alongside it (most likely the real "next period", just not one Undo
+can prove is the one it spawned). When reverting this way leaves
+*exactly one* other unpaid period in the same table, Undo offers to
+remove it too, in a second confirm that states that row's own due
+date and amount so the person can check it's actually the duplicate
+before agreeing — still never an automatic match on date/amount, just
+the decision handed to a person who can see both rows. With two or
+more other unpaid periods left, nothing extra is offered; sorting that
+out is left to Edit/Delete by hand, since picking one to remove
+wouldn't be unambiguous.
+
 ## On-time streak
 Each `currentEl` section shows a quiet "✓ Paid on time N periods running"
 line above its "+ Add" button once there's an actual streak (2+) — fewer

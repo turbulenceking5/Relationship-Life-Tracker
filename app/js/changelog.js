@@ -543,6 +543,15 @@ export const CHANGELOG_ENTRIES = [
       'Also removes the next period it auto-created, as long as nothing has happened to that one yet',
     ],
   },
+  {
+    id: 60,
+    date: '2026-10-12',
+    title: 'Undo no longer leaves two upcoming BrackenRidge periods showing',
+    items: [
+      'Undoing an older rent/mortgage period (from before the Undo button existed) could leave two unpaid cards showing at once',
+      'Undo now offers to remove the extra one too, showing its due date and amount so you can confirm it’s the right one',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

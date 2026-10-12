@@ -152,6 +152,26 @@ async function renderPaymentSection(currentEl, historyEl, ctx, config) {
               : `Undo marking this ${config.noun} as ${statusPaidLabel.toLowerCase()}?`)) return;
             if (removingNext) await deleteRow(table, spawned.id);
             await updateRow(table, row.id, { paid: false, paid_date: null, next_period_id: null });
+
+            // A legacy row (no next_period_id, from before that column
+            // existed) reverts above without knowing what it originally
+            // spawned, so if another unpaid period already exists it's
+            // left alone rather than guessed at — this can leave two
+            // upcoming cards showing at once, which is exactly the
+            // confusing case this asks about. Offer to remove it too, but
+            // only when there's exactly one other unpaid period (so it's
+            // unambiguous which one), and only ever by an explicit confirm
+            // that names its own due date/amount — never by silently
+            // matching on date/amount.
+            if (!removingNext) {
+              const otherUnpaid = unpaid.filter((r) => r.id !== row.id);
+              if (otherUnpaid.length === 1) {
+                const extra = otherUnpaid[0];
+                if (confirm(`This leaves two upcoming periods showing — this one (due ${formatDate(row.due_date)}) and one due ${formatDate(extra.due_date)} for ${formatMoney(extra.amount, extra.currency)}. Remove the one due ${formatDate(extra.due_date)} too?`)) {
+                  await deleteRow(table, extra.id);
+                }
+              }
+            }
             renderPaymentSection(currentEl, historyEl, ctx, config);
           },
         }, 'Undo'),

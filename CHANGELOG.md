@@ -8,6 +8,31 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-12 — Undo no longer leaves two upcoming BrackenRidge periods showing
+
+Follow-up to Undo below, same day: a legacy period (one marked paid
+before the `next_period_id` column existed, so Undo has no way to find
+what it originally spawned) reverted cleanly but left whatever unpaid
+period already existed alongside it, so two unpaid cards showed at
+once — reported live after undoing a rent period that predated the
+feature.
+
+- `rent.js`'s Undo handler: when the simple-revert path runs (no known
+  spawned row) and exactly one *other* unpaid period exists in the same
+  table, a second confirm offers to remove it too — stating that row's
+  own due date and amount so the person reverting can check it's
+  actually the duplicate before agreeing.
+- Still never an automatic match on due date/amount — with two or more
+  other unpaid periods left, nothing extra is offered, since picking
+  one to remove wouldn't be unambiguous; sorting that out is left to
+  Edit/Delete by hand.
+- Root-caused against live production data (not the mock): all of the
+  household's existing `rent_payments`/`mortgage_payments` rows predate
+  the client actually running the new Undo-aware "mark as paid" code
+  (confirmed by insert/update ordering in `created_at`/`updated_at`),
+  so every one of them hits the no-`next_period_id` fallback path —
+  expected per the design, but confusing without this follow-up.
+
 ## 2026-10-12 — Undo a mistaken "Mark as received"/"Mark as paid" on BrackenRidge
 
 - A paid card in Rent/Mortgage history (`rent.js`) now has an "Undo"
