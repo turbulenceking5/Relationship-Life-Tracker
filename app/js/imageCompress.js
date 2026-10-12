@@ -1,27 +1,23 @@
-// Client-side image resize/re-encode before a Documents upload — a phone
+// Client-side image resize/re-encode for a Documents upload — a phone
 // camera photo of a receipt/warranty plate is routinely several MB at
-// 3000-4000px wide, which is both slow to upload on a weak connection and
-// needless: nobody needs to zoom past "can I read the serial number" on a
-// warranty photo. No library — canvas can already decode, scale, and
+// 3000-4000px wide. No library — canvas can already decode, scale, and
 // re-encode an image, same zero-dependency approach as this app's CSV/PDF
 // exports.
+//
+// Rather than silently picking a size for you, this builds all three
+// candidate files up front — Small/Medium/Large, each with its real
+// resulting byte size — so openUploadDocumentSheet() can show them as
+// options and let the person picking the photo see the actual size
+// trade-off before choosing, instead of trusting a fixed default.
 
-// Long-edge cap and JPEG quality — chosen to keep receipt/warranty text
-// legible while meaningfully shrinking a typical phone photo (a modern
-// phone camera is 3000px+ on the long edge; 1600px is still sharp on any
-// screen this app is viewed on, a phone or a laptop, and comfortably
-// readable when zoomed). Not user-configurable — this app doesn't expose
-// a quality knob anywhere else, and a sensible fixed default beats one
-// more form field for something people want to just work.
-const MAX_DIMENSION = 1600;
-const JPEG_QUALITY = 0.8;
-
-// Below this, a photo's likely already a reasonable size (a saved
-// screenshot, an already-compressed re-upload) — compressing it anyway
-// just burns CPU and image quality for little to no size win, and a
-// re-encode occasionally comes out *larger* than a small, already-
-// efficient source image.
-const SKIP_BELOW_BYTES = 300 * 1024;
+// Long-edge caps per option. "Large" is the original file, completely
+// untouched — not re-encoded at a bigger size, since that could only ever
+// make it bigger or throw away quality for no reason; it's the one option
+// guaranteed to be exactly what was selected.
+const SIZE_OPTIONS = [
+  { key: 'small', label: 'Small', maxDimension: 800, quality: 0.7 },
+  { key: 'medium', label: 'Medium', maxDimension: 1600, quality: 0.8 },
+];
 
 function canvasToBlob(canvas, type, quality) {
   return new Promise((resolve, reject) => {
@@ -29,14 +25,14 @@ function canvasToBlob(canvas, type, quality) {
   });
 }
 
-// Returns the original `file` unchanged for anything this isn't worth
-// compressing (not an image, already small, or — rare, but checked
-// rather than assumed — the "compressed" result actually came out
-// bigger). Otherwise returns a new File: same base name with a `.jpg`
-// extension (the output is always re-encoded as JPEG, so a mismatched
-// `.png` name holding JPEG bytes would be confusing in Drive later).
-export async function maybeCompressImage(file) {
-  if (!file.type.startsWith('image/') || file.size <= SKIP_BELOW_BYTES) return file;
+// Returns `null` for anything this doesn't apply to (not an image, or a
+// format canvas can't decode) — the caller falls back to a plain upload
+// with no size picker shown, same as before this existed. Otherwise
+// returns `[{ key, label, file, size }, ...]` for 'small', 'medium', and
+// 'large' in that order, 'medium' meant as the sensible pre-selected
+// default (legible, meaningfully smaller than most camera photos).
+export async function buildImageSizeOptions(file) {
+  if (!file.type.startsWith('image/')) return null;
 
   let bitmap;
   try {
@@ -46,26 +42,25 @@ export async function maybeCompressImage(file) {
     // tag of its own to carry that metadata forward.
     bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
   } catch {
-    // A format canvas can't decode (unlikely for anything a file picker
-    // would hand back as image/*) — upload the original rather than fail
-    // the whole save over a skippable optimization.
-    return file;
+    return null;
   }
 
-  const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
-  const width = Math.round(bitmap.width * scale);
-  const height = Math.round(bitmap.height * scale);
-
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext('2d');
-  context.drawImage(bitmap, 0, 0, width, height);
+  const baseName = file.name.replace(/\.[^.]+$/, '');
+  const variants = [];
+  for (const opt of SIZE_OPTIONS) {
+    const scale = Math.min(1, opt.maxDimension / Math.max(bitmap.width, bitmap.height));
+    const width = Math.round(bitmap.width * scale);
+    const height = Math.round(bitmap.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    canvas.getContext('2d').drawImage(bitmap, 0, 0, width, height);
+    const blob = await canvasToBlob(canvas, 'image/jpeg', opt.quality);
+    const variantFile = new File([blob], `${baseName}.jpg`, { type: 'image/jpeg', lastModified: file.lastModified });
+    variants.push({ key: opt.key, label: opt.label, file: variantFile, size: variantFile.size });
+  }
   bitmap.close();
 
-  const blob = await canvasToBlob(canvas, 'image/jpeg', JPEG_QUALITY).catch(() => null);
-  if (!blob || blob.size >= file.size) return file;
-
-  const baseName = file.name.replace(/\.[^.]+$/, '');
-  return new File([blob], `${baseName}.jpg`, { type: 'image/jpeg', lastModified: file.lastModified });
+  variants.push({ key: 'large', label: 'Large (original)', file, size: file.size });
+  return variants;
 }

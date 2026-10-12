@@ -277,12 +277,14 @@ status. Check items off as they land.
       already-shipped "By Category" chart (which answers "how much did
       I spend on X this month") rather than replacing it. See
       [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md).
-- [x] **Document photos compressed before upload; push failure
-      logging**: a document photo is now automatically resized (1600px
-      long edge) and re-encoded (JPEG, quality 0.8) client-side before
-      uploading to Drive, no library — a multi-MB phone photo becomes a
-      few hundred KB. Skipped for non-photos and anything already small.
-      Separately, all three push-sending edge functions
+- [x] **Document photo upload size picker; push failure logging**:
+      picking a photo to upload now shows Small/800px, Medium/1600px,
+      and Large/original as radio options, each with its real computed
+      file size shown, so the person uploading sees the trade-off and
+      chooses — instead of a size being picked for them. No library,
+      client-side only. Skipped entirely for a non-photo file (a PDF
+      uploads exactly as before). Separately, all three push-sending
+      edge functions
       (`notify-due-items`, `weekly-digest`, `remind-partner`) now log
       *why* an individual push delivery failed instead of only noticing
       a 404/410 "subscription gone" — confirmed along the way that

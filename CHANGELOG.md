@@ -8,6 +8,44 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-12 — Upload size picker for document photos (replaces automatic compression)
+
+Follow-up to the automatic photo compression below, same day: silently
+picking a size turned out not to be what was wanted — reworked into an
+explicit Small/Medium/Large picker so the person uploading sees the
+real size trade-off and chooses.
+
+- `app/js/imageCompress.js`'s `maybeCompressImage()` (one silent
+  auto-pick) is replaced by `buildImageSizeOptions()`, which decodes a
+  selected photo once and returns three real candidate files: **Small**
+  (800px long edge, JPEG quality 0.7), **Medium** (1600px, quality 0.8,
+  pre-selected by default), and **Large** (the original file, completely
+  untouched — never re-encoded, so it can only ever match the original
+  exactly). Still no library (`createImageBitmap()` + canvas), still
+  applies EXIF rotation during decode so a portrait photo doesn't end up
+  sideways.
+- `openUploadDocumentSheet()` now shows these as a radio group the
+  moment a photo is picked, each with its real computed size via a new
+  `formatBytes()` (`app/js/format.js`) — "Small — 68 KB", not a vague
+  "smaller." The computation happens once, right when the file's
+  selected, not on every submit, so by the time the rest of the form is
+  filled in it's already done — the upload button goes straight to
+  "Uploading…", no separate "Compressing…" stage needed anymore.
+  Whichever option is selected is what actually uploads; switching the
+  radio just swaps a reference, no re-encoding.
+- Still shown only for an `image/*` file — a PDF upload is completely
+  unaffected, no picker, same as always.
+- Fixed one bug found building this: `.field input` (styles.css) sets
+  `width: 100%` for text-ish inputs, which also matched the bare
+  `type="radio"` here and stretched its layout box to fill the row,
+  shoving its label off to the far edge instead of sitting next to it —
+  scoped back to a normal-sized radio with an inline style override.
+- Verified directly against a real decoded photo (not just unit-level
+  byte math): a 505KB test photo's three options come back as 68KB /
+  206KB / 505KB in the right order, Medium pre-selected; picking Small
+  and submitting uploads a ~68KB file; a PDF upload shows no picker at
+  all and uploads completely untouched.
+
 ## 2026-10-12 — Photo compression on document upload; push failure logging
 
 - **Photo compression**: a new `app/js/imageCompress.js` (`maybeCompressImage()`)

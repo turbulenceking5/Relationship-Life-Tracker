@@ -1,10 +1,10 @@
 import { h, mount, openSheet, closeSheet, makeSheet, withBusyLabel } from './dom.js';
 import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
-import { formatDate, daysUntil, dayThresholdStatus } from './format.js';
+import { formatDate, formatBytes, daysUntil, dayThresholdStatus } from './format.js';
 import { supabase } from './supabaseClient.js';
 import { isConfigured, isDriveConnected, hasLocalDriveAccess, uploadFileToDrive, deleteDriveFile } from './googleDrive.js';
 import { getHouseholdMembers } from './household.js';
-import { maybeCompressImage } from './imageCompress.js';
+import { buildImageSizeOptions } from './imageCompress.js';
 
 export const DOCUMENT_TABLE = 'documents';
 export const DOCUMENT_BUCKET = 'documents';
@@ -123,23 +123,73 @@ export function openUploadDocumentSheet(ctx, { sheetTitle = 'Add document', rela
   const categorySelect = h('select', {}, DOCUMENT_CATEGORIES.map((c) => h('option', { value: c }, c)));
   const expiryInput = h('input', { type: 'date' });
   const notesInput = h('textarea', { rows: '2', placeholder: 'Optional notes' });
+
+  // The file that will actually be uploaded — starts as whatever's
+  // picked, then tracks whichever size option is selected below once
+  // buildImageSizeOptions() has one to offer (a non-image file, or one
+  // canvas can't decode, has no picker at all: this just stays the
+  // original). Computing the size options happens once, right when a
+  // file is picked, not on every submit — so by the time someone's
+  // filled in the rest of the form and taps Upload, that work is
+  // already done.
+  let selectedFile = null;
+  const sizePickerEl = h('div', {});
+
+  function selectSizeOption(options, key) {
+    selectedFile = options.find((o) => o.key === key).file;
+    mount(sizePickerEl, [
+      h('div', { class: 'field' }, [
+        h('label', {}, 'Upload size'),
+        h('div', {}, options.map((opt) => h('label', { style: 'display:flex;align-items:center;gap:8px;margin:4px 0' }, [
+          h('input', {
+            type: 'radio',
+            name: 'upload-size',
+            value: opt.key,
+            checked: opt.key === key,
+            // `.field input` (styles.css) sets width:100%/padding/border
+            // for text-ish inputs, which also matches a bare
+            // type="radio" and stretches its layout box to fill the row
+            // — reset back to a normal native radio button's box.
+            style: 'width:auto;padding:0;border:none;background:none;flex:none',
+            onchange: () => selectSizeOption(options, opt.key),
+          }),
+          h('span', {}, `${opt.label} — ${formatBytes(opt.size)}`),
+        ]))),
+      ]),
+    ]);
+  }
+
   // No `accept`/`capture` restriction: documents are any file type, not
   // just photos/PDFs (a `capture` attribute here used to force Android
   // straight into the camera, hiding the file picker entirely — see
   // docs/21-google-drive-documents.md).
-  const fileInput = h('input', { type: 'file', required: true });
+  const fileInput = h('input', {
+    type: 'file',
+    required: true,
+    onchange: async () => {
+      const file = fileInput.files[0];
+      selectedFile = file || null;
+      if (!file) { mount(sizePickerEl, []); return; }
+      mount(sizePickerEl, [h('p', { class: 'meta' }, 'Checking photo sizes…')]);
+      const options = await buildImageSizeOptions(file).catch(() => null);
+      // The file input may have changed again while that was running
+      // (a slow phone, a big photo) — a stale result for a file that's
+      // no longer selected would silently overwrite the real pick.
+      if (fileInput.files[0] !== file) return;
+      if (!options) { mount(sizePickerEl, []); return; }
+      selectSizeOption(options, 'medium');
+    },
+  });
   const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Upload document');
 
   const form = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       errorEl.style.display = 'none';
-      const originalFile = fileInput.files[0];
-      if (!originalFile) return;
-      const restore = withBusyLabel(submitBtn, 'Compressing…');
+      const file = selectedFile || fileInput.files[0];
+      if (!file) return;
+      const restore = withBusyLabel(submitBtn, 'Uploading…');
       try {
-        const file = await maybeCompressImage(originalFile);
-        submitBtn.textContent = 'Uploading…';
         const driveFileName = `[${categoryLabel(categorySelect.value)}] ${file.name}`;
         const uploaded = await uploadFileToDrive(ctx, file, driveFileName);
         await insertRow(DOCUMENT_TABLE, {
@@ -172,8 +222,9 @@ export function openUploadDocumentSheet(ctx, { sheetTitle = 'Add document', rela
       h('div', { class: 'field' }, [h('label', {}, 'Expiry date (optional)'), expiryInput]),
     ]),
     h('div', { class: 'field' }, [h('label', {}, 'File'), fileInput]),
+    sizePickerEl,
     h('div', { class: 'field' }, [h('label', {}, 'Notes (optional)'), notesInput]),
-    h('p', { class: 'meta' }, 'Uploads to the household’s Google Drive folder. A photo is automatically resized and compressed first to keep it small — the original quality isn’t needed to read a receipt or warranty plate.'),
+    h('p', { class: 'meta' }, 'Uploads to the household’s Google Drive folder.'),
     errorEl,
     submitBtn,
   ]);

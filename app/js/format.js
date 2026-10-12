@@ -6,6 +6,14 @@ export function formatMoney(amount, currency = 'AUD') {
   }
 }
 
+// KB below 1MB (a photo's usual range once resized), MB above — matches
+// how a phone's own Photos/Files app shows a file size, which is the
+// frame of reference someone picking an upload size actually has.
+export function formatBytes(bytes) {
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function formatDate(dateStr) {
   if (!dateStr) return '';
   const d = new Date(dateStr + 'T00:00:00');

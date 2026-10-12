@@ -117,35 +117,42 @@ OAuth flow.
   replacing it; resets to "All" on every re-render, same as the search
   box's typed text not persisting across an add/edit/delete.
 
-## Photo compression before upload
+## Upload size picker for photos
 
-`openUploadDocumentSheet()`'s submit handler runs the selected file
-through `maybeCompressImage()` (`app/js/imageCompress.js`) before calling
-`uploadFileToDrive()` — a phone photo of a receipt/warranty plate is
-routinely several MB at full camera resolution, which is slow to upload
-on a weak connection and pointless: nobody needs to zoom past "can I
-read the serial number." No library: `createImageBitmap(file,
-{ imageOrientation: 'from-image' })` decodes the image and applies its
-EXIF rotation (a canvas has no EXIF tag of its own to carry that forward,
-so without this a portrait photo routinely comes out sideways after
-re-encoding), a canvas resizes it to a 1600px long edge, and
-`canvas.toBlob()` re-encodes it as JPEG at quality 0.8.
+A phone photo of a receipt/warranty plate is routinely several MB at
+full camera resolution — slow to upload on a weak connection, and more
+detail than anyone needs to read a serial number. Rather than silently
+picking a size, `openUploadDocumentSheet()` shows the actual trade-off
+and lets the person uploading choose: picking a photo in the file input
+calls `buildImageSizeOptions()` (`app/js/imageCompress.js`), which
+decodes it once (`createImageBitmap(file, { imageOrientation:
+'from-image' })` — applies the photo's own EXIF rotation during decode,
+since a canvas has no EXIF tag of its own to carry that forward, so
+without this a portrait photo routinely comes out sideways after
+re-encoding) and produces three real candidate files: **Small** (800px
+long edge, JPEG quality 0.7), **Medium** (1600px, quality 0.8), and
+**Large** (the original file, completely untouched — not re-encoded at
+a bigger size, since that could only ever make it bigger or lose
+quality for nothing). No library — a canvas does the resize, no
+compression library needed, same zero-dependency approach as the rest
+of this app.
 
-Skipped entirely — the original `file` is returned untouched — for
-anything that isn't an `image/*` MIME type (a PDF, the common case here
-alongside photos, is never touched), anything already ≤300KB (not worth
-the CPU/quality cost for a small win), and the rare case where the
-"compressed" result actually comes out larger than the original (a
-small, already-efficient source image). The returned file is always
-renamed to a `.jpg` extension when it *was* recompressed, so Drive never
-ends up with a `.png` name holding JPEG bytes.
+The sheet renders these as a radio group, each showing its real
+computed size via `formatBytes()` (`app/js/format.js`) — "Small — 68
+KB", not a vague "smaller" — with Medium pre-selected as a sensible
+default. Whichever option is selected becomes the file
+`uploadFileToDrive()` actually sends; switching the selection just
+swaps a reference, no re-encoding. This computation happens once, right
+when the photo's picked (so it's already done by the time the rest of
+the form — title, category, notes — is filled in), not repeated on
+every submit.
 
-The upload sheet's submit button reflects this as two stages —
-"Compressing…" then "Uploading…" — rather than one opaque "Uploading…"
-the whole time, via the same `withBusyLabel()` button mutated mid-flight
-(its `restore()` closure captured the *original* label before either
-stage, so it still restores correctly on error regardless of which
-stage failed).
+Shown only for an `image/*` file — a PDF (the common alongside-photos
+case) or anything `createImageBitmap()` can't decode uploads exactly as
+before, no picker, no re-encoding, same as if this didn't exist. A
+recompressed option is always named with a `.jpg` extension so Drive
+never ends up with a `.png` name holding JPEG bytes; "Large" keeps the
+original filename untouched.
 
 ## Why category organization is filename-prefix, not real Drive subfolders
 A category subfolder per type (e.g. a "Warranties" folder) sounds like

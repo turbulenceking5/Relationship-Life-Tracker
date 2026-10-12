@@ -525,6 +525,15 @@ export const CHANGELOG_ENTRIES = [
       'Skipped for anything already small, or that isn’t a photo — a PDF or other file type uploads exactly as before',
     ],
   },
+  {
+    id: 58,
+    date: '2026-10-12',
+    title: 'Choose a photo’s upload size yourself',
+    items: [
+      'Picking a photo to upload now shows Small/Medium/Large options with the real file size next to each one, instead of silently picking a size for you',
+      'Medium is pre-selected, but pick whichever size you want before uploading',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';
