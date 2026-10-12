@@ -534,6 +534,15 @@ export const CHANGELOG_ENTRIES = [
       'Medium is pre-selected, but pick whichever size you want before uploading',
     ],
   },
+  {
+    id: 59,
+    date: '2026-10-12',
+    title: 'Undo a mistaken "Mark as received"/"Mark as paid" on BrackenRidge',
+    items: [
+      'A paid rent or mortgage period in the History section now has an "Undo" button, for when you mark one by mistake',
+      'Also removes the next period it auto-created, as long as nothing has happened to that one yet',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

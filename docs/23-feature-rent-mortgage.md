@@ -61,6 +61,40 @@ back to something generic. The label dropped "Rent" once the segment grew
 to cover the mortgage too — it's the property's tab now, not just its
 rent.
 
+## Undo a mistaken "Mark as received"/"Mark as paid"
+
+A paid card in the history section gets an "Undo" button alongside Edit
+and Delete. "Mark as received"/"Mark as paid" does two things at once —
+closes out the current period (`paid: true`, `paid_date`) *and*
+auto-inserts the next period's row — so undoing it has to reverse both,
+not just flip `paid` back and leave the auto-created next period
+sitting there as an orphaned extra.
+
+`rent_payments`/`mortgage_payments` each have a `next_period_id` column
+(added in `0041_rent_mortgage_undo.sql`) set on the row *being* marked
+paid, pointing at the row it just spawned — captured by inserting the
+next period first, then including its returned `id` in the same update
+that sets `paid`/`paid_date`. Undo looks that row up: if it's still
+sitting there unpaid, exactly as auto-created (nobody's acted on it
+since), it's deleted and the confirm text says so ("This also removes
+the next period it created"); if it's already been marked paid itself
+(the household kept going normally after the mistake) or already
+deleted by hand, it's left alone — only this row's own `paid`/
+`paid_date`/`next_period_id` get reverted, and the confirm text doesn't
+mention removing anything. Never guesses by matching on due date/amount
+instead of the stored id — the only two states this branches on are "the
+exact spawned row still exists and is still untouched" or not, nothing
+in between gets deleted automatically.
+
+`next_period_id` is `null` on any row from before this existed,
+including ones already marked paid at the time — Undo on one of those
+just reverts the row with the simple confirm text, same as any row
+whose spawned period isn't removable for the reasons above. There's
+nothing to backfill: the original next-period row for an old entry
+can't be reconstructed from `due_date`/`interval_days` alone with any
+confidence (the real next row might since have been edited, paid, or
+deleted), so guessing would risk deleting the wrong thing.
+
 ## On-time streak
 Each `currentEl` section shows a quiet "✓ Paid on time N periods running"
 line above its "+ Add" button once there's an actual streak (2+) — fewer
@@ -90,7 +124,7 @@ every day) while a period stays unpaid past its due date — see
 See `rent_payments` and `mortgage_payments` tables in
 [`02-data-model.md`](02-data-model.md) — both share the same shape
 (`due_date`, `amount`, `currency`, `interval_days`, `paid`, `paid_date`,
-`property_label`, `last_notified_date`).
+`next_period_id`, `property_label`, `last_notified_date`).
 
 ## UI notes
 - Keep Rent and Mortgage visually distinct (icon, color) even though they

@@ -295,6 +295,17 @@ status. Check items off as they land.
       scoping bug. See
       [`docs/21-google-drive-documents.md`](docs/21-google-drive-documents.md)
       and [`docs/11-push-notifications.md`](docs/11-push-notifications.md).
+- [x] **BrackenRidge: undo a mistaken "Mark as received"/"Mark as
+      paid"**: a paid period in Rent/Mortgage history now has an "Undo"
+      button, for when one gets marked by accident. Reverses both halves
+      of the original action — flips the period back to unpaid *and*
+      removes the next period it auto-created, as long as that one's
+      still untouched (a new `next_period_id` column,
+      `0041_rent_mortgage_undo.sql`, remembers which row that was). If
+      the auto-created period has since been paid itself or deleted by
+      hand, only the mistaken row reverts — never guesses which row to
+      remove by matching date/amount instead of the stored id. See
+      [`docs/23-feature-rent-mortgage.md`](docs/23-feature-rent-mortgage.md).
 
 ## Phase 0 — Foundations ✅ (this session)
 

@@ -264,6 +264,7 @@ period; "mark as received" inserts the next period's row automatically.
 | `interval_days` | integer | default 14 (fortnightly); carried forward to the auto-generated next period |
 | `paid` | boolean | default false |
 | `paid_date` | date | set when marked received |
+| `next_period_id` | uuid → rent_payments, optional | the row auto-inserted by "mark as received" on *this* row, if any — lets Undo (`rent.js`) remove that auto-created period too when reverting a mistake, instead of leaving an orphaned extra one behind. Added in `0041_rent_mortgage_undo.sql`; `null` on any row from before that (including one already paid) or one marked paid before this existed. |
 | `notes` | text | optional |
 | `last_notified_date` | date | last day `notify-due-items` sent a push for this row — see [`19-notification-sources.md`](19-notification-sources.md) |
 | `created_by` | uuid → auth.users | |
@@ -288,6 +289,7 @@ amount and each is just a simple due/paid list. Only difference:
 | `interval_days` | integer | default 30 (monthly); carried forward to the auto-generated next period |
 | `paid` | boolean | default false |
 | `paid_date` | date | set when marked paid |
+| `next_period_id` | uuid → mortgage_payments, optional | same purpose as `rent_payments.next_period_id` above — lets Undo remove the auto-created next period when reverting a mistaken "mark as paid" |
 | `notes` | text | optional |
 | `last_notified_date` | date | last day `notify-due-items` sent a push for this row — see [`19-notification-sources.md`](19-notification-sources.md) |
 | `created_by` | uuid → auth.users | |

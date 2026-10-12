@@ -8,6 +8,30 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-12 — Undo a mistaken "Mark as received"/"Mark as paid" on BrackenRidge
+
+- A paid card in Rent/Mortgage history (`rent.js`) now has an "Undo"
+  button alongside Edit/Delete. "Mark as received"/"Mark as paid" does
+  two things at once — closes out the current period and auto-inserts
+  the next one — so undoing it has to reverse both, not just flip
+  `paid` back and leave an orphaned extra period behind.
+- New `next_period_id` column on `rent_payments`/`mortgage_payments`
+  (`0041_rent_mortgage_undo.sql`), set on the row being marked paid to
+  point at the row it just spawned. Undo looks that row up: if it's
+  still sitting there unpaid, exactly as auto-created, it's deleted too
+  (confirm text says so); if it's already been paid itself or already
+  deleted by hand, it's left alone and only this row reverts. Never
+  guesses by matching due date/amount instead of the stored id.
+- `next_period_id` is `null` on any row from before this migration —
+  Undo on one of those just reverts the row with a simpler confirm
+  message, since there's no reliable way to reconstruct which row (if
+  any) was its auto-created next period.
+- Verified directly against the mock backend: marking a period
+  received then undoing it removes the auto-created next period and
+  restores exactly the original row (confirmed via a direct table
+  read, not just the UI); undoing a legacy row with no `next_period_id`
+  reverts cleanly without touching anything else.
+
 ## 2026-10-12 — Upload size picker for document photos (replaces automatic compression)
 
 Follow-up to the automatic photo compression below, same day: silently

@@ -115,8 +115,7 @@ async function renderPaymentSection(currentEl, historyEl, ctx, config) {
         !row.paid && h('button', {
           class: 'btn secondary small',
           onclick: async () => {
-            await updateRow(table, row.id, { paid: true, paid_date: todayStr() });
-            await insertRow(table, {
+            const next = await insertRow(table, {
               household_id: ctx.household.id,
               property_label: row.property_label,
               due_date: addDays(row.due_date, row.interval_days),
@@ -125,9 +124,37 @@ async function renderPaymentSection(currentEl, historyEl, ctx, config) {
               interval_days: row.interval_days,
               created_by: ctx.user.id,
             });
+            // Remembers which row this spawned, so an accidental mark can
+            // be undone cleanly (see the Undo button below) — not just
+            // flipping `paid` back, but also removing that auto-created
+            // next period, rather than leaving an orphaned extra one
+            // sitting alongside whatever period is really next.
+            await updateRow(table, row.id, { paid: true, paid_date: todayStr(), next_period_id: next.id });
             renderPaymentSection(currentEl, historyEl, ctx, config);
           },
         }, paidVerb),
+        row.paid && h('button', {
+          class: 'btn secondary small',
+          onclick: async () => {
+            // The spawned next-period row is only safe to remove if
+            // nobody's acted on it since — still sitting there unpaid,
+            // exactly as auto-created. If it's since been marked paid
+            // itself (the household kept going normally after this
+            // mistake) or already deleted by hand, leave it alone: only
+            // this row's own paid/paid_date gets reverted, and whatever
+            // extra unpaid period that leaves behind is something to
+            // sort out by hand rather than something safe to guess at
+            // and delete.
+            const spawned = row.next_period_id ? rows.find((r) => r.id === row.next_period_id) : null;
+            const removingNext = spawned && !spawned.paid;
+            if (!confirm(removingNext
+              ? `Undo marking this ${config.noun} as ${statusPaidLabel.toLowerCase()}? This also removes the next period it created.`
+              : `Undo marking this ${config.noun} as ${statusPaidLabel.toLowerCase()}?`)) return;
+            if (removingNext) await deleteRow(table, spawned.id);
+            await updateRow(table, row.id, { paid: false, paid_date: null, next_period_id: null });
+            renderPaymentSection(currentEl, historyEl, ctx, config);
+          },
+        }, 'Undo'),
         h('button', { class: 'btn secondary small', onclick: () => openEditSheet(row) }, 'Edit'),
         h('button', { class: 'btn danger-text small', onclick: async () => { if (!confirm(`Delete this ${config.noun}?`)) return; await deleteRow(table, row.id); renderPaymentSection(currentEl, historyEl, ctx, config); } }, 'Delete'),
       ]),
