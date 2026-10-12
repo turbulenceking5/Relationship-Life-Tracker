@@ -268,6 +268,15 @@ status. Check items off as they land.
       per-render-refreshed merged list instead of the old hardcoded
       constant directly. See
       [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md).
+- [x] **My Statements — find & fix any transaction's category**: a
+      search box at the top of the tab finds a transaction by
+      description across every uploaded statement at once (not just the
+      one month it happens to live in), with a category picker that
+      saves immediately — including on transactions already
+      categorized, not just ones in "Needs review". Complements the
+      already-shipped "By Category" chart (which answers "how much did
+      I spend on X this month") rather than replacing it. See
+      [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md).
 
 ## Phase 0 — Foundations ✅ (this session)
 

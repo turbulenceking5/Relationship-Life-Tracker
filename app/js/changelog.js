@@ -507,6 +507,15 @@ export const CHANGELOG_ENTRIES = [
       'Each goal gets its own Export CSV next to "+ Add transaction", for just that goal\'s saved/spent history',
     ],
   },
+  {
+    id: 56,
+    date: '2026-10-09',
+    title: 'Find & fix any transaction’s category',
+    items: [
+      'New search box on My Statements finds a transaction by description across every month at once, not just the one it’s in',
+      'Change its category right there and it saves immediately — works on already-categorized transactions too, not just ones in "Needs review"',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

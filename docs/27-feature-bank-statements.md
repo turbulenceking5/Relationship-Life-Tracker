@@ -563,3 +563,46 @@ wholesale. Saving, deleting, or deleting all re-fetches and remounts
 just the sheet's own body; it doesn't need to re-run the whole tab's
 `render()`, since this table only ever affects *future*
 auto-categorization, never anything already on screen.
+
+### Find & fix a transaction
+
+Editing a transaction's category already worked before this
+(`transactionRow()`, used by both the "Needs review" and "All
+categorized transactions" sections of `statementSection()`) — but only
+from inside the one statement it happens to live in: Monthly view, the
+right month expanded, then "All categorized transactions" (closed by
+default) opened and scrolled through. Fine for a transaction from the
+statement you just uploaded; a lot of digging for "that coffee run from
+three months ago was actually Food, not Leisure."
+
+A "Find & fix a transaction" section (`renderTransactionSearch()`) sits
+at the top of the tab, above the chart — a plain text search over every
+one of this user's transactions across every statement at once (by
+`description`, same case-insensitive substring match the rest of the
+app's search boxes use), independent of the Monthly/Yearly toggle and
+whichever statement section happens to be open. Each result shows which
+statement/month it's from (for context) plus the same category
+`<select>` `transactionRow()` already uses — but saves **immediately**
+on change, not via `statementSection()`'s pending-picks-plus-"Save
+changes" batch, since a search's results can span any number of
+different statements and there's no single natural batch to collect
+them into. A save here still writes the same `learnCategoryRule()` rule
+and runs the same `applyLearnedRulesToUnknown()` backlog sweep as every
+other category pick in this tab, so fixing one mis-categorized
+transaction here can clean up others sharing its merchant too.
+
+Nothing renders until a query is typed (showing every transaction by
+default would just be a second, unfiltered copy of the statement list
+below it) — an empty search shows a one-line hint instead. The typed
+query itself is a module-level `transactionSearchQuery`, same reasoning
+as `viewMode` above: a category pick here still goes through the tab's
+full `render()` rebuild (needed so a learned-rule sweep's effect on
+*other* transactions shows up too), and a plain closure variable
+wouldn't survive that — it would reset to `''` on every single pick,
+losing what you'd typed right as you fixed something you found with it.
+
+This is a different, complementary half of "see/fix your spending" from
+the "By Category" chart above: that one answers "how much did I spend
+on X this month" (a Month/Year picker, read-only); this one answers
+"where's that one transaction, and is its category right" (a text
+search, editable). Neither replaces the other.

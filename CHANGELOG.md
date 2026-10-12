@@ -8,6 +8,34 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-09 — Find & fix any transaction's category
+
+- New "Find & fix a transaction" search box at the top of My Statements
+  (`renderTransactionSearch()`, `app/js/statements.js`) — searches every
+  one of this user's transactions across every uploaded statement at
+  once, by description, independent of the Monthly/Yearly toggle and
+  which statement section happens to be expanded.
+- Picking a category for a matching result saves immediately (no
+  separate "Save changes" step, since results can span any number of
+  different statements) and works on **already-categorized**
+  transactions too, not just ones sitting in "Needs review" — this was
+  technically already possible from inside a statement's own "All
+  categorized transactions" section, but finding the right month first
+  made it easy to miss.
+- Still runs the same learned-rule write + backlog sweep
+  (`learnCategoryRule()`/`applyLearnedRulesToUnknown()`) as every other
+  category pick in this tab, so fixing one transaction here can also
+  clean up others that share its merchant.
+- The typed search query survives the full tab re-render that follows a
+  save (a module-level `transactionSearchQuery`, same pattern as the
+  Monthly/Yearly `viewMode` toggle), so fixing several results found by
+  one search doesn't require re-typing it each time.
+- Each result shows which statement/month it belongs to, for context.
+- Paired with the already-shipped "By Category" chart tab (Month/Year
+  picker, a horizontal bar + dollar amount per category) for "how much
+  am I spending in each category this month" — this change didn't touch
+  that, it already covered it.
+
 ## 2026-10-09 — CSV export for expenses and goals
 
 - New "Export CSV" action on the Expenses tab (next to the running

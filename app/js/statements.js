@@ -1102,6 +1102,89 @@ function yearSection(year, transactions, previousTransactions, currency, open) {
   ]);
 }
 
+// ---- Find & fix a transaction --------------------------------------------
+// Editing a transaction's category already worked before this (see
+// transactionRow() above) — but only from inside the one statement it
+// happens to live in: Monthly view, the right month expanded, then "All
+// categorized transactions" (closed by default) opened and scrolled
+// through. Fine for the transaction you just uploaded; a lot of digging
+// for "wait, that coffee run from three months ago was Food, not
+// Leisure." This searches every one of this user's transactions across
+// every statement at once — independent of the Monthly/Yearly toggle and
+// which statement section happens to be open — and saves a category
+// change immediately on pick, not via the per-statement batch/"Save
+// changes" flow, since there's no natural batch here (results can span
+// any number of different statements).
+//
+// `transactionSearchQuery` is a module-level `let`, same reasoning as `viewMode`
+// below: a category change here still goes through render()'s full
+// rebuild (so a learned-rule sweep from applyLearnedRulesToUnknown()
+// below can update *other* transactions' displayed category too, not
+// just the one just picked), and a plain closure variable wouldn't
+// survive that — it'd reset to '' on every single pick, wiping out
+// what you'd typed right as you fixed something you found with it.
+let transactionSearchQuery = '';
+
+function renderTransactionSearch(ctx, allTransactions, statements, currency, onSaved) {
+  const statementLabelFor = (statementId) => statements.find((s) => s.id === statementId)?.label || '';
+
+  const searchInput = h('input', {
+    type: 'search',
+    placeholder: 'Find a transaction by description…',
+    value: transactionSearchQuery,
+    oninput: () => { transactionSearchQuery = searchInput.value; mount(resultsEl, buildResults()); },
+  });
+
+  function matchRow(txn) {
+    const categorySelect = h('select', {
+      onchange: async () => {
+        const category = categorySelect.value || null;
+        categorySelect.disabled = true;
+        try {
+          await updateRow(TRANSACTIONS_TABLE, txn.id, {
+            category,
+            status: category ? 'categorized' : 'unknown',
+            categorized_by: category ? ctx.user.id : null,
+          });
+          if (category) await learnCategoryRule(ctx, txn.description, category).catch(() => {});
+          await applyLearnedRulesToUnknown(ctx).catch(() => {});
+          onSaved();
+        } catch (err) {
+          alert(err.message);
+          categorySelect.disabled = false;
+        }
+      },
+    }, [h('option', { value: '' }, 'Unknown'), ...STATEMENT_CATEGORIES.map((c) => h('option', { value: c, selected: c === txn.category }, categoryLabel(c)))]);
+
+    return h('div', { class: 'card' }, [
+      h('div', { class: 'card-row' }, [
+        h('div', {}, [
+          h('h3', {}, txn.description),
+          h('div', { class: 'meta' }, `${statementLabelFor(txn.statement_id)} · ${txn.txn_date ? formatDate(txn.txn_date) + ' · ' : ''}${formatMoney(Math.abs(Number(txn.amount)), currency)}${Number(txn.amount) < 0 ? ' out' : ' in'}`),
+        ]),
+      ]),
+      h('div', { class: 'actions-row' }, [categorySelect]),
+    ]);
+  }
+
+  function buildResults() {
+    const query = transactionSearchQuery.trim().toLowerCase();
+    if (!query) return h('p', { class: 'meta' }, 'Type part of a description above to find a transaction and fix its category — across every month, not just the one it’s in.');
+    const matches = allTransactions.filter((t) => t.description.toLowerCase().includes(query));
+    if (!matches.length) return h('div', { class: 'empty-state' }, 'No matching transactions.');
+    return h('div', {}, matches.map(matchRow));
+  }
+
+  const resultsEl = h('div', {});
+  mount(resultsEl, buildResults());
+
+  return h('div', {}, [
+    h('div', { class: 'section-title' }, 'Find & fix a transaction'),
+    h('div', { class: 'field' }, searchInput),
+    resultsEl,
+  ]);
+}
+
 // ---- Top-level render ----------------------------------------------------
 
 // Monthly (one card per bank_statements row, today's exact existing
@@ -1238,6 +1321,7 @@ export async function render(container, ctx) {
   mount(container, [
     h('p', { class: 'meta' }, 'Upload a bank statement to auto-sort its spending into categories — anything it’s unsure about lands in "Needs review" for you to assign. Private to you — your partner has their own statements here, and can’t see yours.'),
     actionChipRow,
+    renderTransactionSearch(ctx, allTransactions, statements, currency, () => render(container, ctx)),
     chartContainer,
     viewToggle,
     mainContent,
