@@ -311,6 +311,12 @@ status. Check items off as they land.
       it too via an explicit confirm naming its own due date/amount,
       never an automatic match. See
       [`docs/23-feature-rent-mortgage.md`](docs/23-feature-rent-mortgage.md).
+- [x] **One-tap 50/50 split on expenses**: the add/edit expense form's
+      split field gained a "Split 50/50" button that sets an even split
+      in one tap instead of typing it by hand; saving still only writes
+      an override when the result differs from the household default.
+      Removed the explanation text under the split fields. See
+      [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md).
 
 ## Phase 0 — Foundations ✅ (this session)
 

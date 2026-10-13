@@ -61,7 +61,9 @@ default — e.g. a mostly-one-person purchase logged 50/50 by default, but
 auto-complementing pair of number inputs as the ⚙️ account sheet's
 household-default split, prefilled with that default; only shown once a
 household has two members, same restriction as the balance feature
-itself.
+itself. A "Split 50/50" button next to the inputs sets both to an even
+split in one tap, for the common case of overriding an unequal
+household default on a one-off purchase without typing numbers by hand.
 
 Left unchanged, the expense stores no override at all (`split_percent` /
 `split_percent_user_id` both null on the row) — it keeps tracking the

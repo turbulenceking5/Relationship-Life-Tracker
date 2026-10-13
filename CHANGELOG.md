@@ -8,6 +8,22 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-13 — One-tap 50/50 split on expenses
+
+- `buildSplitField()` in `app/js/expenses.js` (shared by the add and edit
+  expense forms) gained a "Split 50/50" button next to the split
+  inputs — sets both fields to an even split in one tap instead of
+  typing numbers by hand. Saving still only writes an override when the
+  result differs from the household default (existing `getOverride()`
+  logic, unchanged), so a household whose default is already 50/50
+  tapping the button is a no-op, same as it always was.
+- Removed the `Defaults to your household split (X/Y) — change it only
+  if this one splits differently.` explanation line under the split
+  fields.
+- Verified against the mock backend: the Add expense sheet shows no
+  split explanation text, the button is present, and clicking it moves
+  the inputs from the household default (35/65 in the mock) to 50/50.
+
 ## 2026-10-12 — Undo no longer leaves two upcoming BrackenRidge periods showing
 
 Follow-up to Undo below, same day: a legacy period (one marked paid

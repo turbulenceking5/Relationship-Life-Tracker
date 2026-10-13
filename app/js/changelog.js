@@ -552,6 +552,15 @@ export const CHANGELOG_ENTRIES = [
       'Undo now offers to remove the extra one too, showing its due date and amount so you can confirm it’s the right one',
     ],
   },
+  {
+    id: 61,
+    date: '2026-10-13',
+    title: 'One-tap 50/50 split on expenses',
+    items: [
+      'Adding or editing an expense now has a "Split 50/50" button that sets an even split in one tap, instead of typing numbers by hand',
+      'Removed the explanation text under the split fields',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

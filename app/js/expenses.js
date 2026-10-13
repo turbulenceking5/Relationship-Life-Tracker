@@ -177,7 +177,15 @@ function buildSplitField(members, initial) {
       h('div', { class: 'field' }, [h('label', {}, a.display_name), percentA]),
       h('div', { class: 'field' }, [h('label', {}, `${b.display_name} (auto)`), percentB]),
     ]),
-    h('div', { class: 'meta' }, `Defaults to your household split (${a.split_percent}/${b.split_percent}) — change it only if this one splits differently.`),
+    h('button', {
+      type: 'button',
+      class: 'btn secondary small',
+      style: 'margin-top:6px',
+      onclick: () => {
+        percentA.value = 50;
+        percentB.value = 50;
+      },
+    }, 'Split 50/50'),
   ]);
 
   function getOverride() {
