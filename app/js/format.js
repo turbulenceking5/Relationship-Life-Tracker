@@ -71,6 +71,26 @@ export function addDays(dateStr, n) {
   return toDateStr(d);
 }
 
+// Companion to addDays() for a period due on fixed calendar days each
+// month (e.g. rent credited on the 15th and the 30th) rather than a
+// fixed day-count interval -- addDays() would drift here, since "every
+// 15 days" from the 15th doesn't land back on the 30th every time, and
+// never stays aligned once a 30/31-day month is involved. Rolls forward
+// to the next listed day in the current month, or wraps into next
+// month at the smallest one once past all of them -- clamped to that
+// month's last day, same approach as currentOccurrence()'s monthly case
+// above, so e.g. 30 still resolves in February.
+export function nextDueDateFromDaysOfMonth(dateStr, daysOfMonth) {
+  const sorted = [...new Set(daysOfMonth)].sort((a, b) => a - b);
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const next = sorted.find((day) => day > d);
+  const [targetYear, targetMonth, targetDay] = next != null
+    ? [y, m, next]
+    : [m === 12 ? y + 1 : y, m === 12 ? 1 : m + 1, sorted[0]];
+  const daysInTargetMonth = new Date(targetYear, targetMonth, 0).getDate();
+  return `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(Math.min(targetDay, daysInTargetMonth)).padStart(2, '0')}`;
+}
+
 // For a recurring event, maps it onto its occurrence within the CURRENT
 // cycle for the given interval — never rolls forward into the next cycle
 // even if that occurrence has already gone by. For a non-recurring event,

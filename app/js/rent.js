@@ -1,13 +1,89 @@
 import { h, mount, openSheet, closeSheet, makeSheet, withBusyLabel } from './dom.js';
 import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
-import { formatDate, formatMoney, dueStatus, todayStr, addDays } from './format.js';
+import { formatDate, formatMoney, dueStatus, todayStr, addDays, nextDueDateFromDaysOfMonth } from './format.js';
 
 const INTERVAL_PRESETS = [
   { label: 'Weekly', days: 7 },
   { label: 'Fortnightly', days: 14 },
   { label: 'Monthly', days: 30 },
-  { label: 'Custom', days: null },
+  { label: 'Custom interval (days)', days: null },
 ];
+const DATES_OPTION_VALUE = 'dates';
+
+function ordinal(n) {
+  const suffixes = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]);
+}
+
+// "Due Xd" for a fixed day-count interval, or "15th & 30th of the
+// month" for a row on explicit calendar days (due_days_of_month) --
+// see buildCadenceField() below for why a row stores exactly one of
+// the two.
+function cadenceLabel(row) {
+  if (row.due_days_of_month?.length) {
+    return `${row.due_days_of_month.map(ordinal).join(' & ')} of the month`;
+  }
+  return `every ${row.interval_days}d`;
+}
+
+// The "How often?" control shared by the Add and Edit forms below --
+// one of two cadence shapes is stored per row: a fixed day-count
+// interval (interval_days -- the weekly/fortnightly/monthly presets, or
+// a typed custom number), or an explicit list of calendar days each
+// month (due_days_of_month), for a period that lands on fixed dates
+// rather than N days apart -- e.g. BrackenRidge rent actually arriving
+// on the 15th and the 30th, which drifts under a fixed interval since
+// months aren't all the same length. Exactly one of the two is ever
+// stored; switching modes in the form clears the other on save.
+function buildCadenceField(initial) {
+  const hasDates = Array.isArray(initial?.due_days_of_month) && initial.due_days_of_month.length > 0;
+  const isPreset = !hasDates && INTERVAL_PRESETS.some((p) => p.days === initial?.interval_days);
+
+  const customIntervalInput = h('input', {
+    type: 'number', inputmode: 'numeric', min: '1', placeholder: 'Days',
+    value: initial?.interval_days ?? '',
+    style: !hasDates && !isPreset ? 'display:block' : 'display:none',
+  });
+  const datesInput = h('input', {
+    type: 'text', inputmode: 'numeric', placeholder: 'e.g. 15, 30',
+    value: hasDates ? initial.due_days_of_month.join(', ') : '',
+    style: hasDates ? 'display:block' : 'display:none',
+  });
+  const intervalSelect = h('select', {
+    onchange: () => {
+      customIntervalInput.style.display = intervalSelect.value === 'custom' ? 'block' : 'none';
+      datesInput.style.display = intervalSelect.value === DATES_OPTION_VALUE ? 'block' : 'none';
+    },
+  }, [
+    ...INTERVAL_PRESETS.map((p) => h('option', {
+      value: p.days === null ? 'custom' : String(p.days),
+      selected: !hasDates && (isPreset ? p.days === initial?.interval_days : p.days === null),
+    }, p.label)),
+    h('option', { value: DATES_OPTION_VALUE, selected: hasDates }, 'Specific day(s) of month'),
+  ]);
+
+  function getCadence() {
+    if (intervalSelect.value === DATES_OPTION_VALUE) {
+      const days = [...new Set(
+        datesInput.value.split(',').map((s) => parseInt(s.trim(), 10)).filter((n) => n >= 1 && n <= 31)
+      )].sort((a, b) => a - b);
+      if (!days.length) throw new Error('Enter at least one valid day of the month (1–31), separated by commas.');
+      return { interval_days: null, due_days_of_month: days };
+    }
+    const intervalDays = intervalSelect.value === 'custom' ? parseInt(customIntervalInput.value, 10) : parseInt(intervalSelect.value, 10);
+    return { interval_days: intervalDays, due_days_of_month: null };
+  }
+
+  const field = h('div', { class: 'field' }, [
+    h('label', {}, 'How often?'),
+    intervalSelect,
+    customIntervalInput,
+    datesInput,
+  ]);
+
+  return { field, getCadence };
+}
 
 // Rent (money in) and Mortgage (money out) on the same property are the
 // same "rolling due/paid period" shape (see rent_payments/
@@ -29,29 +105,26 @@ async function renderPaymentSection(currentEl, historyEl, ctx, config) {
     document.body.appendChild(dialog);
     dialog.addEventListener('close', () => dialog.remove());
 
-    const isPreset = INTERVAL_PRESETS.some((p) => p.days === row.interval_days);
     const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
     const labelInput = h('input', { type: 'text', value: row.property_label || '' });
     const dueDateInput = h('input', { type: 'date', required: true, value: row.due_date });
     const amountInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0', required: true, value: row.amount });
-    const customIntervalInput = h('input', { type: 'number', inputmode: 'numeric', min: '1', placeholder: 'Days', value: row.interval_days, style: isPreset ? 'display:none' : 'display:block' });
-    const intervalSelect = h('select', {
-      onchange: () => { customIntervalInput.style.display = intervalSelect.value === 'custom' ? 'block' : 'none'; },
-    }, INTERVAL_PRESETS.map((p) => h('option', { value: p.days === null ? 'custom' : String(p.days), selected: isPreset ? p.days === row.interval_days : p.days === null }, p.label)));
+    const cadence = buildCadenceField(row);
     const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save changes');
 
     const form = h('form', {
       onsubmit: async (e) => {
         e.preventDefault();
         errorEl.style.display = 'none';
-        const intervalDays = intervalSelect.value === 'custom' ? parseInt(customIntervalInput.value, 10) : parseInt(intervalSelect.value, 10);
         const restore = withBusyLabel(submitBtn, 'Saving…');
         try {
+          const { interval_days, due_days_of_month } = cadence.getCadence();
           await updateRow(table, row.id, {
             property_label: labelInput.value.trim() || null,
             due_date: dueDateInput.value,
             amount: parseFloat(amountInput.value),
-            interval_days: intervalDays,
+            interval_days,
+            due_days_of_month,
           });
           closeSheet(dialog);
           renderPaymentSection(currentEl, historyEl, ctx, config);
@@ -67,7 +140,7 @@ async function renderPaymentSection(currentEl, historyEl, ctx, config) {
         h('div', { class: 'field' }, [h('label', {}, 'Due date'), dueDateInput]),
         h('div', { class: 'field' }, [h('label', {}, 'Amount'), amountInput]),
       ]),
-      h('div', { class: 'field' }, [h('label', {}, 'How often?'), intervalSelect, customIntervalInput]),
+      cadence.field,
       errorEl,
       submitBtn,
     ]);
@@ -104,7 +177,7 @@ async function renderPaymentSection(currentEl, historyEl, ctx, config) {
       h('div', { class: 'card-row' }, [
         h('div', {}, [
           h('h3', {}, row.property_label || defaultLabel),
-          h('div', { class: 'meta' }, `Due ${formatDate(row.due_date)} · every ${row.interval_days}d`),
+          h('div', { class: 'meta' }, `Due ${formatDate(row.due_date)} · ${cadenceLabel(row)}`),
         ]),
         h('div', { style: 'text-align:right' }, [
           h('div', { class: `amount ${amountClass}` }, formatMoney(row.amount, row.currency)),
@@ -118,10 +191,13 @@ async function renderPaymentSection(currentEl, historyEl, ctx, config) {
             const next = await insertRow(table, {
               household_id: ctx.household.id,
               property_label: row.property_label,
-              due_date: addDays(row.due_date, row.interval_days),
+              due_date: row.due_days_of_month?.length
+                ? nextDueDateFromDaysOfMonth(row.due_date, row.due_days_of_month)
+                : addDays(row.due_date, row.interval_days),
               amount: row.amount,
               currency: row.currency,
               interval_days: row.interval_days,
+              due_days_of_month: row.due_days_of_month,
               created_by: ctx.user.id,
             });
             // Remembers which row this spawned, so an accidental mark can
@@ -186,25 +262,23 @@ async function renderPaymentSection(currentEl, historyEl, ctx, config) {
   const labelInput = h('input', { type: 'text', placeholder: 'e.g. BrackenRidge' });
   const dueDateInput = h('input', { type: 'date', required: true, value: todayStr() });
   const amountInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0', required: true, placeholder: '0.00' });
-  const customIntervalInput = h('input', { type: 'number', inputmode: 'numeric', min: '1', placeholder: 'Days', style: 'display:none' });
-  const intervalSelect = h('select', {
-    onchange: () => { customIntervalInput.style.display = intervalSelect.value === 'custom' ? 'block' : 'none'; },
-  }, INTERVAL_PRESETS.map((p) => h('option', { value: p.days === null ? 'custom' : String(p.days), selected: p.days === defaultIntervalDays }, p.label)));
+  const cadence = buildCadenceField({ interval_days: defaultIntervalDays });
   const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save');
   const form = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       errorEl.style.display = 'none';
-      const intervalDays = intervalSelect.value === 'custom' ? parseInt(customIntervalInput.value, 10) : parseInt(intervalSelect.value, 10);
       const restore = withBusyLabel(submitBtn, 'Saving…');
       try {
+        const { interval_days, due_days_of_month } = cadence.getCadence();
         await insertRow(table, {
           household_id: ctx.household.id,
           property_label: labelInput.value.trim() || null,
           due_date: dueDateInput.value,
           amount: parseFloat(amountInput.value),
           currency: ctx.household.default_currency || 'AUD',
-          interval_days: intervalDays,
+          interval_days,
+          due_days_of_month,
           created_by: ctx.user.id,
         });
         closeSheet(dialog);
@@ -221,7 +295,7 @@ async function renderPaymentSection(currentEl, historyEl, ctx, config) {
       h('div', { class: 'field' }, [h('label', {}, 'Due date'), dueDateInput]),
       h('div', { class: 'field' }, [h('label', {}, 'Amount'), amountInput]),
     ]),
-    h('div', { class: 'field' }, [h('label', {}, 'How often?'), intervalSelect, customIntervalInput]),
+    cadence.field,
     errorEl,
     submitBtn,
   ]);

@@ -561,6 +561,15 @@ export const CHANGELOG_ENTRIES = [
       'Removed the explanation text under the split fields',
     ],
   },
+  {
+    id: 62,
+    date: '2026-10-14',
+    title: 'Custom recurring dates for BrackenRidge rent/mortgage',
+    items: [
+      'Adding or editing a rent/mortgage period now has a "Specific day(s) of month" option, e.g. "15, 30" for rent that’s credited on fixed dates rather than every N days',
+      'Marking a period received/paid rolls to the next listed date, wrapping into next month once past all of them',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

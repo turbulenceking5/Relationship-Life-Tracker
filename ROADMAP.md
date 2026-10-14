@@ -317,6 +317,15 @@ status. Check items off as they land.
       an override when the result differs from the household default.
       Removed the explanation text under the split fields. See
       [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md).
+- [x] **Custom recurring dates for BrackenRidge rent/mortgage**: a
+      period can now recur on explicit calendar days each month (e.g.
+      "15, 30") instead of only a fixed day-count interval — rent
+      credited on fixed dates drifts under `interval_days` since months
+      aren't all the same length. New `due_days_of_month` column
+      (`0042_rent_mortgage_custom_due_dates.sql`); "Mark as received"/
+      "Mark as paid" rolls to the next listed day, wrapping into next
+      month and clamped to its last day. See
+      [`docs/23-feature-rent-mortgage.md`](docs/23-feature-rent-mortgage.md).
 
 ## Phase 0 — Foundations ✅ (this session)
 

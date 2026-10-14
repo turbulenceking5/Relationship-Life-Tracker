@@ -61,6 +61,36 @@ back to something generic. The label dropped "Rent" once the segment grew
 to cover the mortgage too — it's the property's tab now, not just its
 rent.
 
+## Cadence: fixed interval vs. specific day(s) of month
+Each row stores its recurrence one of two ways, never both —
+`buildCadenceField()` in `rent.js` builds the shared "How often?"
+control for the Add/Edit forms and reads back whichever shape was
+chosen:
+
+- **`interval_days`** — a fixed day-count (the Weekly/Fortnightly/
+  Monthly presets, or a typed custom number). "Mark as paid" rolls the
+  next period forward with `addDays()`.
+- **`due_days_of_month`** (`smallint[]`, `0042_rent_mortgage_custom_due_dates.sql`)
+  — an explicit, sorted list of calendar days, for a period that lands
+  on fixed dates rather than N days apart. BrackenRidge rent is the
+  motivating case: it's actually credited on the 15th and the 30th of
+  each month, which drifts under any fixed interval since months aren't
+  all the same length (every 15 days from the 15th doesn't land back on
+  the 30th every time). "Mark as paid" instead calls
+  `nextDueDateFromDaysOfMonth()` (`format.js`), which rolls to the next
+  listed day and wraps into next month at the smallest one once past
+  all of them for the current month — clamped to that month's actual
+  last day, so e.g. a 30 or 31 entry still resolves in February.
+
+`interval_days` is nullable for this reason (relaxed in the same
+migration) — a `due_days_of_month` row has no fixed interval to carry,
+rather than storing a stale, unused number. A check constraint requires
+at least one of the two to be set. Selecting "Specific day(s) of month"
+in either form reveals a plain comma-separated text input (e.g.
+`15, 30`); switching cadence mode and saving clears whichever field
+isn't in use. A card's meta line reads e.g. "15th & 30th of the month"
+in this mode instead of "every Xd" (`cadenceLabel()`).
+
 ## Undo a mistaken "Mark as received"/"Mark as paid"
 
 A paid card in the history section gets an "Undo" button alongside Edit
@@ -136,8 +166,9 @@ every day) while a period stays unpaid past its due date — see
 ## Data
 See `rent_payments` and `mortgage_payments` tables in
 [`02-data-model.md`](02-data-model.md) — both share the same shape
-(`due_date`, `amount`, `currency`, `interval_days`, `paid`, `paid_date`,
-`next_period_id`, `property_label`, `last_notified_date`).
+(`due_date`, `amount`, `currency`, `interval_days`, `due_days_of_month`,
+`paid`, `paid_date`, `next_period_id`, `property_label`,
+`last_notified_date`).
 
 ## UI notes
 - Keep Rent and Mortgage visually distinct (icon, color) even though they

@@ -8,6 +8,38 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-14 — Custom recurring dates for BrackenRidge rent/mortgage
+
+- Rent and mortgage periods previously only recurred on a fixed
+  day-count interval (`interval_days` — weekly/fortnightly/monthly
+  presets, or a typed custom number). BrackenRidge rent, though, is
+  actually credited on fixed calendar dates — the 15th and the 30th —
+  which drifts under any fixed interval since months aren't all the
+  same length.
+- New `due_days_of_month smallint[]` column on `rent_payments` and
+  `mortgage_payments` (`0042_rent_mortgage_custom_due_dates.sql`),
+  storing an explicit sorted list of calendar days. `interval_days` is
+  now nullable (a check constraint requires at least one of the two set)
+  — a dates-mode row leaves it unset instead of carrying a stale number.
+- `buildCadenceField()` in `app/js/expenses.js`'s sibling `rent.js`
+  builds the shared "How often?" control for both Add and Edit forms: a
+  new "Specific day(s) of month" option reveals a plain comma-separated
+  input (e.g. `15, 30`) in place of the existing preset/custom-days
+  controls. Switching cadence mode and saving clears whichever field
+  isn't in use.
+- "Mark as received"/"Mark as paid" now calls
+  `nextDueDateFromDaysOfMonth()` (new helper in `app/js/format.js`)
+  instead of `addDays()` when a row is in dates mode — rolls to the next
+  listed day, wrapping into next month at the smallest one once past all
+  of them for the current month, clamped to that month's actual last day
+  (so e.g. a 30/31 entry still resolves in February).
+- A card's meta line reads e.g. "15th & 30th of the month" in this mode
+  instead of "every Xd" (`cadenceLabel()`).
+- Verified against the mock backend: adding a rent period in dates mode
+  with "15, 30", marking it received rolls Sep 15 → Sep 30 → Oct 15
+  (wrapping the month correctly), and the Edit sheet round-trips dates
+  mode (select + input both prefill correctly reopened).
+
 ## 2026-10-13 — One-tap 50/50 split on expenses
 
 - `buildSplitField()` in `app/js/expenses.js` (shared by the add and edit

@@ -261,7 +261,8 @@ period; "mark as received" inserts the next period's row automatically.
 | `due_date` | date | required |
 | `amount` | numeric(12,2) | |
 | `currency` | text | default `AUD` |
-| `interval_days` | integer | default 14 (fortnightly); carried forward to the auto-generated next period |
+| `interval_days` | integer, optional | default 14 (fortnightly); carried forward to the auto-generated next period. Nullable since `0042_rent_mortgage_custom_due_dates.sql` — a row using `due_days_of_month` below instead leaves this `null`. A check constraint requires at least one of the two to be set. |
+| `due_days_of_month` | smallint[], optional | explicit sorted list of calendar days (e.g. `{15,30}`) for a period due on fixed dates rather than a fixed day-count interval — e.g. rent actually credited on the 15th and the 30th, which drifts under `interval_days` since months aren't all the same length. "Mark as received" rolls to the next listed day via `nextDueDateFromDaysOfMonth()` (`format.js`) instead of `addDays()`. Added in `0042_rent_mortgage_custom_due_dates.sql`; see [`23-feature-rent-mortgage.md`](23-feature-rent-mortgage.md). |
 | `paid` | boolean | default false |
 | `paid_date` | date | set when marked received |
 | `next_period_id` | uuid → rent_payments, optional | the row auto-inserted by "mark as received" on *this* row, if any — lets Undo (`rent.js`) remove that auto-created period too when reverting a mistake, instead of leaving an orphaned extra one behind. Added in `0041_rent_mortgage_undo.sql`; `null` on any row from before that (including one already paid) or one marked paid before this existed. |
@@ -286,7 +287,8 @@ amount and each is just a simple due/paid list. Only difference:
 | `due_date` | date | required |
 | `amount` | numeric(12,2) | |
 | `currency` | text | default `AUD` |
-| `interval_days` | integer | default 30 (monthly); carried forward to the auto-generated next period |
+| `interval_days` | integer, optional | default 30 (monthly); carried forward to the auto-generated next period. Nullable since `0042_rent_mortgage_custom_due_dates.sql`, same reason as `rent_payments.interval_days` above |
+| `due_days_of_month` | smallint[], optional | same purpose as `rent_payments.due_days_of_month` above |
 | `paid` | boolean | default false |
 | `paid_date` | date | set when marked paid |
 | `next_period_id` | uuid → mortgage_payments, optional | same purpose as `rent_payments.next_period_id` above — lets Undo remove the auto-created next period when reverting a mistaken "mark as paid" |
