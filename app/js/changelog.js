@@ -570,6 +570,15 @@ export const CHANGELOG_ENTRIES = [
       'Marking a period received/paid rolls to the next listed date, wrapping into next month once past all of them',
     ],
   },
+  {
+    id: 63,
+    date: '2026-10-15',
+    title: 'Tap to pick multiple recurring dates, instead of typing them',
+    items: [
+      'The "Specific day(s) of month" cadence on rent/mortgage periods now shows a 1–31 grid of days to tap, instead of typing a comma-separated list',
+      'Tap as many days as you need — e.g. both 15 and 30 — each one toggles independently',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

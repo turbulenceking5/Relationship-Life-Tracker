@@ -319,9 +319,10 @@ status. Check items off as they land.
       [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md).
 - [x] **Custom recurring dates for BrackenRidge rent/mortgage**: a
       period can now recur on explicit calendar days each month (e.g.
-      "15, 30") instead of only a fixed day-count interval — rent
-      credited on fixed dates drifts under `interval_days` since months
-      aren't all the same length. New `due_days_of_month` column
+      15 and 30, picked by tapping a 1–31 day grid) instead of only a
+      fixed day-count interval — rent credited on fixed dates drifts
+      under `interval_days` since months aren't all the same length.
+      New `due_days_of_month` column
       (`0042_rent_mortgage_custom_due_dates.sql`); "Mark as received"/
       "Mark as paid" rolls to the next listed day, wrapping into next
       month and clamped to its last day. See

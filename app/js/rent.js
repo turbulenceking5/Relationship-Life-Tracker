@@ -27,10 +27,34 @@ function cadenceLabel(row) {
   return `every ${row.interval_days}d`;
 }
 
+// A row of 31 tappable day-of-month toggles for buildCadenceField()
+// below — multiple days can be active at once (e.g. the 15th AND the
+// 30th), each one independent rather than the single-active-at-a-time
+// behavior of the .segmented filter chips elsewhere in the app, so this
+// gets its own .day-grid/.day-chip styling instead of reusing those.
+function buildDayGrid(selectedDays) {
+  const selected = new Set(selectedDays);
+  const buttons = [];
+  for (let day = 1; day <= 31; day++) {
+    const btn = h('button', {
+      type: 'button',
+      class: selected.has(day) ? 'day-chip active' : 'day-chip',
+      onclick: () => {
+        if (selected.has(day)) selected.delete(day);
+        else selected.add(day);
+        btn.className = selected.has(day) ? 'day-chip active' : 'day-chip';
+      },
+    }, String(day));
+    buttons.push(btn);
+  }
+  const grid = h('div', { class: 'day-grid' }, buttons);
+  return { grid, getSelected: () => [...selected].sort((a, b) => a - b) };
+}
+
 // The "How often?" control shared by the Add and Edit forms below --
 // one of two cadence shapes is stored per row: a fixed day-count
 // interval (interval_days -- the weekly/fortnightly/monthly presets, or
-// a typed custom number), or an explicit list of calendar days each
+// a typed custom number), or an explicit set of calendar days each
 // month (due_days_of_month), for a period that lands on fixed dates
 // rather than N days apart -- e.g. BrackenRidge rent actually arriving
 // on the 15th and the 30th, which drifts under a fixed interval since
@@ -45,15 +69,15 @@ function buildCadenceField(initial) {
     value: initial?.interval_days ?? '',
     style: !hasDates && !isPreset ? 'display:block' : 'display:none',
   });
-  const datesInput = h('input', {
-    type: 'text', inputmode: 'numeric', placeholder: 'e.g. 15, 30',
-    value: hasDates ? initial.due_days_of_month.join(', ') : '',
-    style: hasDates ? 'display:block' : 'display:none',
-  });
+  const dayGrid = buildDayGrid(hasDates ? initial.due_days_of_month : []);
+  const datesWrapper = h('div', { style: hasDates ? 'display:block' : 'display:none' }, [
+    h('label', { style: 'margin-top:8px' }, 'Days of the month'),
+    dayGrid.grid,
+  ]);
   const intervalSelect = h('select', {
     onchange: () => {
       customIntervalInput.style.display = intervalSelect.value === 'custom' ? 'block' : 'none';
-      datesInput.style.display = intervalSelect.value === DATES_OPTION_VALUE ? 'block' : 'none';
+      datesWrapper.style.display = intervalSelect.value === DATES_OPTION_VALUE ? 'block' : 'none';
     },
   }, [
     ...INTERVAL_PRESETS.map((p) => h('option', {
@@ -65,10 +89,8 @@ function buildCadenceField(initial) {
 
   function getCadence() {
     if (intervalSelect.value === DATES_OPTION_VALUE) {
-      const days = [...new Set(
-        datesInput.value.split(',').map((s) => parseInt(s.trim(), 10)).filter((n) => n >= 1 && n <= 31)
-      )].sort((a, b) => a - b);
-      if (!days.length) throw new Error('Enter at least one valid day of the month (1–31), separated by commas.');
+      const days = dayGrid.getSelected();
+      if (!days.length) throw new Error('Select at least one day of the month.');
       return { interval_days: null, due_days_of_month: days };
     }
     const intervalDays = intervalSelect.value === 'custom' ? parseInt(customIntervalInput.value, 10) : parseInt(intervalSelect.value, 10);
@@ -79,7 +101,7 @@ function buildCadenceField(initial) {
     h('label', {}, 'How often?'),
     intervalSelect,
     customIntervalInput,
-    datesInput,
+    datesWrapper,
   ]);
 
   return { field, getCadence };

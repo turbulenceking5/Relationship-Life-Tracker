@@ -8,6 +8,28 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-15 — Tap to pick multiple recurring dates, instead of typing them
+
+Follow-up to the custom recurring dates feature below, next day: typing
+a comma-separated list of days ("15, 30") was awkward, especially on a
+phone keyboard. Reworked into a tappable grid.
+
+- `buildDayGrid()` (new helper in `app/js/rent.js`) replaces the single
+  comma-separated text input with a 1–31 grid of day-chip buttons, each
+  toggling independently — multiple days (e.g. both 15 and 30) can be
+  active at once, same underlying `due_days_of_month` array as before,
+  just a different input control.
+- New `.day-grid`/`.day-chip` CSS (`app/css/styles.css`) — deliberately
+  not reusing `.segmented`'s single-active-at-a-time styling, since more
+  than one chip can be active here.
+- `buildCadenceField()`'s `getCadence()` now reads the grid's selection
+  instead of parsing text; the "enter at least one valid day" error
+  became "select at least one day of the month."
+- Verified against the mock backend: the grid renders all 31 days,
+  tapping 15/30/1 then un-tapping 1 leaves exactly 15 and 30 active,
+  the saved card's meta line still reads "15th & 30th of the month,"
+  and reopening Edit shows 15 and 30 highlighted.
+
 ## 2026-10-14 — Custom recurring dates for BrackenRidge rent/mortgage
 
 - Rent and mortgage periods previously only recurred on a fixed

@@ -380,6 +380,39 @@ main {
 .action-chip:hover, .action-chip:focus-visible { background: color-mix(in srgb, var(--accent) 24%, transparent); }
 .action-chip:active { background: color-mix(in srgb, var(--accent) 32%, transparent); }
 
+/* A grid of independent toggles for picking multiple calendar days at
+   once (rent/mortgage "Specific day(s) of month" cadence, rent.js) --
+   unlike .segmented above, more than one can be active simultaneously,
+   so it gets its own active-state styling rather than reusing that
+   single-select tab look. Same color-mix(accent%, transparent) idiom as
+   .pill.ok/.action-chip so the active state stays theme-correct. */
+.day-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 10px;
+}
+
+.day-chip {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0;
+}
+
+.day-chip.active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+
 .action-chip-row {
   display: flex;
   flex-wrap: wrap;

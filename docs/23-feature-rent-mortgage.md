@@ -86,10 +86,14 @@ chosen:
 migration) — a `due_days_of_month` row has no fixed interval to carry,
 rather than storing a stale, unused number. A check constraint requires
 at least one of the two to be set. Selecting "Specific day(s) of month"
-in either form reveals a plain comma-separated text input (e.g.
-`15, 30`); switching cadence mode and saving clears whichever field
-isn't in use. A card's meta line reads e.g. "15th & 30th of the month"
-in this mode instead of "every Xd" (`cadenceLabel()`).
+in either form reveals a 1–31 grid of tappable day chips
+(`buildDayGrid()`) — each one toggles independently, so multiple days
+(e.g. both 15 and 30) can be active at once; this isn't the same
+single-active-at-a-time behavior as the `.segmented` filter chips
+elsewhere in the app, so it gets its own `.day-grid`/`.day-chip` CSS
+rather than reusing those. Switching cadence mode and saving clears
+whichever field isn't in use. A card's meta line reads e.g. "15th &
+30th of the month" in this mode instead of "every Xd" (`cadenceLabel()`).
 
 ## Undo a mistaken "Mark as received"/"Mark as paid"
 
