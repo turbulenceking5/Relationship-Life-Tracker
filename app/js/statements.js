@@ -624,6 +624,22 @@ function trendVsPrevious(current, previous, currency, comparisonLabel = 'last st
 
 // ---- Upload sheet --------------------------------------------------------
 
+// Identifies a transaction for duplicate detection: same day, same
+// (normalized) description, same amount. Re-uploading a statement that
+// overlaps a period already on file is the common case this guards
+// against (a bank's "last 90 days" export re-run a month later, a
+// billing-cycle statement that double-covers a few days with the one
+// either side of it) — without this, every transaction in the overlap
+// would otherwise get inserted a second time with nothing to stop it
+// (see the upload sheet's submit handler below). Trade-off: two genuinely separate
+// purchases of the same amount, at the same place, on the same day,
+// collide onto this same key and the second looks like a duplicate —
+// accepted as rare enough to not be worth a user-facing "are these
+// really different?" prompt on every upload.
+function transactionKey(t) {
+  return `${t.txn_date}|${String(t.description).trim().toLowerCase()}|${Number(t.amount).toFixed(2)}`;
+}
+
 function openUploadStatementSheet(ctx, onSaved) {
   const { dialog, body } = makeSheet('Upload bank statement');
   document.body.appendChild(dialog);
@@ -683,6 +699,51 @@ function openUploadStatementSheet(ctx, onSaved) {
       if (!file) return;
       const restore = withBusyLabel(submitBtn, 'Uploading…');
       try {
+        // Fetched (and deduped against) before touching Drive at all, so
+        // a re-upload that turns out to be entirely already-on-file never
+        // creates a second copy of the file either — not just a second
+        // copy of its transactions. Fresh fetches rather than reusing
+        // whatever render() last loaded, so a slightly-stale tab doesn't
+        // let a duplicate slip through; scoped to this uploader via RLS
+        // exactly like render() below.
+        const [rules, existingStatements, existingTransactions] = await Promise.all([
+          fetchCategoryRules(ctx),
+          fetchRows(STATEMENTS_TABLE, ctx.household.id, 'created_at', false),
+          fetchRows(TRANSACTIONS_TABLE, ctx.household.id, 'txn_date', false),
+        ]);
+        const seenKeys = new Set(existingTransactions.map(transactionKey));
+        let skippedCount = 0;
+        let skippedPeriods = 0;
+        const periodsToSave = [];
+        for (const period of periods) {
+          const newTransactions = [];
+          for (const t of period.transactions) {
+            const key = transactionKey(t);
+            if (seenKeys.has(key)) { skippedCount += 1; continue; }
+            seenKeys.add(key); // also catches a duplicate line within this same file
+            newTransactions.push(t);
+          }
+          const periodAlreadyOnFile = existingStatements.some((s) => s.period_month === period.month && s.period_year === period.year);
+          if (!newTransactions.length && periodAlreadyOnFile) {
+            // Nothing in this period wasn't already on file — skip
+            // creating another (empty) statement card for a month
+            // that's already covered, rather than leaving a confusing
+            // duplicate behind with nothing new in it.
+            skippedPeriods += 1;
+            continue;
+          }
+          periodsToSave.push({ ...period, transactions: newTransactions });
+        }
+
+        if (!periodsToSave.length) {
+          // Every period in this file was already fully on record —
+          // the whole upload is a no-op, so skip Drive too.
+          closeSheet(dialog);
+          onSaved();
+          alert(`Skipped — ${skippedCount} transaction${skippedCount === 1 ? '' : 's'} across ${skippedPeriods} period${skippedPeriods === 1 ? '' : 's'} were already on file. Nothing was duplicated.`);
+          return;
+        }
+
         const ext = file.name.includes('.') ? file.name.slice(file.name.lastIndexOf('.')) : '';
         // One uploaded file can produce several bank_statements rows
         // (one per represented month) that all point at this same Drive
@@ -692,8 +753,8 @@ function openUploadStatementSheet(ctx, onSaved) {
           : `${statementLabel(periods[0].month, periods[0].year)} – ${statementLabel(periods[periods.length - 1].month, periods[periods.length - 1].year)}`;
         const fileName = `${DRIVE_PREFIX} ${driveLabel}${ext}`;
         const uploaded = await uploadFileToDrive(ctx, file, fileName);
-        const rules = await fetchCategoryRules(ctx);
-        await Promise.all(periods.map(async (period) => {
+        await Promise.all(periodsToSave.map(async (period) => {
+          const newTransactions = period.transactions;
           const label = statementLabel(period.month, period.year);
           const statement = await insertRow(STATEMENTS_TABLE, {
             household_id: ctx.household.id,
@@ -707,8 +768,8 @@ function openUploadStatementSheet(ctx, onSaved) {
             mime_type: file.type,
             uploaded_by: ctx.user.id,
           });
-          if (period.transactions.length) {
-            await insertRows(TRANSACTIONS_TABLE, period.transactions.map((t) => {
+          if (newTransactions.length) {
+            await insertRows(TRANSACTIONS_TABLE, newTransactions.map((t) => {
               const category = guessCategory(t.description, t.amount, rules);
               return {
                 household_id: ctx.household.id,
@@ -724,6 +785,12 @@ function openUploadStatementSheet(ctx, onSaved) {
         }));
         closeSheet(dialog);
         onSaved();
+        if (skippedCount || skippedPeriods) {
+          const parts = [];
+          if (skippedCount) parts.push(`${skippedCount} transaction${skippedCount === 1 ? '' : 's'} already on file`);
+          if (skippedPeriods) parts.push(`${skippedPeriods} period${skippedPeriods === 1 ? '' : 's'} fully covered already`);
+          alert(`Skipped ${parts.join(' and ')} — nothing was duplicated.`);
+        }
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';

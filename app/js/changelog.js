@@ -579,6 +579,15 @@ export const CHANGELOG_ENTRIES = [
       'Tap as many days as you need — e.g. both 15 and 30 — each one toggles independently',
     ],
   },
+  {
+    id: 64,
+    date: '2026-10-16',
+    title: 'Re-uploading a bank statement no longer doubles up transactions',
+    items: [
+      'My Statements now checks a newly uploaded statement against what’s already on file (same date, description and amount) and skips anything already recorded',
+      'If a whole file turns out to be already on file, nothing is saved — no duplicate statement card, no duplicate upload to Drive — and you’re told how much was skipped',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

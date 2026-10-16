@@ -8,6 +8,37 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-16 — Re-uploading a bank statement no longer doubles up transactions
+
+My Statements previously had no protection against uploading a statement
+that overlapped a period already on file — every transaction in the
+overlap would get inserted a second time, with nothing (no app check, no
+DB constraint) to stop it.
+
+- `transactionKey()` (new helper in `app/js/statements.js`) identifies a
+  transaction by `txn_date|description|amount`; the upload sheet's submit
+  handler fetches the user's existing statements/transactions fresh
+  (before touching Drive at all) and skips any parsed transaction whose
+  key already exists — both against what's already saved, and against
+  earlier transactions in the same file, so a statement with an internal
+  duplicate line doesn't insert it twice either.
+- If a period's transactions are all duplicates and a statement already
+  exists for that period, no new (empty) `bank_statements` row is created
+  for it — avoids a confusing second card for a month that's already
+  covered.
+- If literally every period in the uploaded file turns out to already be
+  on file, the file is never uploaded to Drive either — the whole upload
+  is treated as a no-op rather than creating a duplicate file alongside a
+  duplicate-free database.
+- Either way, an `alert()` tells the uploader how many transactions/
+  periods were skipped as already-on-file, so a re-upload that caught
+  nothing new isn't silently confusing.
+- Trade-off, documented in `transactionKey()`'s comment: two genuinely
+  separate purchases of the same amount, at the same merchant, on the
+  same day, collide onto the same key and the second looks like a
+  duplicate. Accepted as rare enough not to warrant a per-upload "are
+  these really different?" prompt.
+
 ## 2026-10-15 — Tap to pick multiple recurring dates, instead of typing them
 
 Follow-up to the custom recurring dates feature below, next day: typing
