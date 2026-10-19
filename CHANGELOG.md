@@ -8,6 +8,36 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-19 — Fortnightly to-dos, and My To-dos gets its own tab
+
+Two small, unrelated requests shipped together.
+
+- `REPEAT_OPTIONS` in `app/js/personal-todos.js` gains a `'fortnightly'`
+  entry, matching what `events.js` already offers for recurring events.
+  `nextOccurrencePatch()` (client) and `notify-due-items`'s own patch
+  logic (server, `supabase/functions/notify-due-items/index.ts`) both
+  gain a `'fortnightly'` branch using the existing `addDays`/`addDaysUTC`
+  helper with `14` instead of `7` — no new helper needed, since both
+  already supported an arbitrary day count. The `personal_todos.
+  repeat_frequency` check constraint only allowed `'none' | 'daily' |
+  'weekly' | 'monthly'`, so `0043_personal_todos_fortnightly.sql` widens
+  it to include `'fortnightly'`.
+- My To-dos moved out of the Money tab's `.segmented` sub-nav into its
+  own top-level `todos` tab (`app.js`'s `TABS` array), dropping the "My"
+  prefix in the tab label (now just "To-dos") since it no longer needs to
+  stand out as the private one among shared siblings the way it did
+  packed in next to Expenses/BrackenRidge/My Statements/Grocery
+  List/Recipes. `app/js/personal-todos.js` itself didn't change for this
+  — `13-feature-money-tab.md` already called this move out as a
+  deliberately cheap one, since Money-tab segments are unaware they're
+  not top-level tabs. `app.js`'s home-tab `navigate()` callback no longer
+  special-cases `'todos'` into a `money.js` `setActiveSub()` call; it
+  falls through to the plain top-level-tab branch instead, same as
+  `events`/`goals`/`documents`.
+- Docs updated to match: `13-feature-money-tab.md`,
+  `20-feature-personal-todos.md`, `22-feature-home-dashboard.md`,
+  `02-data-model.md`.
+
 ## 2026-10-16 — Re-uploading a bank statement no longer doubles up transactions
 
 My Statements previously had no protection against uploading a statement

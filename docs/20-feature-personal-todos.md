@@ -11,15 +11,16 @@ user.
 - List your own reminders, split into **Active** and **Done**, soonest
   first within Active.
 - Add a reminder: a free-text prompt, a date, a time, and how often it
-  repeats (doesn't repeat / daily / weekly / monthly).
+  repeats (doesn't repeat / daily / weekly / fortnightly / monthly).
 - Edit a reminder (all fields).
 - Mark a reminder done/active again, without deleting it (so a completed
   one-off reminder stays visible in Done rather than disappearing). For a
   repeating reminder this instead advances it to its next occurrence and
   keeps it active — see "Marking done by hand" below.
 - Delete a reminder.
-- Surfaced as a "My To-dos" segment in the Money tab's sub-nav — see
-  "Why it lives in the Money tab" below.
+- Its own top-level "To-dos" tab (`app/js/personal-todos.js`, routed via
+  `app.js`'s `TABS` array) — see "Where it lives" below for how it got
+  there.
 
 ## Privacy model
 `personal_todos` has an "owner only" RLS policy — `user_id = auth.uid()`
@@ -33,13 +34,19 @@ signed-in user's own rows regardless of what the query asks for. The
 same pattern already exists for `push_subscriptions` (see
 [`02-data-model.md`](02-data-model.md)).
 
-## Why it lives in the Money tab
-A wholly private, non-money feature living under "Money" looks odd at
-first, but a new top-level tab per feature is exactly what the Money
-tab's original consolidation (and Grocery List/Recipes joining it later)
-exists to avoid — see [`13-feature-money-tab.md`](13-feature-money-tab.md).
-The segment is labeled "My To-dos", not just "To-dos", to signal at a
-glance that it's personal, not shared like every segment beside it.
+## Where it lives
+Originally shipped as a "My To-dos" segment inside the Money tab's
+sub-nav, on the same "avoid tab-bar crowding" reasoning that put Grocery
+List and Recipes there too — see
+[`13-feature-money-tab.md`](13-feature-money-tab.md). It was later
+promoted to its own top-level `todos` tab (label "To-dos") at the
+household's own request. This was a plain `app.js` `TABS`-array move —
+the module itself (`app/js/personal-todos.js`) is unaware whether it's a
+top-level tab or a Money-tab segment, exactly the reversibility
+`13-feature-money-tab.md` calls out as deliberate. Nothing about its
+privacy model changed: it's still the one tab that shows only your own
+data, invisible to your partner even though it's no longer nested under
+a shared-feeling tab like Money.
 
 ## Push notifications (shipped, with a known limitation)
 A reminder due today or overdue notifies via `notify-due-items`, same
@@ -52,10 +59,10 @@ this is the one notification a partner should never see.
 
 What happens after it fires depends on `repeat_frequency`:
 - `none`: the reminder is marked done, same as ticking it off by hand.
-- `daily`/`weekly`/`monthly`: `remind_date` advances to its next
-  occurrence (monthly clamps to the target month's last day, same trick
-  as `currentOccurrence()` in `app/js/format.js`) and the reminder stays
-  active.
+- `daily`/`weekly`/`fortnightly`/`monthly`: `remind_date` advances to its
+  next occurrence (monthly clamps to the target month's last day, same
+  trick as `currentOccurrence()` in `app/js/format.js`) and the reminder
+  stays active.
 
 `remind_time` is honored precisely: `notify-due-items` polls every 15
 minutes (see [`11-push-notifications.md`](11-push-notifications.md)) and
@@ -81,9 +88,9 @@ who/what triggered it.
 
 `personal-todos.js` now mirrors `notify-due-items`' own
 `nextOccurrencePatch()` logic client-side: ticking off a repeating
-reminder advances `remind_date` (daily +1 day, weekly +7 days, monthly to
-next month clamped to its last day) and leaves it in Active, exactly as
-if the push notification had fired it. Only a non-repeating
+reminder advances `remind_date` (daily +1 day, weekly +7 days, fortnightly
++14 days, monthly to next month clamped to its last day) and leaves it in
+Active, exactly as if the push notification had fired it. Only a non-repeating
 (`repeat_frequency === 'none'`) reminder actually becomes `is_done`. The
 button itself reads "Done for now" rather than "Mark done" when the
 reminder repeats, so the different (non-permanent) behavior is signaled

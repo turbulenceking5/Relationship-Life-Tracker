@@ -85,17 +85,18 @@ signed-in user's own rows (see
 [`20-feature-personal-todos.md`](20-feature-personal-todos.md)), so this
 fetch can only ever see their own, same as the My To-dos segment itself.
 The whole section is omitted if both counts are zero, rather than showing
-two "nothing to do" lines. Tapping either row navigates into the Money
-tab's Grocery List or My To-dos segment respectively.
+two "nothing to do" lines. Tapping the grocery row navigates into the
+Money tab's Grocery List segment; tapping the to-dos row navigates
+straight to the top-level To-dos tab (see "Navigation" below).
 
 ## Navigation
 `home.js` never imports another feature module or switches tabs itself —
 it calls the `navigate(key)` callback `app.js` passes in. For a plain
-top-level tab (`events`, `goals`, `documents`) that's just
+top-level tab (`events`, `goals`, `documents`, `todos`) that's just
 `currentTab = key; renderMainApp()`. For a Money-tab segment
-(`expenses`, `rent`, `groceries`, `todos`) `app.js`'s navigate callback
-first calls `money.js`'s exported `setActiveSub(key)` before switching to
-the `money` tab, so e.g. tapping a rent due-card lands directly on the
+(`expenses`, `rent`, `groceries`) `app.js`'s navigate callback first
+calls `money.js`'s exported `setActiveSub(key)` before switching to the
+`money` tab, so e.g. tapping a rent due-card lands directly on the
 BrackenRidge segment rather than defaulting to Expenses — see
 [`13-feature-money-tab.md`](13-feature-money-tab.md) for how that handoff
 works.

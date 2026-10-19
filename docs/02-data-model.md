@@ -178,7 +178,7 @@ RLS policy is `user_id = auth.uid()`, not the usual
 | `prompt` | text | required, the reminder text |
 | `remind_date` | date | required |
 | `remind_time` | time | default `09:00`; `notify-due-items` polls every 15 minutes and checks this against the current time, so it fires close to the minute it names — see [`20-feature-personal-todos.md`](20-feature-personal-todos.md) |
-| `repeat_frequency` | text | `none` \| `daily` \| `weekly` \| `monthly`; default `none` |
+| `repeat_frequency` | text | `none` \| `daily` \| `weekly` \| `fortnightly` \| `monthly`; default `none` |
 | `is_done` | boolean | default false |
 | `last_notified_date` | date | last day `notify-due-items` sent a push for this row — see [`19-notification-sources.md`](19-notification-sources.md) |
 | `created_at` / `updated_at` | timestamptz | |

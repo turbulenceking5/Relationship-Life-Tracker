@@ -588,6 +588,15 @@ export const CHANGELOG_ENTRIES = [
       'If a whole file turns out to be already on file, nothing is saved — no duplicate statement card, no duplicate upload to Drive — and you’re told how much was skipped',
     ],
   },
+  {
+    id: 65,
+    date: '2026-10-19',
+    title: 'Fortnightly to-dos, and My To-dos gets its own tab',
+    items: [
+      'Repeating to-do reminders can now be set to "Fortnightly", alongside Daily/Weekly/Monthly (Events already had this option for recurring events)',
+      'My To-dos moved out of the Money tab’s sub-nav into its own top-level "To-dos" tab',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

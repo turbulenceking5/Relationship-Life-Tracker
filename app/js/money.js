@@ -6,7 +6,6 @@ const SUB_TABS = [
   { key: 'statements', label: 'My Statements', mod: () => import('./statements.js') },
   { key: 'groceries', label: 'Grocery List', mod: () => import('./grocery.js') },
   { key: 'recipes', label: 'Recipes', mod: () => import('./recipes.js') },
-  { key: 'todos', label: 'My To-dos', mod: () => import('./personal-todos.js') },
 ];
 
 let activeSub = 'expenses';

@@ -265,6 +265,8 @@ Deno.serve(async (req: Request) => {
       patch.remind_date = addDaysUTC(t.remind_date, 1);
     } else if (t.repeat_frequency === "weekly") {
       patch.remind_date = addDaysUTC(t.remind_date, 7);
+    } else if (t.repeat_frequency === "fortnightly") {
+      patch.remind_date = addDaysUTC(t.remind_date, 14);
     } else if (t.repeat_frequency === "monthly") {
       patch.remind_date = addOneMonthUTC(t.remind_date);
     }

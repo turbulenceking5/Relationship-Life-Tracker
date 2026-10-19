@@ -7,6 +7,7 @@ const REPEAT_OPTIONS = [
   { value: 'none', label: "Doesn't repeat" },
   { value: 'daily', label: 'Daily' },
   { value: 'weekly', label: 'Weekly' },
+  { value: 'fortnightly', label: 'Fortnightly' },
   { value: 'monthly', label: 'Monthly' },
 ];
 
@@ -26,6 +27,7 @@ function addOneMonth(dateStr) {
 function nextOccurrencePatch(row) {
   if (row.repeat_frequency === 'daily') return { remind_date: addDays(row.remind_date, 1) };
   if (row.repeat_frequency === 'weekly') return { remind_date: addDays(row.remind_date, 7) };
+  if (row.repeat_frequency === 'fortnightly') return { remind_date: addDays(row.remind_date, 14) };
   if (row.repeat_frequency === 'monthly') return { remind_date: addOneMonth(row.remind_date) };
   return { is_done: true };
 }

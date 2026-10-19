@@ -28,6 +28,7 @@ const TABS = [
   { key: 'money', label: 'Money', icon: '💰', mod: () => import('./money.js') },
   { key: 'goals', label: 'Goals', icon: '🎯', mod: () => import('./goals.js') },
   { key: 'documents', label: 'Docs', icon: '📄', mod: () => import('./documents.js') },
+  { key: 'todos', label: 'To-dos', icon: '📝', mod: () => import('./personal-todos.js') },
 ];
 
 let currentTab = 'home';
@@ -288,7 +289,7 @@ async function renderMainApp() {
   try {
     if (tab.key === 'home') {
       await mod.render(main, ctx, async (key) => {
-        if (key === 'expenses' || key === 'rent' || key === 'groceries' || key === 'todos') {
+        if (key === 'expenses' || key === 'rent' || key === 'groceries') {
           const moneyMod = await import('./money.js');
           moneyMod.setActiveSub(key);
           currentTab = 'money';
