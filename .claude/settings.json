@@ -1,6 +1,7 @@
 {
   "permissions": {
     "allow": [
+      "Bash(node --check *)",
       "mcp__github__get_check_run",
       "mcp__github__get_commit",
       "mcp__github__get_file_contents",
