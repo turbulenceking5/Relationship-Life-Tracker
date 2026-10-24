@@ -57,6 +57,38 @@ target and running ledger.
   with a day countdown, and drops off that feed once its target date has
   passed (it doesn't move to a "Done" list the way Events does — the
   goal itself, and its progress, still lives on the Goals tab).
+- **Finish/close a goal (shipped)**: a "Finish goal"/"Reopen goal" button
+  (next to "Edit goal") sets or clears `custom_goals.closed_at`. Unlike
+  everything else on this tab, closing isn't tied to hitting the target —
+  a goal with no `target_amount` at all (a plain checklist-style goal)
+  had no way to be marked done before this, and a goal that *does* have
+  a target otherwise stays open forever once reached unless someone
+  deletes it outright (losing its history). A closed goal moves into its
+  own collapsed "Closed goals" section at the bottom of the tab — same
+  reasoning as Events' Upcoming/Done split and Rent's History section —
+  and drops off the home dashboard's "Upcoming goals" and
+  `notify-due-items`'s target-date escalation, same as a deleted goal
+  would, but without losing its transactions/tasks/documents. Still
+  fully viewable and editable while closed (Reopen undoes it), since
+  closing is just "filed away," not locked.
+- An event can be linked to a goal (`events.related_goal_id`) — see
+  [`03-feature-events.md`](03-feature-events.md).
+- **Milestone celebration (shipped)**: the first time a goal's `saved`
+  total reaches its `target_amount`, its card plays a one-time CSS
+  confetti burst (`.confetti-burst` in `styles.css`). Gated by a
+  `localStorage` flag per goal ID (`maybeCelebrate()` in `goals.js`) so
+  it plays once per goal per browser, not on every render — the "🎉 Goal
+  reached!" text itself isn't one-time, it shows any time the goal is at
+  or past target.
+- **Export CSV**: next to "+ Add transaction" in each goal's Transactions
+  section, downloads just that goal's `goal_transactions` as
+  `goal-<slugified-title>-transactions.csv` — date, type (Saved/Spent),
+  title, amount, notes, and who logged it (resolved to a display name).
+  Only shown once the goal has at least one transaction. Uses the same
+  `toCsv()`/`downloadCsv()` helpers in `app/js/csv.js` as the Expenses
+  tab's export, kept per-goal rather than one combined export since
+  tax-time records are usually wanted per goal (e.g. "receipts for the
+  Europe trip").
 
 ## Data
 

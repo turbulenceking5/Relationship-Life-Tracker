@@ -27,6 +27,18 @@ export function mount(container, children) {
   }
 }
 
+// Disables a button and swaps its label while an async submit handler is
+// in flight, returning a restore() to call in the catch branch (a
+// successful submit normally closes the sheet, so there's nothing to
+// restore there). Without this, a double-tap on a flaky connection can
+// fire the same insert/update twice before the first request resolves.
+export function withBusyLabel(button, busyLabel) {
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = busyLabel;
+  return () => { button.disabled = false; button.textContent = original; };
+}
+
 export function openSheet(dialogEl) {
   if (typeof dialogEl.showModal === 'function') dialogEl.showModal();
   else dialogEl.setAttribute('open', '');

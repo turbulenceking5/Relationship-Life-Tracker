@@ -60,6 +60,61 @@ and the `notify-due-items` push notification both skip an event whose
 current occurrence has been marked done, even if the date hasn't arrived
 yet.
 
+## Chore rotation (shipped)
+A recurring event can alternate between the two household members each
+occurrence instead of always showing the same person — useful for bin
+day, taking out recycling, etc. Toggled via "Alternate between us" on the
+add/edit form, only offered when the event repeats and the household has
+exactly two members. `events.rotate_assignee` (boolean) +
+`events.assignee_user_id` (the anchor assignee) is all that's stored — no
+per-occurrence row. Whose turn it is right now is computed client-side
+(`turnLabel()` in `events.js`) from `occurrenceCycleCount()` in
+`format.js`, a companion to `currentOccurrence()` that returns the number
+of full cycles elapsed since the anchor date instead of mapping onto a
+date: an even cycle count stays with the anchor assignee, odd flips to
+the other member. Shown on the card as "It's _Name_'s turn", suppressed
+once the occurrence is done (nothing to rotate on a completed one).
+
+Below that, a fairness tally ("Alex 5 · Sam 4") counts how many turns
+each person has had so far — unlike the turn label, shown whether or not
+the current occurrence is done, since it's a running count rather than a
+right-now status. Since the rotation itself is fully deterministic
+(strict alternation by cycle parity, no stored history of actual swaps
+or skips), the tally is just arithmetic on `occurrenceCycleCount()`
+(`fairnessTally()` in `events.js`) rather than a real log: the anchor
+cycle through the current one split as evenly as possible between the
+anchor assignee and the other member.
+
+## Link an event to a goal (shipped)
+`events.related_goal_id` (`on delete set null`, same pattern as
+`documents.related_type/related_id`) optionally links an event to one of
+the household's goals — e.g. an "Anniversary dinner" event linked to a
+Wedding Fund goal. Picked from a "Link to a goal" select on the add/edit
+form; shown on the card as "linked to _Goal title_" when set.
+
+## Comment thread (shipped)
+A 💬 button on every event card opens a thread of plain-text comments
+(`app/js/comments.js`, shared with Expenses) — see
+[`04-feature-expenses.md`](04-feature-expenses.md) → "Comment thread" for
+the full writeup, since the module and table are the same for both.
+Deleting an event also deletes its comments (`deleteCommentsFor()`),
+since `item_comments` has no DB-level cascade for its polymorphic
+`entity_id`.
+
+## Download a single event as .ics (shipped)
+A "🗓️" button on every event card downloads that one occurrence as a
+single-date `.ics` file (`buildIcsEvent()`/`downloadIcs()` in
+`app/js/ics.js`, built client-side — no new backend involved) for
+importing into Apple/Google/Outlook calendar. Only the one occurrence
+currently showing on the card (`row._occurrence`) is included, not a
+subscribable feed of every future occurrence — that's the separate
+"iCal feed you can subscribe to" stretch goal in Phase 5, which would
+need a live, auth-free endpoint rather than a one-off downloaded file.
+Every date in this app is all-day (nothing stores a specific time), so
+the generated event is all-day too (`DTSTART;VALUE=DATE`, `DTEND` the
+next calendar day per RFC 5545's exclusive-end convention for all-day
+events).
+
 ## Phase 1
 - Category filter chips (birthday / anniversary / appointment / other).
 

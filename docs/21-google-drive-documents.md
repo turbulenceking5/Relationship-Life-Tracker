@@ -117,6 +117,43 @@ OAuth flow.
   replacing it; resets to "All" on every re-render, same as the search
   box's typed text not persisting across an add/edit/delete.
 
+## Upload size picker for photos
+
+A phone photo of a receipt/warranty plate is routinely several MB at
+full camera resolution — slow to upload on a weak connection, and more
+detail than anyone needs to read a serial number. Rather than silently
+picking a size, `openUploadDocumentSheet()` shows the actual trade-off
+and lets the person uploading choose: picking a photo in the file input
+calls `buildImageSizeOptions()` (`app/js/imageCompress.js`), which
+decodes it once (`createImageBitmap(file, { imageOrientation:
+'from-image' })` — applies the photo's own EXIF rotation during decode,
+since a canvas has no EXIF tag of its own to carry that forward, so
+without this a portrait photo routinely comes out sideways after
+re-encoding) and produces three real candidate files: **Small** (800px
+long edge, JPEG quality 0.7), **Medium** (1600px, quality 0.8), and
+**Large** (the original file, completely untouched — not re-encoded at
+a bigger size, since that could only ever make it bigger or lose
+quality for nothing). No library — a canvas does the resize, no
+compression library needed, same zero-dependency approach as the rest
+of this app.
+
+The sheet renders these as a radio group, each showing its real
+computed size via `formatBytes()` (`app/js/format.js`) — "Small — 68
+KB", not a vague "smaller" — with Medium pre-selected as a sensible
+default. Whichever option is selected becomes the file
+`uploadFileToDrive()` actually sends; switching the selection just
+swaps a reference, no re-encoding. This computation happens once, right
+when the photo's picked (so it's already done by the time the rest of
+the form — title, category, notes — is filled in), not repeated on
+every submit.
+
+Shown only for an `image/*` file — a PDF (the common alongside-photos
+case) or anything `createImageBitmap()` can't decode uploads exactly as
+before, no picker, no re-encoding, same as if this didn't exist. A
+recompressed option is always named with a `.jpg` extension so Drive
+never ends up with a `.png` name holding JPEG bytes; "Large" keeps the
+original filename untouched.
+
 ## Why category organization is filename-prefix, not real Drive subfolders
 A category subfolder per type (e.g. a "Warranties" folder) sounds like
 the obvious way to organize the shared Drive folder, but it collides with
@@ -140,8 +177,43 @@ The app's own category filter chips (above) are the more useful way to
 browse by category day-to-day; the filename prefix is mainly for anyone
 who opens the folder directly in Drive.
 
+## Known failure mode: "Google scripts did not load in time"
+`requestAccessToken()` in `app/js/googleDrive.js` throws this
+(`ensureGisLoaded()`'s `waitFor()` helper) if `window.google.accounts.oauth2`
+never shows up within 10 seconds of the first Drive action — i.e. the
+`<script src="https://accounts.google.com/gsi/client" defer>` tag in
+`index.html` genuinely never finished loading. Every Drive-dependent
+feature (connect, upload, and backup — see
+[`25-feature-backup.md`](25-feature-backup.md)) shares this one
+dependency, so this error surfaces identically across all of them.
+
+One real cause, found and fixed: `service-worker.js`'s fetch handler
+used to only bypass its own cache-first pipeline for `*.supabase.co`
+requests — every other request, including these two Google script tags
+(neither same-origin nor Supabase), got routed through the service
+worker's own `fetch()`/`cache.match()` instead of the browser's normal
+script-loading path, which is a known source of a cross-origin
+`<script>` load silently failing or hanging on some engines. Fixed by
+generalizing the bypass to any non-same-origin request — a service
+worker has no business mediating a third-party script load it was never
+going to cache anyway (the `cache.put()` was already origin-gated to
+same-origin responses only, so routing these through it never bought
+anything).
+
+If this still happens after that fix, it's no longer something the
+app's own code controls — same category as the dashboard-only settings
+elsewhere in this project: a content blocker, restrictive DNS/firewall,
+or network policy blocking `accounts.google.com`/`apis.google.com`
+outright. There's no client-side workaround for that; the person hitting
+it needs to try a different network or disable whatever's blocking
+those domains.
+
 ## Not done (possible follow-ups)
 - No UI to disconnect/switch the household's Drive folder once set.
+- Automatic backup of the app's *own* data (expenses, events, goals,
+  etc. — not the documents already stored here) to this same folder is
+  now covered separately, see [`25-feature-backup.md`](25-feature-backup.md)
+  — it reuses `uploadFileToDrive()` but is otherwise a distinct feature.
 - No re-share retry if the optional "partner's email" share fails or is
   skipped — the second partner would need the folder shared with them
   some other way before the Picker step can find it under "Shared with

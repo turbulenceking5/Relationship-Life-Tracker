@@ -1,8 +1,9 @@
-import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
+import { h, mount, openSheet, closeSheet, makeSheet, withBusyLabel } from './dom.js';
 import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
 import { formatDate, formatMoney, daysUntil, todayStr } from './format.js';
 import { viewDocument, removeDocument, openEditDocumentSheet, openUploadDocumentSheet } from './documents.js';
 import { getHouseholdMembers } from './household.js';
+import { toCsv, downloadCsv, slugify } from './csv.js';
 
 const GOALS_TABLE = 'custom_goals';
 const TXN_TABLE = 'goal_transactions';
@@ -17,6 +18,32 @@ function goalCountdown(dateStr) {
   return `${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} ago`;
 }
 
+function celebratedKey(goalId) {
+  return `goalCelebrated:${goalId}`;
+}
+
+// A brief, purely cosmetic confetti burst (CSS animation, no library) the
+// first time a goal's saved total is seen crossing its target — a cheap
+// dopamine hit borrowed from habit-app research, kept low-pressure (no
+// sound, no modal, auto-removes itself) to fit this app's tone. Plays
+// once per goal per browser (tracked in localStorage, same tolerance
+// pattern as theme.js/changelog.js — a replay on a cleared browser is a
+// harmless degradation, not a bug worth guarding further).
+function maybeCelebrate(goalId, cardEl) {
+  try {
+    if (localStorage.getItem(celebratedKey(goalId))) return;
+    localStorage.setItem(celebratedKey(goalId), '1');
+  } catch {
+    // Storage unavailable — just skip the one-time animation rather than
+    // risk replaying it on every render.
+    return;
+  }
+  const burst = h('div', { class: 'confetti-burst' }, ['🎉', '🎊', '✨', '🎉', '🎊'].map((e, i) =>
+    h('span', { style: `--i:${i}` }, e)));
+  cardEl.appendChild(burst);
+  setTimeout(() => burst.remove(), 1600);
+}
+
 export async function render(container, ctx) {
   const [goals, members] = await Promise.all([
     fetchRows(GOALS_TABLE, ctx.household.id, 'created_at', false),
@@ -28,10 +55,12 @@ export async function render(container, ctx) {
   const titleInput = h('input', { type: 'text', required: true, placeholder: 'e.g. Holiday fund' });
   const targetInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0', placeholder: '0.00 (optional)' });
   const dateInput = h('input', { type: 'date' });
+  const addGoalSubmitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save');
   const addGoalForm = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       addErrorEl.style.display = 'none';
+      const restore = withBusyLabel(addGoalSubmitBtn, 'Saving…');
       try {
         await insertRow(GOALS_TABLE, {
           household_id: ctx.household.id,
@@ -46,6 +75,7 @@ export async function render(container, ctx) {
       } catch (err) {
         addErrorEl.textContent = err.message;
         addErrorEl.style.display = 'block';
+        restore();
       }
     },
   }, [
@@ -55,18 +85,36 @@ export async function render(container, ctx) {
       h('div', { class: 'field' }, [h('label', {}, 'Target date (optional)'), dateInput]),
     ]),
     addErrorEl,
-    h('button', { class: 'btn primary', type: 'submit' }, 'Save'),
+    addGoalSubmitBtn,
   ]);
   mount(addGoalBody, addGoalForm);
 
+  // Closed goals (see goal.closed_at) are pulled out of the main list
+  // into their own collapsed section at the bottom — same reasoning as
+  // Events' Upcoming/Done split and Rent's History section: a finished
+  // goal's numbers are still worth keeping around, but shouldn't push
+  // the goals you're actually working toward further down the tab.
+  const openGoals = goals.filter((g) => !g.closed_at);
+  const closedGoals = goals.filter((g) => g.closed_at);
+
+  function goalSection(goal, soleOpenGoal) {
+    return h('details', { class: 'goal-section', open: soleOpenGoal }, [
+      h('summary', {}, goal.title),
+      h('div', { class: 'goal-section-body', id: `goal-body-${goal.id}` }, h('div', { class: 'empty-state' }, 'Loading…')),
+    ]);
+  }
+
   mount(container, [
     h('button', { class: 'btn secondary small', style: 'margin-bottom:14px', onclick: () => openSheet(addGoalDialog) }, '+ Add goal'),
-    goals.length
-      ? h('div', {}, goals.map((goal) => h('details', { class: 'goal-section', open: goals.length === 1 }, [
-          h('summary', {}, goal.title),
-          h('div', { class: 'goal-section-body', id: `goal-body-${goal.id}` }, h('div', { class: 'empty-state' }, 'Loading…')),
-        ])))
+    openGoals.length
+      ? h('div', {}, openGoals.map((goal) => goalSection(goal, openGoals.length === 1)))
       : h('div', { class: 'empty-state' }, 'No goals yet — add one to start tracking it.'),
+    closedGoals.length
+      ? h('details', { class: 'goal-section' }, [
+          h('summary', {}, `Closed goals (${closedGoals.length})`),
+          h('div', { class: 'goal-section-body' }, closedGoals.map((goal) => goalSection(goal, false))),
+        ])
+      : null,
     addGoalDialog,
   ]);
 
@@ -111,6 +159,24 @@ function contributionBreakdown(transactions, members, currency) {
   ]);
 }
 
+// One goal's saved/spent ledger as a CSV download — independent of the
+// household-wide Expenses export, since a goal's transactions are their
+// own table (`goal_transactions`) and tax-time records are usually
+// wanted per-goal (e.g. "receipts for the Europe trip") rather than
+// mixed in with everything else.
+function exportGoalTransactionsCsv(goal, transactions, members) {
+  const memberName = (id) => members.find((m) => m.user_id === id)?.display_name || 'Someone';
+  const csv = toCsv(transactions, [
+    { label: 'Date', value: (t) => t.transaction_date },
+    { label: 'Type', value: (t) => (t.type === 'saved' ? 'Saved' : 'Spent') },
+    { label: 'Title', value: (t) => t.title },
+    { label: 'Amount', value: (t) => t.amount },
+    { label: 'Notes', value: (t) => t.notes || '' },
+    { label: 'Logged by', value: (t) => memberName(t.created_by) },
+  ]);
+  downloadCsv(`goal-${slugify(goal.title)}-transactions.csv`, csv);
+}
+
 async function renderGoalBody(section, ctx, goal, members, editing = false, onDeleted) {
   const [transactions, tasks, documents] = await Promise.all([
     fetchRows(TXN_TABLE, ctx.household.id, 'transaction_date', false).then((rows) => rows.filter((r) => r.goal_id === goal.id)),
@@ -129,10 +195,12 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
     const editTitleInput = h('input', { type: 'text', required: true, value: goal.title });
     const editDateInput = h('input', { type: 'date', value: goal.target_date || '' });
     const editTargetInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0', placeholder: '0.00', value: target !== null ? target : '' });
+    const submitBtn = h('button', { class: 'btn primary small', type: 'submit' }, 'Save');
     const form = h('form', {
       onsubmit: async (e) => {
         e.preventDefault();
         errorEl.style.display = 'none';
+        const restore = withBusyLabel(submitBtn, 'Saving…');
         try {
           await updateRow(GOALS_TABLE, goal.id, {
             title: editTitleInput.value.trim(),
@@ -147,6 +215,7 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
         } catch (err) {
           errorEl.textContent = err.message;
           errorEl.style.display = 'block';
+          restore();
         }
       },
     }, [
@@ -157,7 +226,7 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
       ]),
       errorEl,
       h('div', { class: 'actions-row' }, [
-        h('button', { class: 'btn primary small', type: 'submit' }, 'Save'),
+        submitBtn,
         h('button', { class: 'btn secondary small', type: 'button', onclick: () => renderGoalBody(section, ctx, goal, members, false, onDeleted) }, 'Cancel'),
       ]),
       h('button', {
@@ -170,7 +239,12 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
         },
       }, 'Delete goal'),
     ]);
-    return h('div', { class: 'card' }, form);
+    // data-editing flags this card to app.js's Realtime refresh guard
+    // (scheduleRefresh() in app.js) — a partner's unrelated change
+    // shouldn't silently rebuild `main` out from under an open inline
+    // edit form, since (unlike every other edit flow in this app) this
+    // one renders directly into the page instead of a <dialog>.
+    return h('div', { class: 'card', 'data-editing': 'true' }, form);
   }
 
   function openEditTxnSheet(t) {
@@ -187,10 +261,12 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
     const editAmountInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0', required: true, value: t.amount });
     const editDateInput = h('input', { type: 'date', required: true, value: t.transaction_date });
     const editNotesInput = h('textarea', { rows: '2', placeholder: 'Optional notes' }, t.notes || '');
+    const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save changes');
     const editForm = h('form', {
       onsubmit: async (e) => {
         e.preventDefault();
         errorEl.style.display = 'none';
+        const restore = withBusyLabel(submitBtn, 'Saving…');
         try {
           await updateRow(TXN_TABLE, t.id, {
             type: editTypeSelect.value,
@@ -204,6 +280,7 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
         } catch (err) {
           errorEl.textContent = err.message;
           errorEl.style.display = 'block';
+          restore();
         }
       },
     }, [
@@ -215,7 +292,7 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
       ]),
       h('div', { class: 'field' }, [h('label', {}, 'Notes'), editNotesInput]),
       errorEl,
-      h('button', { class: 'btn primary', type: 'submit' }, 'Save changes'),
+      submitBtn,
     ]);
     mount(editBody, editForm);
     openSheet(editDialog);
@@ -231,10 +308,12 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
   const amountInput = h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0', required: true, placeholder: '0.00' });
   const txnDateInput = h('input', { type: 'date', required: true, value: todayStr() });
   const notesInput = h('textarea', { rows: '2', placeholder: 'Optional notes' });
+  const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save');
   const form = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       errorEl.style.display = 'none';
+      const restore = withBusyLabel(submitBtn, 'Saving…');
       try {
         await insertRow(TXN_TABLE, {
           goal_id: goal.id,
@@ -251,6 +330,7 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
+        restore();
       }
     },
   }, [
@@ -262,7 +342,7 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
     ]),
     h('div', { class: 'field' }, [h('label', {}, 'Notes'), notesInput]),
     errorEl,
-    h('button', { class: 'btn primary', type: 'submit' }, 'Save'),
+    submitBtn,
   ]);
   mount(body, form);
 
@@ -288,10 +368,12 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
   const { dialog: taskDialog, body: taskBody } = makeSheet(`Add task — ${goal.title}`);
   const taskErrorEl = h('div', { class: 'error-msg', style: 'display:none' });
   const taskTitleInput = h('input', { type: 'text', required: true, placeholder: 'e.g. Book venue' });
+  const taskSubmitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save');
   const taskForm = h('form', {
     onsubmit: async (e) => {
       e.preventDefault();
       taskErrorEl.style.display = 'none';
+      const restore = withBusyLabel(taskSubmitBtn, 'Saving…');
       try {
         await insertRow(TASKS_TABLE, {
           goal_id: goal.id,
@@ -304,12 +386,13 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
       } catch (err) {
         taskErrorEl.textContent = err.message;
         taskErrorEl.style.display = 'block';
+        restore();
       }
     },
   }, [
     h('div', { class: 'field' }, [h('label', {}, 'Task'), taskTitleInput]),
     taskErrorEl,
-    h('button', { class: 'btn primary', type: 'submit' }, 'Save'),
+    taskSubmitBtn,
   ]);
   mount(taskBody, taskForm);
 
@@ -360,18 +443,37 @@ async function renderGoalBody(section, ctx, goal, members, editing = false, onDe
         h('span', { class: 'value' }, formatDate(goal.target_date)),
       ]));
     }
-    content.push(h('div', { class: 'card' }, [
+    const goalReached = target !== null && saved >= target;
+    const summaryCard = h('div', { class: 'card', style: 'position:relative;overflow:hidden' }, [
+      goal.closed_at ? h('div', { class: 'meta', style: 'margin-bottom:6px' }, `✓ Closed ${formatDate(goal.closed_at.slice(0, 10))}`) : null,
+      goalReached ? h('div', { style: 'font-weight:600;margin-bottom:6px' }, '🎉 Goal reached!') : null,
       target !== null ? h('div', { class: 'card-row' }, [h('span', {}, 'Target'), h('span', { class: 'amount' }, formatMoney(target, currency))]) : null,
       h('div', { class: 'card-row', style: 'margin-top:6px' }, [h('span', {}, 'Saved so far'), h('span', { class: 'amount positive' }, formatMoney(saved, currency))]),
       h('div', { class: 'card-row', style: 'margin-top:6px' }, [h('span', {}, 'Spent so far'), h('span', { class: 'amount negative' }, formatMoney(spent, currency))]),
       remaining !== null ? h('div', { class: 'card-row', style: 'margin-top:6px' }, [h('span', {}, 'Remaining to save'), h('span', { class: 'amount' }, formatMoney(remaining, currency))]) : null,
+    ]);
+    content.push(summaryCard);
+    if (goalReached && !goal.closed_at) maybeCelebrate(goal.id, summaryCard);
+    content.push(h('div', { class: 'actions-row' }, [
+      h('button', { class: 'btn text', onclick: () => renderGoalBody(section, ctx, goal, members, true, onDeleted) }, 'Edit goal'),
+      goal.closed_at
+        ? h('button', {
+            class: 'btn secondary small',
+            onclick: async () => { await updateRow(GOALS_TABLE, goal.id, { closed_at: null }); onDeleted(); },
+          }, 'Reopen goal')
+        : h('button', {
+            class: 'btn secondary small',
+            onclick: async () => { await updateRow(GOALS_TABLE, goal.id, { closed_at: new Date().toISOString() }); onDeleted(); },
+          }, 'Finish goal'),
     ]));
-    content.push(h('button', { class: 'btn text', onclick: () => renderGoalBody(section, ctx, goal, members, true, onDeleted) }, 'Edit goal'));
   }
 
   content.push(h('div', { class: 'section-title' }, 'Transactions'));
   content.push(contributionBreakdown(transactions, members, currency));
-  content.push(h('button', { class: 'btn secondary small', style: 'margin-bottom:10px', onclick: () => openSheet(dialog) }, '+ Add transaction'));
+  content.push(h('div', { style: 'display:flex;gap:8px;margin-bottom:10px' }, [
+    h('button', { class: 'btn secondary small', onclick: () => openSheet(dialog) }, '+ Add transaction'),
+    transactions.length ? h('button', { class: 'btn secondary small', onclick: () => exportGoalTransactionsCsv(goal, transactions, members) }, 'Export CSV') : null,
+  ]));
   content.push(transactions.length ? h('div', {}, transactions.map(txnCard)) : h('div', { class: 'empty-state' }, 'No transactions logged yet.'));
   content.push(dialog);
 

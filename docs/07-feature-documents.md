@@ -46,13 +46,24 @@ disappears by being attached somewhere else.
 
 ## Search (shipped)
 A plain text filter above the list (`app/js/documents.js`) matches
-title, category, or linked-goal name, case-insensitive substring, no
-fancy tokenizing — filters the already-fetched list client-side rather
-than re-querying per keystroke. Hidden entirely when the household has
-no documents yet, so there's nothing to search. Category-only filter
-chips (Phase 1's original plan) weren't added on top of this — a search
-box already covers "find the boiler warranty" as well as a chip row
-would, without another row of UI.
+title, category, notes, or linked-goal name, case-insensitive substring,
+no fancy tokenizing — filters the already-fetched list client-side
+rather than re-querying per keystroke. Hidden entirely when the
+household has no documents yet, so there's nothing to search.
+Category-only filter chips (Phase 1's original plan) weren't added on
+top of this — a search box already covers "find the boiler warranty" as
+well as a chip row would, without another row of UI.
+
+## Notes (shipped)
+Each document can carry a free-text note (`documents.notes`, a column
+that existed in the schema from early on but wasn't surfaced in the UI
+until this) — a "Notes (optional)" textarea in both the upload sheet and
+the edit sheet in `app/js/documents.js`. Shown on the document's card
+only when set (no empty "Notes:" line otherwise), and included in the
+search filter above, so "find the boiler warranty" also works via a
+detail only written down in the note rather than the title — e.g. a
+serial number or a broker's name. No tagging/full-text-search beyond
+this plain substring match — see Phase 4 below.
 
 ## Expiry status (shipped)
 A document with `expiry_date` set shows a status pill (`Expires in Nd` /

@@ -8,6 +8,1206 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-24 — Paste a whole grocery list at once
+
+A "📋 Paste list" button sits next to "+ Add item" on Grocery List. It
+opens a `makeSheet()` with a `<textarea>` instead of the usual single-item
+fields; submitting it parses the pasted text and bulk-inserts via
+`insertRows()` (already used for bank-statement transaction imports) in
+one request rather than one `insertRow()` per line.
+
+- `parseGroceryListText()`/`parseGroceryLine()` in `app/js/grocery.js`
+  split on newlines and recognize the quantity conventions people
+  actually type: `Milk - 2` (space-dash-space, so a hyphenated word like
+  `ice-cream` isn't mistaken for a title/quantity split), `Milk x2`/`Milk
+  x 2`, `2 x Milk`, and `Milk (2L)`. A leading bullet/number (`- `, `* `,
+  `• `, `1. `, `1) `) is stripped first. A line matching none of those
+  shapes is kept as-is with no quantity rather than dropped.
+  `guessCategory()` (already used by the one-at-a-time add form) runs
+  per parsed title, same fallback to `'other'`.
+- An empty parse (blank/whitespace-only paste) shows an inline error
+  instead of submitting nothing silently — the `<textarea>`'s own
+  `required` attribute only catches a literally empty field, not one
+  that's all whitespace.
+- Tested by swapping in a minimal in-memory `vendor/supabase.js` mock and
+  driving `grocery.js`'s `render()` directly with Playwright (see
+  `docs/15-development-testing.md`) — the real vendor file was restored
+  and verified byte-for-byte before committing.
+
+## 2026-10-19 — Fortnightly to-dos, and My To-dos gets its own tab
+
+Two small, unrelated requests shipped together.
+
+- `REPEAT_OPTIONS` in `app/js/personal-todos.js` gains a `'fortnightly'`
+  entry, matching what `events.js` already offers for recurring events.
+  `nextOccurrencePatch()` (client) and `notify-due-items`'s own patch
+  logic (server, `supabase/functions/notify-due-items/index.ts`) both
+  gain a `'fortnightly'` branch using the existing `addDays`/`addDaysUTC`
+  helper with `14` instead of `7` — no new helper needed, since both
+  already supported an arbitrary day count. The `personal_todos.
+  repeat_frequency` check constraint only allowed `'none' | 'daily' |
+  'weekly' | 'monthly'`, so `0043_personal_todos_fortnightly.sql` widens
+  it to include `'fortnightly'`.
+- My To-dos moved out of the Money tab's `.segmented` sub-nav into its
+  own top-level `todos` tab (`app.js`'s `TABS` array), dropping the "My"
+  prefix in the tab label (now just "To-dos") since it no longer needs to
+  stand out as the private one among shared siblings the way it did
+  packed in next to Expenses/BrackenRidge/My Statements/Grocery
+  List/Recipes. `app/js/personal-todos.js` itself didn't change for this
+  — `13-feature-money-tab.md` already called this move out as a
+  deliberately cheap one, since Money-tab segments are unaware they're
+  not top-level tabs. `app.js`'s home-tab `navigate()` callback no longer
+  special-cases `'todos'` into a `money.js` `setActiveSub()` call; it
+  falls through to the plain top-level-tab branch instead, same as
+  `events`/`goals`/`documents`.
+- Docs updated to match: `13-feature-money-tab.md`,
+  `20-feature-personal-todos.md`, `22-feature-home-dashboard.md`,
+  `02-data-model.md`.
+
+## 2026-10-16 — Re-uploading a bank statement no longer doubles up transactions
+
+My Statements previously had no protection against uploading a statement
+that overlapped a period already on file — every transaction in the
+overlap would get inserted a second time, with nothing (no app check, no
+DB constraint) to stop it.
+
+- `transactionKey()` (new helper in `app/js/statements.js`) identifies a
+  transaction by `txn_date|description|amount`; the upload sheet's submit
+  handler fetches the user's existing statements/transactions fresh
+  (before touching Drive at all) and skips any parsed transaction whose
+  key already exists — both against what's already saved, and against
+  earlier transactions in the same file, so a statement with an internal
+  duplicate line doesn't insert it twice either.
+- If a period's transactions are all duplicates and a statement already
+  exists for that period, no new (empty) `bank_statements` row is created
+  for it — avoids a confusing second card for a month that's already
+  covered.
+- If literally every period in the uploaded file turns out to already be
+  on file, the file is never uploaded to Drive either — the whole upload
+  is treated as a no-op rather than creating a duplicate file alongside a
+  duplicate-free database.
+- Either way, an `alert()` tells the uploader how many transactions/
+  periods were skipped as already-on-file, so a re-upload that caught
+  nothing new isn't silently confusing.
+- Trade-off, documented in `transactionKey()`'s comment: two genuinely
+  separate purchases of the same amount, at the same merchant, on the
+  same day, collide onto the same key and the second looks like a
+  duplicate. Accepted as rare enough not to warrant a per-upload "are
+  these really different?" prompt.
+
+## 2026-10-15 — Tap to pick multiple recurring dates, instead of typing them
+
+Follow-up to the custom recurring dates feature below, next day: typing
+a comma-separated list of days ("15, 30") was awkward, especially on a
+phone keyboard. Reworked into a tappable grid.
+
+- `buildDayGrid()` (new helper in `app/js/rent.js`) replaces the single
+  comma-separated text input with a 1–31 grid of day-chip buttons, each
+  toggling independently — multiple days (e.g. both 15 and 30) can be
+  active at once, same underlying `due_days_of_month` array as before,
+  just a different input control.
+- New `.day-grid`/`.day-chip` CSS (`app/css/styles.css`) — deliberately
+  not reusing `.segmented`'s single-active-at-a-time styling, since more
+  than one chip can be active here.
+- `buildCadenceField()`'s `getCadence()` now reads the grid's selection
+  instead of parsing text; the "enter at least one valid day" error
+  became "select at least one day of the month."
+- Verified against the mock backend: the grid renders all 31 days,
+  tapping 15/30/1 then un-tapping 1 leaves exactly 15 and 30 active,
+  the saved card's meta line still reads "15th & 30th of the month,"
+  and reopening Edit shows 15 and 30 highlighted.
+
+## 2026-10-14 — Custom recurring dates for BrackenRidge rent/mortgage
+
+- Rent and mortgage periods previously only recurred on a fixed
+  day-count interval (`interval_days` — weekly/fortnightly/monthly
+  presets, or a typed custom number). BrackenRidge rent, though, is
+  actually credited on fixed calendar dates — the 15th and the 30th —
+  which drifts under any fixed interval since months aren't all the
+  same length.
+- New `due_days_of_month smallint[]` column on `rent_payments` and
+  `mortgage_payments` (`0042_rent_mortgage_custom_due_dates.sql`),
+  storing an explicit sorted list of calendar days. `interval_days` is
+  now nullable (a check constraint requires at least one of the two set)
+  — a dates-mode row leaves it unset instead of carrying a stale number.
+- `buildCadenceField()` in `app/js/expenses.js`'s sibling `rent.js`
+  builds the shared "How often?" control for both Add and Edit forms: a
+  new "Specific day(s) of month" option reveals a plain comma-separated
+  input (e.g. `15, 30`) in place of the existing preset/custom-days
+  controls. Switching cadence mode and saving clears whichever field
+  isn't in use.
+- "Mark as received"/"Mark as paid" now calls
+  `nextDueDateFromDaysOfMonth()` (new helper in `app/js/format.js`)
+  instead of `addDays()` when a row is in dates mode — rolls to the next
+  listed day, wrapping into next month at the smallest one once past all
+  of them for the current month, clamped to that month's actual last day
+  (so e.g. a 30/31 entry still resolves in February).
+- A card's meta line reads e.g. "15th & 30th of the month" in this mode
+  instead of "every Xd" (`cadenceLabel()`).
+- Verified against the mock backend: adding a rent period in dates mode
+  with "15, 30", marking it received rolls Sep 15 → Sep 30 → Oct 15
+  (wrapping the month correctly), and the Edit sheet round-trips dates
+  mode (select + input both prefill correctly reopened).
+
+## 2026-10-13 — One-tap 50/50 split on expenses
+
+- `buildSplitField()` in `app/js/expenses.js` (shared by the add and edit
+  expense forms) gained a "Split 50/50" button next to the split
+  inputs — sets both fields to an even split in one tap instead of
+  typing numbers by hand. Saving still only writes an override when the
+  result differs from the household default (existing `getOverride()`
+  logic, unchanged), so a household whose default is already 50/50
+  tapping the button is a no-op, same as it always was.
+- Removed the `Defaults to your household split (X/Y) — change it only
+  if this one splits differently.` explanation line under the split
+  fields.
+- Verified against the mock backend: the Add expense sheet shows no
+  split explanation text, the button is present, and clicking it moves
+  the inputs from the household default (35/65 in the mock) to 50/50.
+
+## 2026-10-12 — Undo no longer leaves two upcoming BrackenRidge periods showing
+
+Follow-up to Undo below, same day: a legacy period (one marked paid
+before the `next_period_id` column existed, so Undo has no way to find
+what it originally spawned) reverted cleanly but left whatever unpaid
+period already existed alongside it, so two unpaid cards showed at
+once — reported live after undoing a rent period that predated the
+feature.
+
+- `rent.js`'s Undo handler: when the simple-revert path runs (no known
+  spawned row) and exactly one *other* unpaid period exists in the same
+  table, a second confirm offers to remove it too — stating that row's
+  own due date and amount so the person reverting can check it's
+  actually the duplicate before agreeing.
+- Still never an automatic match on due date/amount — with two or more
+  other unpaid periods left, nothing extra is offered, since picking
+  one to remove wouldn't be unambiguous; sorting that out is left to
+  Edit/Delete by hand.
+- Root-caused against live production data (not the mock): all of the
+  household's existing `rent_payments`/`mortgage_payments` rows predate
+  the client actually running the new Undo-aware "mark as paid" code
+  (confirmed by insert/update ordering in `created_at`/`updated_at`),
+  so every one of them hits the no-`next_period_id` fallback path —
+  expected per the design, but confusing without this follow-up.
+
+## 2026-10-12 — Undo a mistaken "Mark as received"/"Mark as paid" on BrackenRidge
+
+- A paid card in Rent/Mortgage history (`rent.js`) now has an "Undo"
+  button alongside Edit/Delete. "Mark as received"/"Mark as paid" does
+  two things at once — closes out the current period and auto-inserts
+  the next one — so undoing it has to reverse both, not just flip
+  `paid` back and leave an orphaned extra period behind.
+- New `next_period_id` column on `rent_payments`/`mortgage_payments`
+  (`0041_rent_mortgage_undo.sql`), set on the row being marked paid to
+  point at the row it just spawned. Undo looks that row up: if it's
+  still sitting there unpaid, exactly as auto-created, it's deleted too
+  (confirm text says so); if it's already been paid itself or already
+  deleted by hand, it's left alone and only this row reverts. Never
+  guesses by matching due date/amount instead of the stored id.
+- `next_period_id` is `null` on any row from before this migration —
+  Undo on one of those just reverts the row with a simpler confirm
+  message, since there's no reliable way to reconstruct which row (if
+  any) was its auto-created next period.
+- Verified directly against the mock backend: marking a period
+  received then undoing it removes the auto-created next period and
+  restores exactly the original row (confirmed via a direct table
+  read, not just the UI); undoing a legacy row with no `next_period_id`
+  reverts cleanly without touching anything else.
+
+## 2026-10-12 — Upload size picker for document photos (replaces automatic compression)
+
+Follow-up to the automatic photo compression below, same day: silently
+picking a size turned out not to be what was wanted — reworked into an
+explicit Small/Medium/Large picker so the person uploading sees the
+real size trade-off and chooses.
+
+- `app/js/imageCompress.js`'s `maybeCompressImage()` (one silent
+  auto-pick) is replaced by `buildImageSizeOptions()`, which decodes a
+  selected photo once and returns three real candidate files: **Small**
+  (800px long edge, JPEG quality 0.7), **Medium** (1600px, quality 0.8,
+  pre-selected by default), and **Large** (the original file, completely
+  untouched — never re-encoded, so it can only ever match the original
+  exactly). Still no library (`createImageBitmap()` + canvas), still
+  applies EXIF rotation during decode so a portrait photo doesn't end up
+  sideways.
+- `openUploadDocumentSheet()` now shows these as a radio group the
+  moment a photo is picked, each with its real computed size via a new
+  `formatBytes()` (`app/js/format.js`) — "Small — 68 KB", not a vague
+  "smaller." The computation happens once, right when the file's
+  selected, not on every submit, so by the time the rest of the form is
+  filled in it's already done — the upload button goes straight to
+  "Uploading…", no separate "Compressing…" stage needed anymore.
+  Whichever option is selected is what actually uploads; switching the
+  radio just swaps a reference, no re-encoding.
+- Still shown only for an `image/*` file — a PDF upload is completely
+  unaffected, no picker, same as always.
+- Fixed one bug found building this: `.field input` (styles.css) sets
+  `width: 100%` for text-ish inputs, which also matched the bare
+  `type="radio"` here and stretched its layout box to fill the row,
+  shoving its label off to the far edge instead of sitting next to it —
+  scoped back to a normal-sized radio with an inline style override.
+- Verified directly against a real decoded photo (not just unit-level
+  byte math): a 505KB test photo's three options come back as 68KB /
+  206KB / 505KB in the right order, Medium pre-selected; picking Small
+  and submitting uploads a ~68KB file; a PDF upload shows no picker at
+  all and uploads completely untouched.
+
+## 2026-10-12 — Photo compression on document upload; push failure logging
+
+- **Photo compression**: a new `app/js/imageCompress.js` (`maybeCompressImage()`)
+  resizes a document photo to a 1600px long edge and re-encodes it as
+  JPEG at quality 0.8 before `uploadFileToDrive()` — a multi-MB phone
+  photo becomes a few hundred KB. No library: `createImageBitmap()` (with
+  `imageOrientation: 'from-image'` so a portrait phone photo doesn't come
+  out sideways, since a canvas carries no EXIF of its own) decodes and
+  applies orientation, a canvas does the resize, `canvas.toBlob()`
+  re-encodes. Skipped entirely for anything under 300KB (not worth the
+  quality/CPU cost for a small win) or not an `image/*` MIME type (a PDF
+  upload is untouched) — and falls back to the original file if the
+  "compressed" result would actually come out larger. The upload sheet's
+  submit button now shows "Compressing…" then "Uploading…" as two
+  distinct stages. Verified directly (`maybeCompressImage()` called with
+  controlled inputs): a 505KB test photo compresses to 210KB; a 1.1KB
+  test photo returns byte-identical (same object reference, confirming
+  the skip path, not a coincidentally-equal recompress); a non-image file
+  passes through completely unchanged.
+- **Push notification failure logging**: `notify-due-items`,
+  `weekly-digest`, and `remind-partner` all silently swallowed the actual
+  `webpush.sendNotification()` error beyond a bare `failed++` counter —
+  only a 404/410 ("subscription gone") got any follow-up action
+  (deleting the stale row), and nothing else was ever logged, so a
+  real delivery failure to one specific person was undiagnosable from
+  server logs. All three now `console.error()` the user id, the push
+  service host, the status code, and the error message on every failure
+  (never the full endpoint/keys, which are effectively per-device
+  send credentials). Not a change in *who* gets notified — every
+  shared-item source (rent, mortgage, events, goals, documents,
+  the weekly digest) already queried every `push_subscriptions` row for
+  the whole household, not anything scoped to who created the item;
+  confirmed directly against the live data (both household members'
+  subscriptions exist, same household, and a notification fired to both
+  on schedule) rather than assumed. This at least makes the next
+  "notifications aren't arriving for one of us" report diagnosable
+  without first adding the logging that should already have been there.
+
+## 2026-10-09 — Find & fix any transaction's category
+
+- New "Find & fix a transaction" search box at the top of My Statements
+  (`renderTransactionSearch()`, `app/js/statements.js`) — searches every
+  one of this user's transactions across every uploaded statement at
+  once, by description, independent of the Monthly/Yearly toggle and
+  which statement section happens to be expanded.
+- Picking a category for a matching result saves immediately (no
+  separate "Save changes" step, since results can span any number of
+  different statements) and works on **already-categorized**
+  transactions too, not just ones sitting in "Needs review" — this was
+  technically already possible from inside a statement's own "All
+  categorized transactions" section, but finding the right month first
+  made it easy to miss.
+- Still runs the same learned-rule write + backlog sweep
+  (`learnCategoryRule()`/`applyLearnedRulesToUnknown()`) as every other
+  category pick in this tab, so fixing one transaction here can also
+  clean up others that share its merchant.
+- The typed search query survives the full tab re-render that follows a
+  save (a module-level `transactionSearchQuery`, same pattern as the
+  Monthly/Yearly `viewMode` toggle), so fixing several results found by
+  one search doesn't require re-typing it each time.
+- Each result shows which statement/month it belongs to, for context.
+- Paired with the already-shipped "By Category" chart tab (Month/Year
+  picker, a horizontal bar + dollar amount per category) for "how much
+  am I spending in each category this month" — this change didn't touch
+  that, it already covered it.
+
+## 2026-10-09 — CSV export for expenses and goals
+
+- New "Export CSV" action on the Expenses tab (next to the running
+  total) downloads the household's full expense list — date, title,
+  category, amount, currency, paid by, split, and notes — as
+  `expenses-<today>.csv`. See
+  [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md).
+- New "Export CSV" action per goal, next to "+ Add transaction" in each
+  goal's Transactions section, downloads just that goal's
+  `goal_transactions` as `goal-<slugified-title>-transactions.csv` —
+  date, type, title, amount, notes, and who logged it. See
+  [`docs/12-feature-goals.md`](docs/12-feature-goals.md).
+- Both built on a new small, dependency-free `app/js/csv.js` — a
+  `toCsv(rows, columns)` builder with RFC 4180-style escaping (a field
+  with a comma, quote or newline gets quoted, internal quotes doubled)
+  and a `downloadCsv(filename, content)` helper that triggers the
+  browser download via a Blob + a temporary `<a download>` element, no
+  library, no server round-trip.
+
+## 2026-10-09 — Document notes, searchable
+
+- New "Notes (optional)" textarea on both the upload and edit sheets in
+  `app/js/documents.js`, surfacing the `documents.notes` column that
+  already existed in the schema but was never read or written by the
+  UI. No migration needed.
+- Shown on the document's card only when set (an empty note doesn't
+  leave a blank line behind).
+- The existing title/category search box now also matches against
+  `notes`, so a detail only written in a note (e.g. a serial number, a
+  broker's name) still surfaces the document. Still a single plain
+  substring filter, no tags yet — see
+  [`docs/07-feature-documents.md`](docs/07-feature-documents.md#notes-shipped)
+  and the Phase 4 line in `ROADMAP.md`.
+
+## 2026-10-08 — "Delete all" for learned categories
+
+- New "Delete all" button at the top of "Manage learned categories"
+  (`openManageRulesSheet()`, `app/js/statements.js`) — one `confirm()`
+  for the whole list, then `Promise.all()` over every rule's
+  `deleteRow()`, instead of needing a click-then-confirm per row. Added
+  after the exact-match fix below left a bunch of rules learned from an
+  overly generic leading word worth clearing out wholesale rather than
+  one at a time.
+
+## 2026-10-08 — Fixed learned categories matching unrelated transactions
+
+- `guessCategory()` and `applyLearnedRulesToUnknown()`
+  (`app/js/statements.js`) matched a learned
+  `bank_transaction_category_rules` row via `description.includes(key)`
+  — a substring scan against the whole raw description. A rule learned
+  from "Blue Mountains Cafe" (merchant key `"blue"`, since
+  `extractMerchantKey()` takes the leading word) would then also fire on
+  any unrelated transaction whose description merely *contained* "blue"
+  anywhere — e.g. "Westpac Blue Card Fee" — silently mis-categorizing it.
+- Fixed by running the transaction being matched through the same
+  `extractMerchantKey()` used to learn the rule, then looking that key
+  up in the rules map by exact equality instead of scanning for a
+  substring. A rule now only ever fires for another transaction whose
+  own leading word is the same, which is as specific as this
+  single-word merchant-key scheme can get.
+- Rules already learned before this fix aren't retroactively
+  recomputed (there's no way to recover what the original 2+ word
+  description was from an already-reduced single-word key) — they just
+  stop being able to match outside their own merchant now that lookups
+  are exact. See "Manage learned categories" to fix or remove one by
+  hand if it still looks wrong.
+
+## 2026-10-08 — Colorful action chips on My Statements and Expenses
+
+- Restyled the "Open the shared Drive folder", "Manage learned
+  categories" and "Manage categories" links on My Statements — and the
+  "Manage categories" link on Expenses — from plain `<p class="meta">`
+  text links into `.action-chip` pill buttons: `color-mix(in srgb,
+  var(--accent) 14%, transparent)` background, `var(--accent)` text,
+  same theme-matching idiom as the existing `.pill` variants (and the
+  same dark-mode glow `box-shadow` treatment, in both the
+  `prefers-color-scheme` and forced-dark-toggle CSS blocks).
+- The three My Statements links now sit in one `.action-chip-row`
+  (flex-wrap) instead of two separate `<p>` rows with a `·` separator.
+- Purely visual/markup — `href`/`target`/`onclick` behavior for all
+  four links is unchanged.
+
+## 2026-10-08 — "By Category" bar chart and PDF export for My Statements
+
+- **New "By Category" tab** on the same `.segmented` toggle as the
+  existing Spending trend chart (`app/js/statementsChart.js`) — a
+  horizontal bar chart, one bar per category, for a single selected
+  month or year (a Month/Year toggle plus the matching native picker,
+  defaulting to the most recent period with transactions). Separate
+  bars starting from the same baseline, unlike the stacked
+  `.contribution-bar` used elsewhere in this app, so two categories'
+  totals are directly comparable by length rather than by estimating
+  segment widths.
+- Spend only (`amount < 0`), colored via the same `categoryColor()`
+  every other breakdown in the app uses — a category never has a
+  different color depending on which chart is showing it.
+- **New "Export PDF" button**: opens a new tab containing a complete,
+  self-contained HTML report for the selected period (total, the
+  category breakdown, and a transaction table) and calls the browser's
+  native print dialog — "Save as PDF" from there is what produces an
+  actual file. No PDF-writing library added; the new document defines
+  its own `:root` with the light theme's category colors (not whatever
+  theme you're currently using) so the report stays printer-friendly
+  regardless.
+- See [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md)
+  → "'By Category' bar chart + PDF export".
+
+## 2026-10-08 — Add your own categories
+
+- **New `custom_categories` table** (migration
+  `0040_custom_categories.sql`): household-shared (every member can add
+  one, every member sees all of them) — `name`, `direction` (`'out'`
+  expense \| `'in'` income, default `'out'`). Added to the
+  `supabase_realtime` publication, same as the rest of this app's
+  shared lists.
+- **New "Manage categories" sheet** (`openManageCategoriesSheet()`,
+  exported from `app/js/expenses.js` so `statements.js` can open the
+  exact same one): add a category (name + direction) or delete one
+  already added. Deleting only stops it being offered going forward —
+  nothing already saved under that category changes.
+- **Every category `<select>` now reads a merged list**: `expenses.js`'s
+  own module-private `categoryNames`, and `statements.js`'s
+  `STATEMENT_CATEGORIES`/`CATEGORY_DIRECTION`/`CATEGORIES_BY_DIRECTION`,
+  all refreshed once per `render()` (`mergeCategories()` in
+  `expenses.js`) rather than computed once and cached forever, since a
+  partner's addition should show up without a reload.
+- A custom category gets no `categoryColor()` hue of its own — it folds
+  into the shared neutral along with `pet`/`online shopping` and
+  anything else past the 8 fixed colors.
+- See [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md) →
+  "Custom categories".
+
+## 2026-10-08 — Spending trend chart and a Yearly view for My Statements
+
+- **New "Spending trend" line chart** (`app/js/statementsChart.js`) at
+  the top of My Statements — a plain inline-SVG chart (no library, no
+  canvas) plotting total Spent/Received per period across every one of
+  your bank transactions, bucketed purely by each transaction's own
+  `txn_date` (not a statement's own period label, since a multi-month
+  statement's transactions can span real dates outside it — see
+  `splitIntoPeriods()`/docs/27-feature-bank-statements.md). A `.segmented`
+  Month/Year/Custom toggle switches the bucketing; Custom shows a
+  Start/End date pair (defaulting to your data's own earliest/latest
+  dates) with an Apply button. The chosen mode (and any applied custom
+  range) is kept in module state so it survives this tab's
+  re-fetch-and-redraw-everything pattern instead of resetting to Month on
+  every save.
+- **New Monthly/Yearly view toggle** for the statement list itself,
+  underneath the chart. Monthly is exactly today's existing per-statement
+  cards, unchanged. Yearly condenses every statement into one read-only
+  rollup card per represented calendar year — total spent/received,
+  category breakdown, and a "Compared to last year" trend (reusing the
+  same `categoryBreakdown()`/`trendVsPrevious()` the monthly "Compared to
+  last statement" trend already uses, just fed a whole year's combined
+  transactions instead of one statement's). No per-transaction editing at
+  the year level — a card points back to Monthly for that.
+
+## 2026-10-07 — Fixed a learned category that could override everything else
+
+- **`extractMerchantKey()` now refuses to produce (and `learnCategoryRule()`
+  to save) a degenerate merchant key** — shorter than 2 characters, or a
+  description that's nothing but filler words ("The", " A ", "An" alone).
+  Previously, a blank/whitespace-only description (the manual "+ Add
+  transaction" sheet's description field is HTML5 `required`, which does
+  **not** reject a whitespace-only value) or a very short pick (e.g. a
+  single-letter description) could learn a `bank_transaction_category_rules`
+  row keyed on `''` or a single character. Because `guessCategory()`'s and
+  `applyLearnedRulesToUnknown()`'s rule matching is a plain
+  `description.includes(key)` substring check, and every string includes
+  `''` while almost every description contains any single given letter
+  somewhere, that one bad rule would silently override the category of
+  every other transaction it was ever checked against.
+- **Defense in depth**: `guessCategory()`'s and `applyLearnedRulesToUnknown()`'s
+  rules-matching loops now also skip any rule whose key is empty or shorter
+  than 2 characters, regardless of how it got into the table (a legacy row
+  from before this fix included) — not just preventing new bad keys from
+  being written.
+- The 2-character floor deliberately still allows real short brand names as
+  a learned key (e.g. `bp`), so this doesn't regress legitimate short-key
+  matching.
+- Also, internally: the expense/income direction gate `guessCategory()`
+  uses is now an explicit `CATEGORY_DIRECTION` map (keyed per category)
+  rather than inferred from a category's name equaling `'income'`, and
+  the two direction-filtered category lists it picks between are
+  precomputed once rather than re-filtered on every call — no behavior
+  change, just more declarative and a bit less wasted work in what's a
+  per-transaction hot path during a statement upload.
+- See [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md)
+  → "Learning from your picks".
+
+## 2026-10-07 — Income category for money coming into your account
+
+- **Added `income`** as a category option on bank statement
+  transactions — but deliberately *not* to `expenses.js`'s shared
+  `CATEGORIES` list: a logged expense is always an outflow, so "Income"
+  would be a nonsensical option on the Add Expense form. New
+  `STATEMENT_CATEGORIES` constant in `app/js/statements.js`
+  (`[...CATEGORIES, 'income']`) is what the statement-side category
+  pickers and keyword matcher use instead; `expenses.js`'s own
+  `CATEGORIES` is untouched.
+- **New `income` keywords** in `CATEGORY_KEYWORDS`: `salary`, `payroll`,
+  `wages`, `centrelink`, `refund`, `reimbursement`, `cashback`,
+  `dividend`, `interest credit`. Checked in the same single ordered
+  pass as every other category.
+- Income transactions never appear in the spend category-breakdown chart
+  or the "Compared to last statement" trend (both already filter to
+  `amount < 0`), so no chart/color changes were needed for this.
+- **Known collision from this entry, fixed the same day** — see the
+  entry directly below.
+
+## 2026-10-07 — Fixed rent/income auto-categorization collision
+
+- **`guessCategory(description, amount, rules)`** (`app/js/statements.js`)
+  now takes the transaction's `amount` and uses its sign to gate which
+  half of `STATEMENT_CATEGORIES` even gets checked, before a single
+  keyword is matched: a negative amount (money out) only ever matches
+  an expense category's keywords; a positive amount (money in) only
+  ever matches `income`'s. Previously every category was checked
+  against every transaction regardless of direction, in a fixed order
+  with `rent` ahead of `income` — so a positive-amount incoming rent
+  deposit from the BrackenRidge property's managing agent (anything
+  containing "rental"/"real estate") matched `rent`'s keywords first
+  and was saved as a confidently-wrong expense, never surfacing in
+  "Needs review" to be caught.
+- This is a general fix, not a one-off patch for the word "rental": it
+  rules out the same collision for any other keyword an expense
+  category and `income` happen to share, now or in the future. A
+  positive-amount transaction that doesn't contain an actual income
+  keyword now correctly lands in "Needs review" instead of being
+  silently misfiled.
+- Updated the one call site (`openUploadStatementSheet()`'s submit
+  handler) and the explanatory comments on `CATEGORY_KEYWORDS`, its
+  `income` entry, and `guessCategory()` itself.
+- See [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md)
+  → "Auto-categorization and 'Needs review'".
+
+## 2026-10-07 — Statement categorization now learns from your picks
+
+- **New `bank_transaction_category_rules` table** (migration
+  `0039_bank_transaction_category_rules.sql`): one row per merchant
+  you've manually categorized (`merchant_key`, `category`), unique on
+  `(user_id, merchant_key)`. Private per-user, owner-only RLS
+  (`user_id = auth.uid()`), same shape as `bank_statements`/
+  `bank_transactions` — not added to the `supabase_realtime`
+  publication, same reasoning as those two.
+- **`extractMerchantKey(description)`** (`app/js/statements.js`):
+  extracts a stable key from a transaction's description — its leading
+  word, with filler like "the"/"a" stripped — deliberately as simple as
+  the existing static `CATEGORY_KEYWORDS` list, not a real normalizer.
+  Correctly drops trailing store-number/suburb noise for chain merchants
+  ("WOOLWORTHS 1234 BRISBANE" → `woolworths`), at the cost of only
+  capturing the first word of a genuinely multi-word brand typed by hand.
+- **`guessCategory()`** now takes an optional `rules` map and checks it
+  *after* the static keyword list finds nothing — so a learned rule can
+  never override a category the curated list already gets right.
+- **Saving a manual pick learns the rule** (`learnCategoryRule()`), from
+  both the bulk "Save changes" button and the "+ Add transaction"
+  sheet — upserted via `(user_id, merchant_key)`, so recategorizing the
+  same merchant later updates its existing rule rather than adding a
+  second one.
+- **Saving also sweeps your whole "Needs review" backlog**
+  (`applyLearnedRulesToUnknown()`): every one of your `'unknown'`
+  transactions, across every statement (not just the one you're
+  looking at), gets re-checked against your full rule set and
+  auto-categorized on any match. One pick can clear out every other
+  occurrence of that merchant sitting unresolved anywhere, not just the
+  transaction you touched.
+- **Learned rules are also applied at upload time**: `guessCategory()`
+  is called with this user's rules fetched fresh for every new
+  statement upload, so a merchant you've already taught the app
+  auto-categorizes on arrival instead of needing a manual pick again.
+- Both the rule-saving and the backlog sweep are best-effort — a
+  learning write failing never blocks or rolls back the category change
+  that was actually requested.
+- See [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md)
+  → "Learning from your picks".
+
+## 2026-10-07 — Three new expense categories: Food, Pet, Online Shopping
+
+- **Added `food`, `pet`, and `online shopping`** to `CATEGORIES`
+  (`app/js/expenses.js`), the shared taxonomy used by both expenses and
+  statement transactions (`app/js/statements.js`). Appended at the end
+  of the list rather than inserted earlier, since a category's chart
+  color is its fixed array position — inserting one earlier would've
+  silently reassigned every later category's color.
+- **Dining/takeaway keywords moved from `leisure` to `food`** in
+  `statements.js`'s auto-categorizer (`CATEGORY_KEYWORDS`): restaurants,
+  cafes, Uber Eats/Menulog/DoorDash/Deliveroo, and fast-food chains now
+  auto-categorize as Food instead of Leisure on future statement
+  uploads. Doesn't retroactively touch anything already saved.
+- **New `pet` keywords** (Petbarn, vets, etc.) and **`online shopping`
+  keywords** (Amazon, eBay, AliExpress, etc.) added to the same
+  auto-categorizer.
+- **Chart color handling**: this app has exactly 8 fixed, CVD-checked
+  categorical colors (`--series-1`..`--series-8`), and the category list
+  just grew from 7 to 10. Rather than generate a 9th/10th hue that could
+  collide with an earlier category's color, the two categories beyond
+  the 8-color palette (`pet`, `online shopping`) share a neutral
+  fallback swatch (`var(--text-muted)`) in the spending-breakdown
+  charts — they're still fully distinct, selectable categories
+  everywhere else. New shared `categoryColor(cat)` helper (exported from
+  `expenses.js`) is the single source of truth for this, used by both
+  the Expenses "This month" breakdown and the My Statements
+  per-statement breakdown so the two charts can never disagree on a
+  category's color.
+- See [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md) →
+  "Monthly total + category breakdown" and
+  [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md)
+  → "Auto-categorization and 'Needs review'".
+
+## 2026-10-07 — Statement overview is now private, renamed "My Statements"
+
+- **Statements are now private per-user, not shared across the
+  household**: converted `bank_statements`/`bank_transactions` from
+  `is_household_member(household_id)` RLS to owner-only
+  (`uploaded_by = auth.uid()`, via the owning statement for
+  `bank_transactions`), the same shape `personal_todos` already uses —
+  migration `0038_bank_statements_private.sql`. Each partner now only
+  ever sees their own uploaded statements and parsed transactions; there
+  is no shared list either partner sees both halves of. Both tables were
+  also dropped from the `supabase_realtime` publication (private
+  per-user data has no partner to sync live to).
+- **Renamed "Statement overview" to "My Statements"** in the Money tab's
+  sub-nav (`app/js/money.js`), matching the "My To-dos" naming
+  convention for the other private-per-user segment.
+- **Known, accepted gap**: the uploaded statement *file* itself still
+  lands in the one shared household Google Drive folder (unchanged —
+  the narrow `drive.file` OAuth scope this app uses rules out a private
+  per-partner subfolder, same constraint already documented for
+  Documents), so it's technically visible to a partner who browses that
+  folder directly in Drive, even though the app's own UI never shows
+  their parsed transactions.
+- See [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md)
+  → "Private per-user, not shared — like My To-dos".
+
+## 2026-10-07 — Bulk category assignment on statement transactions
+
+- **No more per-transaction Save, no more collapsed sections**: picking
+  a category for a statement transaction used to save immediately and
+  re-render the whole Statement overview tab — which, since nothing
+  preserved `<details>` open/closed state across that rebuild, closed
+  the very statement section you were working in on every single pick.
+  `transactionRow()` (`app/js/statements.js`) no longer has a per-row
+  Save button at all; picking a category just records it in that
+  statement's own `pendingChanges` map (re-picking back to the original
+  value removes it from the map, not queuing a no-op write), and one
+  **"Save changes (N)"** button per statement commits everything
+  pending in one batch. Categorize three, ten, or every transaction in
+  a statement, then save once.
+- **Open sections now survive a save**: `render()` captures which
+  `<details>` are open before rebuilding and reopens the matching ones
+  after — same trick `app.js`'s Realtime refresh guard already uses for
+  the main app shell, except matched by a stable `data-key`
+  (`stmt:<id>`/`needs:<id>`/`cat:<id>`) rather than summary text, since
+  "Needs review (N)"/"All categorized transactions (N)"'s own counts
+  change on exactly the save this needs to survive — text-matching
+  would've silently failed for those two. Scroll position is restored
+  the same way. Verified against two statements: opening one manually,
+  saving a category inside it, and confirming it stays open while the
+  untouched one stays closed exactly as before.
+- See [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md)
+  → "Auto-categorization and 'Needs review'" and "Open sections survive
+  a save — matched by key, not title".
+
+## 2026-10-07 — Fixed PDF statement parsing: broken library + wrong amounts
+
+Found by uploading a real statement and getting "$0.00 spent / No
+transactions" with no error — reproduced end to end (real pdf.js
+extraction plus `parsePdfTransactions()` run against the statement's
+actual text) rather than guessed at from the code. Two separate bugs,
+both in `app/js/statements.js`:
+
+- **pdf.js never actually loaded, for anyone.** `ensurePdfJsLoaded()`
+  requested `pdf.min.js`/`pdf.worker.min.js` from cdnjs via a classic
+  `<script src>` — those paths 404 for this pdf.js version; cdnjs only
+  ships the `.mjs` (ES module) build here. Because
+  `parseStatementFile()`'s broad `try/catch` returns `[]` on any
+  failure (correct for a genuinely unreadable scanned PDF, not for a
+  broken library URL), this failed completely silently — every PDF
+  upload "succeeded" with zero transactions, indistinguishable from a
+  scanned statement. Fixed by loading the `.mjs` build via dynamic
+  `import()` (confirmed to actually exist via cdnjs's own file listing
+  first) instead of a script tag, and by `console.warn`-ing the real
+  error on a parse failure instead of swallowing it without a trace.
+- **The running balance was being recorded as the transaction amount.**
+  A standard AU bank statement shape (`Date | Description | Withdrawal
+  | Deposit | Balance`) puts two dollar amounts on each transaction
+  line; `parsePdfTransactions()` picked the *last* one — the balance —
+  as the transaction amount, leaving the real amount stuck in the
+  description text instead. Every transaction from a statement with a
+  balance column got a plausible-looking but entirely wrong amount,
+  with nothing to catch it. Fixed: with more than one number on a
+  line, the second-to-last is now the amount and the last is the
+  (dropped) balance; with exactly one number, unchanged. See
+  [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md)
+  → "Two real bugs found testing against an actual statement".
+
+## 2026-10-07 — Statement overview: upload, parse, and categorize bank statements
+
+- **New Money tab segment, "Statement overview"**: upload a bank
+  statement (CSV or PDF, `app/js/statements.js`) and it's parsed
+  client-side into individual transactions, auto-categorized against the
+  same `CATEGORIES` list Expenses uses (now exported from
+  `app/js/expenses.js`) via a plain keyword map. CSV parsing handles both
+  a single signed Amount column and separate Debit/Credit columns, with
+  or without a header row; PDF parsing lazily loads pdf.js from cdnjs and
+  scans extracted text for `<date> ... <amount>` lines — best-effort,
+  since it only works on a text-based PDF (not a scanned one).
+- **"Needs review"**: anything the keyword matcher can't place lands
+  with `status = 'unknown'` in an open-by-default section with an
+  inline category picker — picking one updates it in place via Realtime
+  the same as everything else in the Money tab. Already-categorized
+  transactions sit in a collapsed section below, editable the same way.
+- **Per-statement report**: a spend/received total, a category
+  breakdown using the same contribution-bar visual as Expenses' "This
+  month" card, and a "Compared to last statement" trend per category
+  (rises of 15%+ flagged, drops shown as a quiet win) — a lightweight
+  Buddy-style insight without a real analytics pipeline.
+- **New tables**: `bank_statements`, `bank_transactions` (migration
+  `0037_bank_statements.sql`), household-scoped RLS, added to the
+  `supabase_realtime` publication.
+- **Why no new "Bank Statements" Drive subfolder**: statements upload
+  into the household's existing shared Drive folder (same one Documents/
+  backups use), renamed to their period and prefixed `[Bank Statement]`
+  — a dedicated subfolder would hit the same `drive.file`
+  per-partner-access fork-into-duplicates problem already documented for
+  Documents' category folders. See
+  [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md).
+- **Period(s) detected, not asked, and split correctly across months**:
+  the upload sheet originally pre-filled an editable "Statement
+  month"/"Year" pair for the uploader to check on every single upload —
+  removed. Worse, it also forced the *whole* upload under one guessed
+  month, which is wrong for a statement that spans more than one
+  calendar month (a billing-cycle export, a multi-month history dump).
+  `splitIntoPeriods()` now groups the parsed transactions by the
+  calendar month each one's own date actually falls in, and the upload
+  creates one `bank_statements` row **per represented month**, not one
+  row per upload — all sharing the same underlying Drive file (one
+  file, uploaded once; its name reflects the full span, e.g.
+  `"[Bank Statement] February 2026 – April 2026.pdf"`), each with its
+  own exact month as its label for reporting/trend purposes. The status
+  line under the file picker reports what was detected — one period
+  ("Found 4 transactions for March 2026") or several ("Found 87
+  transactions across 2 periods: October 2026 (52), November 2026
+  (35)") — rather than asking for confirmation. Deleting one period
+  from a multi-period upload only deletes that period's row; the
+  shared Drive file is only removed once no other period still
+  references it. There's no edit-period action afterward — a wrong
+  guess means correcting it by hand or deleting that period and
+  re-uploading. See
+  [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md)
+  → "One upload, one or more periods — detected, never asked".
+
+## 2026-10-06 — Rolling retention on Drive backups
+
+- **Keep only the last 10 backups**: `pruneOldBackups()` in
+  `app/js/backup.js` runs after every successful backup and deletes
+  anything past the 10 most recent `Backup *.json` files in the
+  household's Drive folder (`listFilesInFolder()`, a new export in
+  `app/js/googleDrive.js`, scoped to the household's folder + name
+  prefix). File *size* was never a concern (every backed-up table is
+  small text rows — no file blobs — so even years of regular use stays
+  in the tens of KB to low single-digit MB range); file *count* was: an
+  unbounded weekly trail would eventually clutter the same folder the
+  household's actual documents live in. 10 backups at the current
+  ~weekly cadence is roughly 2-3 months of point-in-time history.
+  Pruning failure is logged and swallowed, not thrown — the backup
+  itself already succeeded by that point. See
+  [`docs/25-feature-backup.md`](docs/25-feature-backup.md).
+
+## 2026-10-06 — Fixed Google Drive uploads/backup failing with "Google scripts did not load in time"
+
+- **Service worker stopped intercepting third-party script loads**:
+  `service-worker.js`'s fetch handler only ever bypassed its own
+  cache-first pipeline for `*.supabase.co` requests — every other
+  cross-origin request, including the two Google Identity
+  Services/API script tags `index.html` loads for Drive
+  (`accounts.google.com/gsi/client`, `apis.google.com/js/api.js`), got
+  routed through the service worker's own `fetch()`/`cache.match()`
+  instead of the browser's normal script-loading path. That's a known
+  source of a cross-origin `<script>` load silently failing or hanging
+  on some engines, and the `cache.put()` was already origin-gated to
+  same-origin responses only, so none of this ever bought anything for
+  a third-party request. Generalized the bypass from "Supabase only" to
+  "any non-same-origin request." See
+  [`docs/21-google-drive-documents.md`](docs/21-google-drive-documents.md)
+  → "Known failure mode."
+- If uploads/backup still fail with this error after updating, it's no
+  longer something the app's code controls — a content blocker or
+  network policy is blocking Google's own domains outright, same
+  category as this project's other dashboard-only limitations.
+
+## 2026-10-06 — Dropped the text label on the .ics download button
+
+- The per-event `.ics` download button (`app/js/events.js`) now shows
+  just the `🗓️` icon, not `🗓️ .ics` — the visible ".ics" text was
+  redundant now that the icon itself reads clearly; the button's
+  `aria-label` ("Download to calendar (.ics)") already covers screen
+  readers, so nothing accessibility-relevant changed.
+
+## 2026-10-06 — Fixed the Events icon looking like a stuck date
+
+- **Calendar emoji (📅) replaced with 🗓️**: the Events tab icon, the
+  "appointment" category icon on Home, and the per-event ".ics" download
+  button all used `📅` (U+1F4C5 CALENDAR) as a generic calendar/events
+  icon — on some devices/fonts that glyph's artwork bakes in a fixed,
+  specific date (unrelated to any real date in the app), which read as
+  a stuck or wrong date repeated identically everywhere the icon
+  appeared. Swapped for `🗓️` (U+1F5D3 SPIRAL CALENDAR) in `app/js/app.js`,
+  `app/js/home.js`, and `app/js/events.js`, which renders as a generic
+  calendar with no baked-in date on every major platform.
+
+## 2026-10-04 — Pre-signup "Add to Home Screen" interstitial
+
+- **Install prompt before auth**: a brand-new visitor in a regular
+  browser tab now sees an install interstitial *before* the sign-up/log-in
+  screen even loads (`app/js/installPrompt.js`,
+  `renderInstallInterstitial()` in `app.js`) — on Chromium browsers
+  (Android Chrome, desktop Chrome/Edge) a real "Install app" button via
+  the captured `beforeinstallprompt` event; on iOS Safari (which has no
+  such event) manual "Share → Add to Home Screen" instructions; on
+  anything else (nothing actionable to offer) it's skipped entirely.
+  Shown once per browser, like onboarding/changelog/the push-notification
+  prompt. See [`docs/26-feature-install-prompt.md`](docs/26-feature-install-prompt.md)
+  for why the check briefly (up to 500ms, first boot only) waits for the
+  `beforeinstallprompt` event rather than checking for it immediately —
+  a real race that would otherwise make the native install button
+  permanently unreachable.
+
+## 2026-10-04 — Accessibility pass
+
+- **Icon-only button labels**: every button whose visible content is
+  just an emoji/symbol with no adjacent text (every "+" FAB, the 💬
+  comment button, the 🗓️ .ics-download button) now has an `aria-label`,
+  so a screen reader announces what it does instead of just the emoji's
+  Unicode name. The comment button's label updates alongside its count.
+- **Decorative icons hidden from screen readers**: an icon sitting next
+  to text that already says the same thing (home.js's `.card-icon`, the
+  tabbar's `.tab-icon`) is now `aria-hidden`, so it isn't announced
+  redundantly on top of the text beside it.
+- **Reduced motion / increased contrast**: `styles.css` now honors
+  `prefers-reduced-motion: reduce` (a blanket animation/transition
+  override, and the goal-celebration confetti hidden outright) and
+  `prefers-contrast: more` (higher-contrast muted-text/border colors, in
+  both light and dark) globally, the same OS-driven-by-default
+  philosophy as the existing dark-mode handling — no new in-app toggle.
+  See [`docs/14-ui-patterns.md`](docs/14-ui-patterns.md).
+
+## 2026-10-04 — Automatic backup to Google Drive
+
+Migration `0036_household_last_backup_at.sql` adds
+`households.last_backup_at`.
+
+- **Automatic backup**: once Google Drive is connected, household data
+  (expenses, events, goals, grocery list, recipes, document metadata,
+  etc.) now backs up there as a dated JSON file roughly once a week
+  (`app/js/backup.js`, `backupHouseholdIfDue()`), triggered
+  opportunistically on app open rather than a true server-scheduled job
+  — see [`docs/25-feature-backup.md`](docs/25-feature-backup.md) for why
+  (short version: this app's Drive access is deliberately client-only,
+  with no refresh token ever persisted anywhere, so there's no
+  server-side credential a cron job could use). A new "Back up now"
+  button in ⚙️ Account & household → Documents storage runs one
+  immediately, and the section now shows when the last backup happened.
+
+## 2026-10-04 — Download an event as .ics
+
+- **Per-event .ics download**: a new "🗓️" button on every event
+  card downloads that one occurrence as a single-date `.ics` file
+  (`app/js/ics.js`, built entirely client-side — no backend change), for
+  importing into Apple/Google/Outlook Calendar. Only the one occurrence
+  currently on the card, not a subscribable feed of every future
+  occurrence — that's still the separate Phase 5 "iCal feed" stretch
+  goal. See [`docs/03-feature-events.md`](docs/03-feature-events.md).
+
+## 2026-10-04 — Chore fairness tally
+
+- **Fairness tally**: a rotating recurring event (`rotate_assignee`) now
+  shows a running "Alex 5 · Sam 4" tally next to "It's _Name_'s turn"
+  (`fairnessTally()` in `app/js/events.js`) — how many turns each person
+  has had so far, not just whose turn it is right now. No new data or
+  migration: the rotation is already fully deterministic (strict
+  alternation by cycle parity), so the tally is derived arithmetic on
+  the existing `occurrenceCycleCount()`, same as the turn label itself.
+  Shown whether or not the current occurrence is done, unlike the turn
+  label, since it's a running count rather than a right-now status. See
+  [`docs/03-feature-events.md`](docs/03-feature-events.md).
+
+## 2026-10-04 — Comment thread on expenses and events
+
+Migration `0035_item_comments.sql` adds the `item_comments` table.
+
+- **Comment thread**: a new 💬 button on every expense and event card
+  opens a thread of plain text comments (`app/js/comments.js`,
+  `openCommentsSheet()`), shared across the household — a running
+  back-and-forth note on a specific record instead of a text message
+  outside the app. `item_comments` uses a polymorphic
+  `entity_type`/`entity_id` pair rather than a foreign key, since it
+  attaches to rows in either of two different tables; any household
+  member can post or delete any comment, same shared-trust model as
+  every other table in the app.
+- The card badge ("💬 N") comes from one `getCommentCounts()` query per
+  tab render (grouped client-side by `entity_id`), not one query per
+  card — same N+1-avoidance pattern as everything else in this app.
+- Deleting an expense or event also deletes its comment thread
+  (`deleteCommentsFor()`), since there's no DB-level cascade for a
+  polymorphic reference.
+
+See [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md) and
+[`docs/03-feature-events.md`](docs/03-feature-events.md).
+
+## 2026-10-04 — Log a personal expense without splitting it
+
+Migration `0034_expense_is_personal.sql` adds `expenses.is_personal`.
+
+- **Personal expenses — don't split at all**: distinct from the existing
+  per-expense split override (`buildSplitField()`), which still splits
+  an expense just at a different ratio, a new "Personal expense — don't
+  split with my partner" checkbox on the add/edit form
+  (`buildPersonalToggle()` in `app/js/expenses.js`) excludes the expense
+  from the "who owes who" balance entirely. `computeBalance()` in
+  `balance.js` skips any expense with `is_personal` set before it ever
+  enters either partner's paid/owed totals. Checking it hides the split
+  field (moot once an expense isn't being split); shown on the card as
+  "· personal" in place of a split note. Still counts toward the "This
+  month" total and category breakdown — a personal purchase is still
+  real spending, just not shared spending.
+
+## 2026-10-04 — Leave a household, or remove a member
+
+Migration `0033_remove_household_member.sql` adds a
+`remove_household_member(p_user_id)` RPC.
+
+- **Leave a household, or remove a member**: previously there was no
+  way to cut off a household member's access short of the project owner
+  hand-running SQL in the dashboard — a household that split up would
+  leave an ex-partner as a full member indefinitely. A new "Household
+  members" section in ⚙️ Account & household lists the roster with
+  "Leave household" on your own row, and "Remove" on the other
+  member's row if you're the one who created the household.
+  `remove_household_member()` is `SECURITY DEFINER` (same pattern as
+  `create_household`/`join_household`) — the owner-only restriction on
+  removing someone else is enforced there, server-side, not just by the
+  button being hidden client-side. After leaving, the account sheet
+  closes and the app re-runs its normal post-auth check, routing to the
+  create/join screen exactly as it would for a brand-new account.
+
+## 2026-10-04 — Proactively ask to enable push notifications
+
+- **A one-time prompt for push notifications**: previously the only way
+  to turn on due-date push notifications was to find it in ⚙️ Account &
+  household — easy to never notice, and nothing ever asked. `app.js` now
+  chains a third dialog onto the existing onboarding → changelog sequence
+  on load (same "only one dialog open at once" pattern both already
+  use): once per browser, only when it's actually one tap away — push
+  supported, the app installed to the home screen (`isStandalone()`,
+  since `enablePush()` requires it), and not already enabled — it asks
+  "Enable notifications" or "Not now." `shouldShowPushPrompt()`/
+  `markPushPromptSeen()` in `notifications.js` track the once-per-browser
+  part the same way `onboarding.js`/`changelog.js` already do. Declining
+  isn't permanent; the manual toggle in the account sheet still works
+  either way. Deliberately doesn't nag anyone who hasn't installed the
+  app yet — that's a separate problem (a pre-signup "Add to Home Screen"
+  walkthrough would be the real fix), not one this prompt should paper
+  over.
+
+## 2026-10-04 — Bug-fix batch from a 3-agent audit
+
+Three parallel research agents (security/RLS, code-quality/tech-debt,
+external feature research) were run against the app as it stood after
+the live-sync/remind/digest/goal-close batches. This entry covers the
+confirmed bugs and small cleanups that came back; the new feature ideas
+ship separately as their own entries.
+
+- **Fixed `remind-partner`'s missing CORS headers**: it's the only edge
+  function invoked directly from a browser (every other one is
+  `pg_cron`-only), and without `Access-Control-Allow-Origin`/`-Headers`
+  and an `OPTIONS` branch, the browser's own preflight request — sent
+  because the real request carries an `Authorization` header — failed
+  before the function's code ever ran. The "🔔 Remind" button has likely
+  been non-functional in every real browser since it shipped. Also added
+  a 5-minute per-household cooldown (`households.last_reminded_at`,
+  migration `0032`) against unlimited push spam.
+- **Fixed Realtime live-sync clobbering an in-progress inline edit**:
+  Goals' and Recipes' "Edit ___" forms render directly into the page
+  (unlike every other edit flow, which is a `<dialog>`) — a partner's
+  unrelated change during the 400ms debounce window could silently
+  revert an open edit form before anyone had even focused a field in it.
+  `app.js`'s `scheduleRefresh()` now also skips while a `[data-editing]`
+  card is open, and preserves scroll position and open `<details>`
+  sections (by summary text) across any live-triggered re-render instead
+  of resetting them.
+- **Fixed a coincidental-constant bug in `events.js`**: the add-event
+  form's "Repeats" default was computed from an always-true constant
+  expression that only produced the right answer because of an
+  unrelated coincidence (the category select's own default happening to
+  match). Both selects now derive their initial value from the same
+  named `initialCategory`, so they can't drift apart if either one's
+  default logic changes later.
+- **Documents now show "added by"**, matching every other card type —
+  `uploaded_by` was already stored but never read.
+- **Documents' upload form uses the shared `withBusyLabel()` helper**
+  instead of hand-rolled disable logic; its edit form (which had no
+  submit-disable at all) got one too.
+- **Search boxes added to Events and My To-dos**, matching every other
+  list (Expenses/Grocery List/Recipes/Documents already had one, with no
+  principled reason these two didn't).
+- **Fixed a real latent date bug while deduplicating `addDays()`**:
+  `rent.js`'s copy used `toISOString()`, which converts to UTC — for
+  anyone east of UTC (Brisbane included, per this app's own household),
+  local midnight can land on the *previous* UTC day, so "mark as paid →
+  next period" was silently computing the next due date one day early.
+  `personal-todos.js` had its own correct, local-time copy already; both
+  now share one `addDays()` in `format.js`, fixed.
+- **Consolidated `dueStatus()`/`expiryStatus()`'s day-threshold logic**
+  into one `dayThresholdStatus()` in `format.js` — the two were
+  duplicated copies of the same overdue/due-soon/ok bucketing with only
+  the label wording differing; a threshold change now updates both.
+
+## 2026-10-02 — Finish or close a goal
+
+Migration `0031_goal_closed_at.sql` adds `custom_goals.closed_at`.
+
+- **Finish/close a goal**: a "Finish goal"/"Reopen goal" button (next to
+  "Edit goal") sets or clears `closed_at`. Not tied to hitting the
+  target — a goal with no `target_amount` (a plain checklist-style goal)
+  had no way to be marked done at all before this, and a goal that does
+  have a target otherwise stays open forever once reached unless someone
+  deletes it outright and loses its history. A closed goal moves into
+  its own collapsed "Closed goals" section at the bottom of the Goals
+  tab (same pattern as Events' Upcoming/Done split and Rent's History
+  section), drops off the home dashboard's "Upcoming goals" and
+  `notify-due-items`'s target-date escalation, but stays fully viewable
+  and editable — Reopen undoes it any time.
+
+## 2026-10-02 — Live sync, remind-your-partner, and a weekly digest
+
+Migration `0029_enable_realtime_publication.sql` adds every shared-list
+table to the `supabase_realtime` publication. Migration
+`0030_schedule_weekly_digest.sql` schedules the new `weekly-digest` edge
+function. New edge function `remind-partner` (client-callable, JWT-verified,
+unlike every other edge function so far).
+
+- **Live refresh across phones (Realtime)**: `app/js/realtime.js` opens
+  one Supabase Realtime channel per household, listening for
+  `postgres_changes` on every shared table (`events`, `expenses`,
+  `recurring_expenses`, `custom_goals`, `goal_transactions`,
+  `goal_tasks`, `rent_payments`, `mortgage_payments`, `documents`,
+  `grocery_items`, `recipes`, `settlements`, `households`) filtered to
+  that household's id. `app.js` debounces incoming changes (400ms, to
+  collapse a burst into one re-render) and re-renders the current tab —
+  skipped while the cursor is in an inline search box (every add/edit
+  form is a `<dialog>` outside `main`, so this never interrupts filling
+  one out) so a live update can't yank typed text out from under
+  someone. `personal_todos` is deliberately excluded — it's private per
+  user, so there's nothing cross-partner to sync. RLS still gates what
+  each client actually receives; this only adds these tables to what
+  Realtime watches.
+- **"🔔 Remind" nudge on overdue items**: a button on each "What's due"
+  card on Home calls a new `remind-partner` edge function, which looks
+  up the *other* household member's push subscriptions (a user can only
+  read their own via RLS, so this needs the function's service-role
+  client) and sends them a one-line push — "BrackenRidge Rent is overdue
+  3d", etc. — instead of texting them separately. Membership in the
+  household being nudged is verified via a client scoped to the caller's
+  own JWT (so `household_members`' own RLS does the actual gatekeeping),
+  before the service-role client is used for anything.
+- **Weekly "state of us" digest**: a new `weekly-digest` edge function,
+  scheduled once a week (Sunday 18:00 Australia/Brisbane) via the same
+  `pg_cron` + shared-secret pattern as `notify-due-items`. One push per
+  household recapping the last 7 days — total spent, total saved toward
+  goals, events coming up in the next 7 — deliberately light and
+  non-competitive, same framing as the on-time streak badge.
+
+## 2026-10-02 — Shared note, event-goal links, chore rotation, goal celebrations, rent streak
+
+Migration `0028_home_note_and_event_extras.sql` adds `households.shared_note`,
+`events.rotate_assignee`, `events.assignee_user_id`, and
+`events.related_goal_id`.
+
+- **Shared sticky note on Home**: a single free-text note
+  (`households.shared_note`) editable by either partner, shown at the top
+  of the Home tab — for quick household messages ("grabbed milk
+  already"). Saved via `updateSharedNote()` in `household.js`; the "Save
+  note" button only appears once the text has actually changed. Updates
+  `ctx.household` in place after saving (same pattern
+  `connectAsFirstPartner()` already used for Google Drive) so the note
+  persists across tab switches without a re-fetch.
+  While touching `getMyHousehold()`'s select for this, also fixed a
+  latent bug: it never selected the Drive columns
+  (`drive_folder_id`/`drive_folder_name`/`drive_connected_by`), so a page
+  reload after connecting Drive would lose that state and incorrectly
+  re-prompt to connect it again — it only worked within a session because
+  `connectAsFirstPartner()` mutates `ctx.household` in place.
+- **Chore rotation on recurring events**: a recurring event can now
+  alternate between exactly two household members each occurrence
+  (`rotate_assignee` boolean + `assignee_user_id` anchor), shown as "It's
+  _Name_'s turn" on its card, suppressed once the occurrence is marked
+  done. No per-occurrence storage — parity is computed client-side from
+  the new `occurrenceCycleCount()` helper in `format.js` (even cycles
+  since the anchor stay with the anchor assignee, odd cycles flip).
+  Rotation is only offered when the event repeats and the household has
+  exactly two members.
+- **Link an event to a goal**: `events.related_goal_id` (same
+  `on delete set null` pattern as `documents.related_type/related_id`),
+  surfaced as a "Link to a goal" select on the add/edit form and "linked
+  to _Goal_" text on the card.
+- **Goal milestone celebration**: a one-time confetti burst
+  (`.confetti-burst` in `styles.css`) when a goal's saved total first
+  reaches its target, gated by a `localStorage` flag per goal ID so it
+  plays once per goal per browser. The "🎉 Goal reached!" text itself
+  still shows every time the goal is at or past target, not just once.
+- **Rent/mortgage on-time streak**: a quiet "✓ Paid on time N periods
+  running" line in `rent.js`, computed from existing
+  `paid_date`/`due_date` history with no new input, shown only once
+  there's an actual streak (2+) to avoid noise. Deliberately has no "at
+  risk" countdown or per-partner scoring.
+
+## 2026-10-02 — Grocery edit flow, recipe import, submit-disable, added-by labels
+
+A batch of UX-audit fixes, implemented together:
+
+- **Grocery item edit flow**: `grocery.js` gained an edit sheet (title,
+  quantity, category) — previously the only list without one, meaning a
+  typo meant delete-and-re-add (and losing the auto-guessed category).
+  Also added a search box, matching Expenses/Documents/Recipes.
+- **Recipe → Grocery List import**: a new "+ Add ingredients to Grocery
+  List" button on each recipe inserts every ingredient line as a grocery
+  item, run through the existing `guessCategory()` keyword-matcher so
+  "500g beef mince" lands under Meat automatically. See
+  [`docs/17-feature-recipes.md`](docs/17-feature-recipes.md) and
+  [`docs/16-feature-grocery-list.md`](docs/16-feature-grocery-list.md).
+- **Fixed personal to-do "Mark done" on a repeating reminder**: it was
+  calling `{ is_done: true }` unconditionally, permanently stopping a
+  daily/weekly/monthly reminder — the advance-to-next-occurrence logic
+  only existed server-side in `notify-due-items`, so a reminder ticked
+  off by hand behaved differently from one the push notification fired.
+  `personal-todos.js` now mirrors that logic client-side
+  (`nextOccurrencePatch()`); the button reads "Done for now" instead of
+  "Mark done" for a repeating reminder, to signal the difference. See
+  [`docs/20-feature-personal-todos.md`](docs/20-feature-personal-todos.md).
+- **Submit-disable on every form**: added the disable-button-during-submit
+  pattern (`withBusyLabel()`, new in `dom.js`) to every form that was
+  missing it — events, expenses (all 5 forms), goals (all 5 forms),
+  rent/mortgage (both), grocery, recipes, personal-todos — matching what
+  `documents.js`/`household.js` already did. Prevents a double-tap on a
+  slow connection from double-inserting a row.
+- **"Added by" attribution**: expense, grocery, and event cards now show
+  who added the row (`created_by`) when that differs from who it's
+  otherwise attributed to (`paid_by` for expenses) — previously only
+  Goals' contribution breakdown showed this, despite every table already
+  capturing it.
+- **Bigger tap targets**: `.btn.small` padding increased (6px/12px →
+  10px/14px) and `.actions-row` gap widened, with extra spacing before a
+  destructive action specifically — the Edit/Mark-done/Delete row on
+  every card was under the ~44px touch-target guideline and easy to
+  mis-tap, especially near Delete.
+- **Numeric keypad fixes**: the per-expense split-percent inputs and the
+  custom recurrence "Days" inputs never got `inputmode` set, so editing
+  either still popped the full iOS keyboard instead of a numeric one.
+
+## 2026-10-02 — Personal to-do reminders now fire at their own set time
+
+- `notify-due-items` used to run once a day, at a fixed 08:00 Australia/
+  Brisbane, so a My To-dos reminder set for e.g. 6:30am still only ever
+  notified at 8am along with everything else — a known, documented
+  limitation (see `docs/20-feature-personal-todos.md`).
+- The pg_cron schedule (`0027_notify_poll_frequency.sql`) now polls every
+  15 minutes instead of once a day. `personal_todos` is checked against
+  its own `remind_time` on every poll; every other source
+  (rent/mortgage/goals/documents/events) still only fires once a day, at
+  a fixed 08:00, via a new `DAILY_CHECK_TIME`/`pastDailyCheck` gate added
+  to `supabase/functions/notify-due-items/index.ts` so the more frequent
+  poll doesn't change their behavior.
+- An overdue personal to-do (from a previous day) still fires on the very
+  next poll regardless of time, same escalate-immediately behavior as
+  before — only a reminder due *today* now waits for its own set time.
+
+## 2026-10-01 — Auto-categorize grocery items
+
+- Typing an item's name on the Add grocery item form now guesses its
+  category automatically via a keyword match (`guessCategory()` /
+  `CATEGORY_KEYWORDS` in `app/js/grocery.js`) — "Milk" lands on Dairy,
+  "Chicken breast" on Meat, etc.
+- Anything the keyword list doesn't recognize falls back to (and stays on)
+  `other`; the category dropdown is always there, editable, so picking the
+  right category for an unrecognized item is one tap away. Picking a
+  category by hand stops the auto-guess from overwriting it on further
+  typing. See [`docs/16-feature-grocery-list.md`](docs/16-feature-grocery-list.md).
+
 ## 2026-10-01 — Grocery list categories
 
 - New `category` column on `grocery_items` (plain text, default `'other'`,

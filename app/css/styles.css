@@ -94,6 +94,7 @@
   :root:not([data-theme="light"]) .pill.overdue { box-shadow: 0 0 10px -3px var(--danger); }
   :root:not([data-theme="light"]) .pill.due-soon { box-shadow: 0 0 10px -3px var(--warning); }
   :root:not([data-theme="light"]) .pill.ok { box-shadow: 0 0 10px -3px var(--accent-2); }
+  :root:not([data-theme="light"]) .action-chip { box-shadow: 0 0 10px -4px var(--accent); }
 
   :root:not([data-theme="light"]) .pill.upcoming {
     background: color-mix(in srgb, var(--accent-2) 20%, transparent);
@@ -142,6 +143,7 @@
 :root[data-theme="dark"] .pill.overdue { box-shadow: 0 0 10px -3px var(--danger); }
 :root[data-theme="dark"] .pill.due-soon { box-shadow: 0 0 10px -3px var(--warning); }
 :root[data-theme="dark"] .pill.ok { box-shadow: 0 0 10px -3px var(--accent-2); }
+:root[data-theme="dark"] .action-chip { box-shadow: 0 0 10px -4px var(--accent); }
 
 :root[data-theme="dark"] .pill.upcoming {
   background: color-mix(in srgb, var(--accent-2) 20%, transparent);
@@ -353,6 +355,71 @@ main {
 .pill.due-soon { background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); }
 .pill.ok { background: color-mix(in srgb, var(--accent-2) 18%, transparent); color: var(--accent-2); }
 
+/* Secondary-action link styled as a colorful tappable chip instead of
+   plain inline text — "Open the shared Drive folder" / "Manage learned
+   categories" / "Manage categories" on My Statements, "Manage
+   categories" on Expenses. Same color-mix(accent%, transparent) idiom
+   as the .pill variants above, so it stays theme-correct across light/
+   dark/glow automatically rather than a hardcoded color. A row of these
+   wraps via .action-chip-row below rather than sitting one-per-line. */
+.action-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.action-chip:hover, .action-chip:focus-visible { background: color-mix(in srgb, var(--accent) 24%, transparent); }
+.action-chip:active { background: color-mix(in srgb, var(--accent) 32%, transparent); }
+
+/* A grid of independent toggles for picking multiple calendar days at
+   once (rent/mortgage "Specific day(s) of month" cadence, rent.js) --
+   unlike .segmented above, more than one can be active simultaneously,
+   so it gets its own active-state styling rather than reusing that
+   single-select tab look. Same color-mix(accent%, transparent) idiom as
+   .pill.ok/.action-chip so the active state stays theme-correct. */
+.day-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 10px;
+}
+
+.day-chip {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0;
+}
+
+.day-chip.active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+
+.action-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
 .amount { font-weight: 700; font-variant-numeric: tabular-nums; }
 .amount.owed_to_us, .amount.positive { color: var(--accent-2); }
 .amount.owed_by_us, .amount.negative { color: var(--danger); }
@@ -497,13 +564,22 @@ dialog::backdrop { background: rgba(0,0,0,0.45); }
 .btn.secondary { background: var(--surface-2); color: var(--text); width: 100%; }
 .btn.text { background: none; color: var(--accent); padding: 6px 4px; }
 .btn.danger-text { background: none; color: var(--danger); padding: 6px 4px; }
-.btn.small { padding: 6px 12px; font-size: 0.8rem; width: auto; }
+/* 10px vertical padding + 0.85rem line-height lands close to the ~44px
+   tap-target guideline without visually bloating a row of three actions
+   on one card — a flat 44px min-height here would make every card's
+   action row noticeably taller than its content warrants. */
+.btn.small { padding: 10px 14px; font-size: 0.85rem; width: auto; }
 
 .actions-row {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   margin-top: 10px;
 }
+
+/* A little extra breathing room before a destructive action specifically
+   — Edit/Delete sitting edge-to-edge at this size was the easiest of the
+   three actions to mis-tap. */
+.actions-row .btn.danger-text { margin-left: 4px; }
 
 .auth-screen, .household-screen {
   max-width: 420px;
@@ -611,6 +687,33 @@ dialog::backdrop { background: rgba(0,0,0,0.45); }
   flex-shrink: 0;
 }
 
+/* Spending trend chart (app/js/statementsChart.js) — inline SVG line
+   chart. `width: 100%` + the SVG's own `viewBox` (not a fixed pixel size)
+   is what makes it scale down cleanly to a ~360px phone screen; `height:
+   auto` keeps the viewBox's own aspect ratio rather than stretching. */
+.spending-trend-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin: 4px 0 10px;
+}
+
+/* "By Category" bar chart (app/js/statementsChart.js, buildCategoryBarsSvg())
+   — same responsive viewBox-scaling technique as .spending-trend-chart
+   above, just a separate class since it's a visually distinct chart. */
+.category-bars-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin: 4px 0 10px;
+}
+
+.chart-axis-label {
+  font-size: 9px;
+  fill: var(--text-muted);
+  font-family: inherit;
+}
+
 .goal-section {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -667,4 +770,70 @@ dialog::backdrop { background: rgba(0,0,0,0.45); }
   justify-content: center;
   color: var(--text-muted);
   z-index: 100;
+}
+
+/* Brief one-time confetti burst when a goal's saved total crosses its
+   target (see maybeCelebrate() in goals.js) — a handful of emoji spans
+   drop and fade over ~1.5s, then the whole element is removed from the
+   DOM. Pure CSS, no animation library, kept subtle (short duration, no
+   sound) to match this app's low-pressure tone. */
+.confetti-burst {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.confetti-burst span {
+  position: absolute;
+  top: -10%;
+  left: calc(10% + (var(--i) * 18%));
+  font-size: 1.4rem;
+  animation: confetti-fall 1.4s ease-in forwards;
+  animation-delay: calc(var(--i) * 80ms);
+}
+
+@keyframes confetti-fall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(90px) rotate(45deg); opacity: 0; }
+}
+
+/* Respect the OS's "reduce motion" accessibility setting by cutting every
+   animation/transition to effectively nothing, rather than hand-chasing
+   each one as more get added — today that's just the confetti burst
+   above and the collapsible-section arrow's rotate transition, but this
+   covers anything added later too. The confetti burst is also hidden
+   outright rather than left to animate near-instantly, so there's no
+   one-frame flash of full-opacity emoji. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .confetti-burst { display: none; }
+}
+
+/* Respect the OS's "increase contrast" accessibility setting by swapping
+   in darker/lighter muted-text and border colors than this app's normal
+   (deliberately soft, low-contrast-by-design) palette — same
+   OS-driven-plus-forced-theme layering docs/14-ui-patterns.md already
+   uses for dark mode, just keyed on prefers-contrast instead of
+   prefers-color-scheme. Three rules, exactly mirroring the three
+   possible rendered states: plain/forced-light, OS-dark, forced-dark. */
+@media (prefers-contrast: more) {
+  :root {
+    --text-muted: #4a443c;
+    --border: #8f8574;
+  }
+  :root[data-theme="dark"] {
+    --text-muted: #c7cedb;
+    --border: #4a5872;
+  }
+}
+@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --text-muted: #c7cedb;
+    --border: #4a5872;
+  }
 }

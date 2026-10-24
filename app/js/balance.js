@@ -17,7 +17,15 @@ export function computeBalance(expenses, settlements, members) {
 
   const paidByUser = { [a.user_id]: 0, [b.user_id]: 0 };
   const owedByUser = { [a.user_id]: 0, [b.user_id]: 0 };
+  // A personal expense (is_personal — see 04-feature-expenses.md) is
+  // excluded from the balance entirely, not just split differently: it
+  // never enters paidByUser/owedByUser at all, so it can't shift what
+  // either partner owes. Still counts toward the "This month"
+  // total/category breakdown in expenses.js, which reads the amount
+  // directly rather than through this function — a personal purchase is
+  // still real spending, just not shared spending.
   for (const e of expenses) {
+    if (e.is_personal) continue;
     const amt = Number(e.amount);
     paidByUser[e.paid_by] = (paidByUser[e.paid_by] || 0) + amt;
     owedByUser[a.user_id] += amt * (shareFor(e, a) / 100);

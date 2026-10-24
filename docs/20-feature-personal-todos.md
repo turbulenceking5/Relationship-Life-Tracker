@@ -11,13 +11,16 @@ user.
 - List your own reminders, split into **Active** and **Done**, soonest
   first within Active.
 - Add a reminder: a free-text prompt, a date, a time, and how often it
-  repeats (doesn't repeat / daily / weekly / monthly).
+  repeats (doesn't repeat / daily / weekly / fortnightly / monthly).
 - Edit a reminder (all fields).
 - Mark a reminder done/active again, without deleting it (so a completed
-  one-off reminder stays visible in Done rather than disappearing).
+  one-off reminder stays visible in Done rather than disappearing). For a
+  repeating reminder this instead advances it to its next occurrence and
+  keeps it active — see "Marking done by hand" below.
 - Delete a reminder.
-- Surfaced as a "My To-dos" segment in the Money tab's sub-nav — see
-  "Why it lives in the Money tab" below.
+- Its own top-level "To-dos" tab (`app/js/personal-todos.js`, routed via
+  `app.js`'s `TABS` array) — see "Where it lives" below for how it got
+  there.
 
 ## Privacy model
 `personal_todos` has an "owner only" RLS policy — `user_id = auth.uid()`
@@ -31,13 +34,19 @@ signed-in user's own rows regardless of what the query asks for. The
 same pattern already exists for `push_subscriptions` (see
 [`02-data-model.md`](02-data-model.md)).
 
-## Why it lives in the Money tab
-A wholly private, non-money feature living under "Money" looks odd at
-first, but a new top-level tab per feature is exactly what the Money
-tab's original consolidation (and Grocery List/Recipes joining it later)
-exists to avoid — see [`13-feature-money-tab.md`](13-feature-money-tab.md).
-The segment is labeled "My To-dos", not just "To-dos", to signal at a
-glance that it's personal, not shared like every segment beside it.
+## Where it lives
+Originally shipped as a "My To-dos" segment inside the Money tab's
+sub-nav, on the same "avoid tab-bar crowding" reasoning that put Grocery
+List and Recipes there too — see
+[`13-feature-money-tab.md`](13-feature-money-tab.md). It was later
+promoted to its own top-level `todos` tab (label "To-dos") at the
+household's own request. This was a plain `app.js` `TABS`-array move —
+the module itself (`app/js/personal-todos.js`) is unaware whether it's a
+top-level tab or a Money-tab segment, exactly the reversibility
+`13-feature-money-tab.md` calls out as deliberate. Nothing about its
+privacy model changed: it's still the one tab that shows only your own
+data, invisible to your partner even though it's no longer nested under
+a shared-feeling tab like Money.
 
 ## Push notifications (shipped, with a known limitation)
 A reminder due today or overdue notifies via `notify-due-items`, same
@@ -50,20 +59,42 @@ this is the one notification a partner should never see.
 
 What happens after it fires depends on `repeat_frequency`:
 - `none`: the reminder is marked done, same as ticking it off by hand.
-- `daily`/`weekly`/`monthly`: `remind_date` advances to its next
-  occurrence (monthly clamps to the target month's last day, same trick
-  as `currentOccurrence()` in `app/js/format.js`) and the reminder stays
-  active.
+- `daily`/`weekly`/`fortnightly`/`monthly`: `remind_date` advances to its
+  next occurrence (monthly clamps to the target month's last day, same
+  trick as `currentOccurrence()` in `app/js/format.js`) and the reminder
+  stays active.
 
-**Known limitation**: `remind_time` is stored and shown in the UI, but
-nothing currently delivers a notification at that specific time of day.
-`notify-due-items` only runs once daily, at 08:00 Australia/Brisbane (see
-[`11-push-notifications.md`](11-push-notifications.md)) — every due
-reminder fires at that single check regardless of the time it was set
-for. Precise time-of-day delivery would need either a much more frequent
-cron (checking every 15–30 minutes, say) or a per-reminder scheduled
-trigger, neither of which exists yet. `remind_time` is still useful today
-for sorting the Active list and for a plan to build that later.
+`remind_time` is honored precisely: `notify-due-items` polls every 15
+minutes (see [`11-push-notifications.md`](11-push-notifications.md)) and
+fires a reminder due today only once the clock reaches its own
+`remind_time`, rather than always waiting for a fixed daily check — a
+6:30am reminder notifies at 6:30am (within the 15-minute poll
+granularity), not whenever the next shared daily check happens to run.
+An overdue reminder (from a previous day) still fires on the very next
+poll regardless of time of day, same escalate-immediately behavior as
+rent/mortgage/goals/documents. Every other source keeps firing once a
+day at a fixed 08:00 Australia/Brisbane despite the poll running more
+often — see `DAILY_CHECK_TIME`/`pastDailyCheck` in
+`supabase/functions/notify-due-items/index.ts` for how that's gated,
+since only `personal_todos` has a time-of-day of its own to honor.
+
+## Marking done by hand (fixed)
+The "Mark done" button used to call `updateRow(TABLE, row.id, { is_done:
+true })` unconditionally — for a repeating reminder that permanently
+stopped it, while letting the push notification fire it instead
+correctly advanced `remind_date` and kept it active (see "Push
+notifications" above). Same button, two different outcomes depending on
+who/what triggered it.
+
+`personal-todos.js` now mirrors `notify-due-items`' own
+`nextOccurrencePatch()` logic client-side: ticking off a repeating
+reminder advances `remind_date` (daily +1 day, weekly +7 days, fortnightly
++14 days, monthly to next month clamped to its last day) and leaves it in
+Active, exactly as if the push notification had fired it. Only a non-repeating
+(`repeat_frequency === 'none'`) reminder actually becomes `is_done`. The
+button itself reads "Done for now" rather than "Mark done" when the
+reminder repeats, so the different (non-permanent) behavior is signaled
+rather than silently assumed.
 
 ## Data
 See `personal_todos` table in [`02-data-model.md`](02-data-model.md).
@@ -71,7 +102,8 @@ See `personal_todos` table in [`02-data-model.md`](02-data-model.md).
 ## UI notes
 - No due-status pill once a reminder is done — the strikethrough on its
   prompt already signals that.
-- The Active/Done split and "Mark done"/"Mark active" toggle mirror the
-  Grocery List's To buy/In cart pattern (`app/js/grocery.js`) — same
-  underlying shape (an `is_done` boolean list), just with a due date and
-  repeat cadence added on top.
+- The Active/Done split mirrors the Grocery List's To buy/In cart pattern
+  (`app/js/grocery.js`) — same underlying shape (an `is_done` boolean
+  list), just with a due date and repeat cadence added on top. Unlike
+  Grocery List, though, a repeating reminder never actually reaches
+  `is_done` by hand — see "Marking done by hand" above.

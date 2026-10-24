@@ -6,16 +6,22 @@ This doc covers what `notify-due-items` (`supabase/functions/notify-due-items/in
 actually scans, now that it's wired up to real due-date sources instead of
 running daily and sending nothing.
 
-## Sources scanned, one pass per day
+## Sources scanned
 
-| Source | Trigger | Escalates while overdue? |
-|---|---|---|
-| `rent_payments` (unpaid rows) | `due_date` today or in the past | Yes — notifies again every day it stays unpaid |
-| `mortgage_payments` (unpaid rows) | `due_date` today or in the past | Yes |
-| `custom_goals` (with a `target_date`) | `target_date` today or in the past, **and** not already fully saved (`saved >= target_amount`, when a target amount is set) | Yes, until the goal is fully funded |
-| `documents` (with an `expiry_date`) | `expiry_date` today or in the past | Yes |
-| `events` | `currentOccurrence(event_date, recurring, recurring_interval)` falls exactly on today, and `completed_occurrence` doesn't already match that occurrence | No — a birthday that's passed isn't "overdue," so this fires once, on the day, not daily afterward |
-| `personal_todos` (not done) | `remind_date` today or in the past | Yes, until marked done — see [`20-feature-personal-todos.md`](20-feature-personal-todos.md) for how a repeating one advances instead of escalating forever |
+The edge function itself is polled every 15 minutes (see
+[`11-push-notifications.md`](11-push-notifications.md)), but only
+`personal_todos` actually uses that granularity — every other source
+still only checks/fires once a day, gated behind a fixed
+`DAILY_CHECK_TIME` of 08:00 Australia/Brisbane in the function itself.
+
+| Source | Trigger | Checked | Escalates while overdue? |
+|---|---|---|---|
+| `rent_payments` (unpaid rows) | `due_date` today or in the past | Once/day at 08:00 Brisbane | Yes — notifies again every day it stays unpaid |
+| `mortgage_payments` (unpaid rows) | `due_date` today or in the past | Once/day at 08:00 Brisbane | Yes |
+| `custom_goals` (with a `target_date`) | `target_date` today or in the past, **and** not already fully saved (`saved >= target_amount`, when a target amount is set) | Once/day at 08:00 Brisbane | Yes, until the goal is fully funded |
+| `documents` (with an `expiry_date`) | `expiry_date` today or in the past | Once/day at 08:00 Brisbane | Yes |
+| `events` | `currentOccurrence(event_date, recurring, recurring_interval)` falls exactly on today, and `completed_occurrence` doesn't already match that occurrence | Once/day at 08:00 Brisbane | No — a birthday that's passed isn't "overdue," so this fires once, on the day, not daily afterward |
+| `personal_todos` (not done) | `remind_date` in the past (fires immediately), or `remind_date` today **and** the clock has reached that row's own `remind_time` | Every 15-minute poll | Yes, until marked done — see [`20-feature-personal-todos.md`](20-feature-personal-todos.md) for how a repeating one advances instead of escalating forever |
 
 Every source except `events` reuses the same "due today or overdue"
 threshold as the in-app pill (`dueStatus()` in `app/js/format.js`) — not
@@ -49,8 +55,9 @@ something it was already (silently) notified about today.
 
 ## Timezone
 
-All date comparisons use `Australia/Brisbane`'s calendar date at the
-moment the function runs (`Intl.DateTimeFormat` with that timezone, not a
-hardcoded UTC+10 offset), matching `todayStr()` in `app/js/format.js` and
-the reasoning in [`11-push-notifications.md`](11-push-notifications.md)
-for why the cron itself runs at 22:00 UTC.
+All date (and, for `personal_todos`, time-of-day) comparisons use
+`Australia/Brisbane`'s calendar date/clock at the moment the function
+runs (`Intl.DateTimeFormat` with that timezone, not a hardcoded UTC+10
+offset), matching `todayStr()` in `app/js/format.js` and the reasoning in
+[`11-push-notifications.md`](11-push-notifications.md) for why the fixed
+daily sources' `DAILY_CHECK_TIME` is 08:00 specifically.

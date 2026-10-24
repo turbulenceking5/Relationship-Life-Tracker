@@ -53,6 +53,19 @@ Every feature module exports an async `render(container, ctx)` that:
 `app.js` and `money.js` are the two exceptions that route between
 multiple such modules rather than being one themselves.
 
+### Inline edit forms need `data-editing`
+
+Almost every edit flow is a `<dialog>` (via `makeSheet()`, above) — the
+two exceptions are Goals' and Recipes' "Edit ___" buttons, which swap a
+card's body for a form directly inside `main` rather than opening a
+sheet. Because Realtime live sync (`app.js`'s `scheduleRefresh()`, see
+[`24-live-sync-and-nudges.md`](24-live-sync-and-nudges.md)) can rebuild
+`main` at any time in response to a partner's unrelated change, mark
+that inline form's wrapper with `data-editing="true"` — the refresh
+guard checks for it and skips the rebuild while it's present, same as it
+already skips while a search box has focus. Skip this for anything that
+opens a `<dialog>` instead; those live outside `main` and are never at risk.
+
 ## Card + pill conventions
 
 - A list item is a `.card` containing a `.card-row` (title/meta on the
@@ -70,6 +83,47 @@ multiple such modules rather than being one themselves.
   had it, Expenses/Events/Rent/Documents/Personal to-dos didn't — before
   being made consistent everywhere; keep new delete buttons on this side
   of that line.
+- `.actions-row` buttons use `.btn.small` (10px/14px padding, 0.85rem
+  font — close to the ~44px tap-target guideline without visually
+  bloating a row of three actions on one card) with a 10px gap, plus a
+  little extra `margin-left` before `.btn.danger-text` specifically —
+  Edit/Mark-done/Delete sitting edge-to-edge at a smaller size used to be
+  an easy mis-tap, Delete especially.
+- A secondary action that used to be a plain inline text link (e.g.
+  "Manage categories") is an `.action-chip` — same `color-mix(in srgb,
+  var(--X) N%, transparent)` idiom as `.pill`, but with `--accent`
+  instead of a status color, since it's a tappable action rather than a
+  status. Several on the same screen go in one `.action-chip-row`
+  (`display: flex; flex-wrap: wrap`) rather than one per line.
+
+## Submit buttons: always disable during the async request
+
+**Every form's submit button disables itself and swaps to a "Saving…"
+label for the duration of its `insertRow`/`updateRow` call**, via
+`withBusyLabel(button, label)` in `app/js/dom.js`:
+
+```js
+const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Save');
+// ...
+onsubmit: async (e) => {
+  e.preventDefault();
+  const restore = withBusyLabel(submitBtn, 'Saving…');
+  try {
+    await insertRow(...);
+    closeSheet(dialog); // success — no need to call restore(), the sheet's gone
+  } catch (err) {
+    // show errorEl...
+    restore();
+  }
+},
+```
+
+This was inconsistent for a while too — `documents.js`'s upload form and
+`household.js`'s create/join forms had it, nothing else did — before
+being made consistent everywhere. Without it, a double-tap on a flaky
+connection fires the same insert/update twice before the first request
+even resolves. Keep new forms on this side of that line, same as the
+confirm-before-delete convention above.
 
 ## Collapsible sections: `<details class="goal-section">`
 
@@ -122,6 +176,32 @@ each HTML file's `<head>` (synchronous, before first paint, so there's
 no flash of the wrong theme while `app.js` — an ES module — is still
 loading), and once by `theme.js`'s `setTheme()` when the toggle is used
 mid-session. Both read/write the same `localStorage` key.
+
+## Accessibility: icon-only buttons need `aria-label`, decorative icons need `aria-hidden`
+
+Same OS-driven-by-default philosophy as theming (below): respect the
+browser's/OS's own accessibility signals rather than building a custom
+in-app toggle for them.
+
+- **Any button whose visible content is just an emoji/symbol with no
+  adjacent text** (the ✕ sheet-close, the ⚙️ account button, every "+"
+  FAB, the 💬 comment button, the 🗓️ .ics-download button) needs an
+  `aria-label` — otherwise a screen reader announces only the emoji's
+  Unicode name ("plus sign, button"), with no indication of what it
+  does. A button whose count/label changes after the fact (the comment
+  button's "💬 N") updates its `aria-label` via `setAttribute` alongside
+  its `textContent`, not just once at render time.
+- **A decorative icon sitting next to text that already says the same
+  thing** (home.js's `.card-icon`, the tabbar's `.tab-icon` — a 🏠 next
+  to the word "Home") gets `'aria-hidden': 'true'` instead, so it isn't
+  announced redundantly on top of the text right next to it.
+- **`prefers-reduced-motion: reduce` and `prefers-contrast: more`** are
+  both honored globally in `styles.css` (a blanket
+  animation/transition-duration override for the former, swapped
+  `--text-muted`/`--border` values for the latter, mirroring the
+  OS-driven-plus-forced-theme layering the dark-mode rules below already
+  use) — not a manual in-app toggle, since there's no existing request
+  for one and the OS setting already covers it.
 
 ## Color-by-person (categorical series)
 

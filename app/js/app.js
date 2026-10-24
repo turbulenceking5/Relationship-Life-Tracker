@@ -1,8 +1,8 @@
 import { supabase } from './supabaseClient.js';
-import { h, mount, openSheet, closeSheet, makeSheet } from './dom.js';
+import { h, mount, openSheet, closeSheet, makeSheet, withBusyLabel } from './dom.js';
 import { renderAuthScreen } from './auth.js';
-import { renderHouseholdScreen, getMyHousehold, renderInviteInfo, getHouseholdMembers, updateSplitPercents } from './household.js';
-import { isStandalone, isPushSupported, getSubscriptionStatus, enablePush, disablePush } from './notifications.js';
+import { renderHouseholdScreen, getMyHousehold, renderInviteInfo, getHouseholdMembers, updateSplitPercents, removeMember } from './household.js';
+import { isStandalone, isPushSupported, getSubscriptionStatus, enablePush, disablePush, shouldShowPushPrompt, markPushPromptSeen } from './notifications.js';
 import { getTheme, setTheme } from './theme.js';
 import { getUnseenEntries, markChangelogSeen } from './changelog.js';
 import { shouldShowOnboarding, markOnboardingSeen } from './onboarding.js';
@@ -16,27 +16,115 @@ import {
   connectAsSecondPartner,
   shareFolderWithEmail,
 } from './googleDrive.js';
+import { subscribeHousehold, unsubscribeHousehold } from './realtime.js';
+import { backupHouseholdIfDue, backupHouseholdNow } from './backup.js';
+import { isIos, canPromptInstall, triggerInstall, shouldShowInstallPrompt, markInstallPromptSeen } from './installPrompt.js';
 
 const appEl = document.getElementById('app');
 
 const TABS = [
   { key: 'home', label: 'Home', icon: '🏠', mod: () => import('./home.js') },
-  { key: 'events', label: 'Events', icon: '📅', mod: () => import('./events.js') },
+  { key: 'events', label: 'Events', icon: '🗓️', mod: () => import('./events.js') },
   { key: 'money', label: 'Money', icon: '💰', mod: () => import('./money.js') },
   { key: 'goals', label: 'Goals', icon: '🎯', mod: () => import('./goals.js') },
   { key: 'documents', label: 'Docs', icon: '📄', mod: () => import('./documents.js') },
+  { key: 'todos', label: 'To-dos', icon: '📝', mod: () => import('./personal-todos.js') },
 ];
 
 let currentTab = 'home';
 let ctx = null; // { user, household }
+let mainEl = null;
+let realtimeChannel = null;
+let refreshTimer = null;
+
+// A partner's change to a shared table re-renders the current tab so it
+// shows up without a manual reload — the whole point of a two-person
+// household sharing one data set. Debounced so a burst of changes (e.g.
+// recurring expenses logging several rows at once) triggers one
+// re-render, not one per row. Skipped while someone's actively typing in
+// an inline field (a search box — every add/edit form is a `<dialog>`
+// appended to `document.body`, outside `main`, so this never interrupts
+// filling one out) so a live update can't yank typed text out from
+// under them; the next own action picks up the change anyway. Also
+// skipped while a `[data-editing]` card is open in `main` — Goals' and
+// Recipes' inline "Edit ___" forms render directly into the page rather
+// than a `<dialog>` (unlike every other edit flow in this app), so a
+// plain activeElement check wouldn't catch someone reading the form
+// before they've focused a field yet.
+//
+// `renderMainApp()` always rebuilds `main` from scratch, which would
+// otherwise collapse every open `<details>` section and reset scroll
+// position on every live update — tolerable on a deliberate tab switch,
+// not on a background refresh triggered by someone else's action. Both
+// are captured before the rebuild and restored after, matched by each
+// `<details>`'s `<summary>` text (good enough at this app's scale —
+// goal/recipe/event titles are distinct in practice).
+function scheduleRefresh(table, payload) {
+  if (table === 'households' && payload?.new) {
+    Object.assign(ctx.household, payload.new);
+  }
+  const active = document.activeElement;
+  const typingInline = mainEl && active && mainEl.contains(active) && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
+  const midInlineEdit = mainEl && mainEl.querySelector('[data-editing]');
+  if (typingInline || midInlineEdit) return;
+
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(async () => {
+    const scrollY = window.scrollY;
+    const openSummaries = mainEl
+      ? [...mainEl.querySelectorAll('details[open] > summary')].map((s) => s.textContent)
+      : [];
+    await renderMainApp();
+    if (mainEl && openSummaries.length) {
+      for (const summary of mainEl.querySelectorAll('details > summary')) {
+        if (openSummaries.includes(summary.textContent)) summary.parentElement.open = true;
+      }
+    }
+    window.scrollTo(0, scrollY);
+  }, 400);
+}
 
 async function boot() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
+    if (await shouldShowInstallPrompt(isStandalone())) {
+      mount(appEl, wrapScreen((el) => renderInstallInterstitial(el, () => mount(appEl, wrapScreen((el2) => renderAuthScreen(el2))))));
+      return;
+    }
     mount(appEl, wrapScreen((el) => renderAuthScreen(el)));
     return;
   }
   await afterAuth(session.user);
+}
+
+// Shown once per browser, before auth even loads — see
+// docs/26-feature-install-prompt.md for why this needs to run pre-signup
+// rather than just nudging about it afterward (push notifications and
+// offline access both require the app to already be installed, so
+// someone who signs up first and installs later gets a confusing "why
+// doesn't this work yet" gap in between).
+function renderInstallInterstitial(container, onContinue) {
+  const continueNow = () => { markInstallPromptSeen(); onContinue(); };
+
+  const actionEl = canPromptInstall()
+    ? h('button', {
+        class: 'btn primary',
+        onclick: async (e) => {
+          e.target.disabled = true;
+          await triggerInstall();
+          continueNow();
+        },
+      }, 'Install app')
+    : isIos()
+      ? h('p', { class: 'meta' }, 'Tap the Share button below, then "Add to Home Screen".')
+      : null;
+
+  mount(container, h('div', { class: 'auth-screen' }, [
+    h('h1', {}, 'Life Tracker'),
+    h('p', { class: 'lead' }, 'Install this app to your Home Screen for the full experience — due-date reminders and offline access only work once it\'s installed, not in a regular browser tab.'),
+    actionEl,
+    h('button', { class: 'link-btn', type: 'button', onclick: continueNow }, 'Continue in browser'),
+  ]));
 }
 
 async function afterAuth(user) {
@@ -55,7 +143,12 @@ async function afterAuth(user) {
 
   ctx = { user, household };
   renderMainApp();
-  showOnboardingIfNeeded(showChangelogIfUnseen);
+  showOnboardingIfNeeded(() => showChangelogIfUnseen(showPushPromptIfNeeded));
+  realtimeChannel = subscribeHousehold(household.id, scheduleRefresh);
+  // Silent, best-effort, independent of the dialog chain above — see
+  // docs/25-feature-backup.md for why this runs on app open rather than
+  // a real server-scheduled job.
+  backupHouseholdIfDue(ctx);
 }
 
 // Shown once ever per browser, before the changelog dialog (chained via
@@ -89,10 +182,16 @@ function showOnboardingIfNeeded(onDone) {
 
 // Runs once per app load (from afterAuth, not from every tab switch or
 // account-sheet open) so "What's new" reflects what changed since this
-// browser last saw it, not since the current session started.
-function showChangelogIfUnseen() {
+// browser last saw it, not since the current session started. Chains
+// into onDone (the push-notification prompt below) the same way
+// showOnboardingIfNeeded() chains into this, so only one dialog is ever
+// open at once.
+function showChangelogIfUnseen(onDone) {
   const unseen = getUnseenEntries();
-  if (!unseen.length) return;
+  if (!unseen.length) {
+    onDone();
+    return;
+  }
 
   const { dialog, body } = makeSheet("What's new");
   mount(body, [
@@ -106,7 +205,53 @@ function showChangelogIfUnseen() {
   // Any way of closing (this button, the sheet's own ✕, tap-outside)
   // counts as "seen" — someone dismissing via the ✕ isn't asking to be
   // reminded later.
-  dialog.addEventListener('close', () => { markChangelogSeen(); dialog.remove(); });
+  dialog.addEventListener('close', () => { markChangelogSeen(); dialog.remove(); onDone(); });
+  openSheet(dialog);
+}
+
+// Last link in the onboarding → changelog → push-prompt chain — asks
+// once per browser whether to turn on due-date push notifications, for
+// anyone who hasn't already and could actually turn it on right now
+// (see shouldShowPushPrompt() in notifications.js: push supported, app
+// installed to the home screen, not already enabled). Needs an async
+// status check first, unlike the other two links, since "already
+// enabled" depends on a query rather than just a localStorage flag.
+async function showPushPromptIfNeeded() {
+  let status;
+  try {
+    status = await getSubscriptionStatus(ctx);
+  } catch {
+    return; // couldn't tell either way — don't nag if the check itself failed
+  }
+  if (!shouldShowPushPrompt(status)) return;
+
+  const { dialog, body } = makeSheet('Get notified');
+  const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
+  const enableBtn = h('button', { class: 'btn primary' }, 'Enable notifications');
+  enableBtn.addEventListener('click', async () => {
+    errorEl.style.display = 'none';
+    const restore = withBusyLabel(enableBtn, 'Enabling…');
+    try {
+      await enablePush(ctx);
+      closeSheet(dialog);
+    } catch (err) {
+      errorEl.textContent = err.message;
+      errorEl.style.display = 'block';
+      restore();
+    }
+  });
+  mount(body, [
+    h('p', {}, 'Get a push notification for due rent/mortgage payments, upcoming events, goal dates, and your own reminders — nothing to open and check, it just lets you know.'),
+    errorEl,
+    enableBtn,
+    h('button', { class: 'btn secondary', style: 'margin-top:8px', onclick: () => closeSheet(dialog) }, 'Not now'),
+  ]);
+  document.body.appendChild(dialog);
+  // Same "any way of closing counts as seen" rule as the changelog
+  // dialog above — declining via "Not now", the sheet's own ✕, or
+  // tap-outside are all treated the same, and notifications can still be
+  // turned on later from ⚙️ Account & household either way.
+  dialog.addEventListener('close', () => { markPushPromptSeen(); dialog.remove(); });
   openSheet(dialog);
 }
 
@@ -130,9 +275,10 @@ async function renderMainApp() {
     h('button', {
       class: t.key === currentTab ? 'active' : '',
       onclick: () => { currentTab = t.key; renderMainApp(); },
-    }, [h('span', { class: 'tab-icon' }, t.icon), h('span', {}, t.label)])
+    }, [h('span', { class: 'tab-icon', 'aria-hidden': 'true' }, t.icon), h('span', {}, t.label)])
   ));
 
+  mainEl = main;
   mount(appEl, [topbar, main, tabbar]);
 
   const tab = TABS.find((t) => t.key === currentTab);
@@ -143,7 +289,7 @@ async function renderMainApp() {
   try {
     if (tab.key === 'home') {
       await mod.render(main, ctx, async (key) => {
-        if (key === 'expenses' || key === 'rent' || key === 'groceries' || key === 'todos') {
+        if (key === 'expenses' || key === 'rent' || key === 'groceries') {
           const moneyMod = await import('./money.js');
           moneyMod.setActiveSub(key);
           currentTab = 'money';
@@ -166,10 +312,13 @@ function showAccountSheet() {
   const notificationsSection = h('div', { class: 'meta' }, 'Checking notification status…');
   const splitSection = h('div', { class: 'meta' }, 'Loading…');
   const driveSection = h('div', {});
+  const membersSection = h('div', { class: 'meta' }, 'Loading…');
 
   mount(body, [
     h('p', { class: 'meta' }, ctx.user.email),
     renderInviteInfo(ctx.household),
+    h('div', { class: 'section-title' }, 'Household members'),
+    membersSection,
     h('div', { class: 'section-title' }, 'Theme'),
     renderThemeToggle(),
     h('div', { class: 'section-title' }, 'Expense split'),
@@ -191,6 +340,77 @@ function showAccountSheet() {
   renderNotificationsSection(notificationsSection);
   renderSplitSection(splitSection);
   renderDriveSection(driveSection);
+  renderMembersSection(membersSection, dialog);
+}
+
+// Lists the household roster with a "Leave household" action on your
+// own row and, if you're the owner, a "Remove" action on the other
+// member's row. Both call the same remove_household_member() RPC (see
+// household.js) — the owner-only restriction on removing someone else
+// is enforced there, server-side, not just by this button being hidden.
+async function renderMembersSection(container, accountDialog) {
+  let members;
+  try {
+    members = await getHouseholdMembers(ctx.household.id);
+  } catch (err) {
+    mount(container, h('p', { class: 'error-msg' }, `Could not load members: ${err.message}`));
+    return;
+  }
+
+  const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
+  const isOwner = ctx.household.myRole === 'owner';
+
+  function memberRow(m) {
+    const isSelf = m.user_id === ctx.user.id;
+    const label = `${m.display_name}${isSelf ? ' (you)' : ''}${m.role === 'owner' ? ' · owner' : ''}`;
+
+    let actionBtn = null;
+    if (isSelf) {
+      actionBtn = h('button', {
+        class: 'btn danger-text small',
+        onclick: async () => {
+          if (!confirm('Leave this household? You\'ll lose access to its shared events, expenses, goals, and documents.')) return;
+          errorEl.style.display = 'none';
+          try {
+            await removeMember(m.user_id);
+            closeSheet(accountDialog);
+            // getMyHousehold() now returns null for this user, so
+            // re-running the normal post-auth check routes to the
+            // create/join screen, same as it would for a brand-new
+            // account — no separate "you left" screen needed.
+            await afterAuth(ctx.user);
+          } catch (err) {
+            errorEl.textContent = err.message;
+            errorEl.style.display = 'block';
+          }
+        },
+      }, 'Leave household');
+    } else if (isOwner) {
+      actionBtn = h('button', {
+        class: 'btn danger-text small',
+        onclick: async () => {
+          if (!confirm(`Remove ${m.display_name} from this household? They'll lose access immediately.`)) return;
+          errorEl.style.display = 'none';
+          try {
+            await removeMember(m.user_id);
+            // Re-render the whole sheet, not just this section — the
+            // Expense split section above also depends on the member
+            // list (it was fetched once when the sheet opened) and
+            // would otherwise keep showing the removed person.
+            closeSheet(accountDialog);
+            showAccountSheet();
+          } catch (err) {
+            errorEl.textContent = err.message;
+            errorEl.style.display = 'block';
+          }
+        },
+      }, 'Remove');
+    }
+
+    return h('div', { class: 'card-row', style: 'padding:6px 0' }, [h('span', {}, label), actionBtn]);
+  }
+
+  mount(container, [h('div', {}, members.map(memberRow)), errorEl]);
 }
 
 // Documents now live in a shared Google Drive folder rather than
@@ -236,9 +456,32 @@ function renderDriveSection(container) {
         btn,
       ];
     } else if (hasLocalDriveAccess(ctx)) {
+      const backupErrorEl = h('div', { class: 'error-msg', style: 'display:none' });
+      const backupStatusEl = h('p', { class: 'meta' }, ctx.household.last_backup_at
+        ? `Last backup: ${formatDate(ctx.household.last_backup_at.slice(0, 10))}`
+        : 'No backup yet — happens automatically in the background about once a week, or tap below to run one now.');
+      const backupBtn = h('button', {
+        class: 'btn secondary small',
+        onclick: async () => {
+          backupErrorEl.style.display = 'none';
+          const restore = withBusyLabel(backupBtn, 'Backing up…');
+          try {
+            await backupHouseholdNow(ctx);
+            backupStatusEl.textContent = `Last backup: ${formatDate(ctx.household.last_backup_at.slice(0, 10))}`;
+            restore();
+          } catch (err) {
+            backupErrorEl.textContent = err.message;
+            backupErrorEl.style.display = 'block';
+            restore();
+          }
+        },
+      }, 'Back up now');
       rows = [
         h('p', { class: 'meta' }, `Connected — documents are stored in "${ctx.household.drive_folder_name}" in Google Drive.`),
         h('a', { class: 'btn secondary small', href: folderUrl(ctx.household), target: '_blank', rel: 'noopener' }, 'Open folder in Drive'),
+        backupStatusEl,
+        backupBtn,
+        backupErrorEl,
       ];
     } else {
       btn = h('button', {
@@ -391,6 +634,8 @@ async function renderNotificationsSection(container) {
 
 supabase.auth.onAuthStateChange((event, session) => {
   if (event === 'SIGNED_OUT') {
+    unsubscribeHousehold(realtimeChannel);
+    realtimeChannel = null;
     ctx = null;
     currentTab = 'home';
     mount(appEl, wrapScreen((el) => renderAuthScreen(el)));

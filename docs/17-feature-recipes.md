@@ -21,6 +21,19 @@ plus two subgroups: **Ingredients** and **Instructions**.
 - Edit/delete live inside the expanded body (mirrors the Goals edit
   pattern) rather than as buttons on the collapsed summary row, so the
   collapsed view stays just the title.
+- A search box (shown once there's more than zero recipes) filters by
+  title, matching the Expenses/Documents/Grocery List pattern.
+
+## Add ingredients to Grocery List (shipped)
+A "+ Add ingredients to Grocery List" button sits above a recipe's
+Instructions section (only shown when it has ingredients) and inserts
+every ingredient line as its own `grocery_items` row via
+`guessCategory()` (imported from `grocery.js`) — the same auto-
+categorization the Grocery List's own add form uses, so "500g beef
+mince" lands under Meat without anyone touching a dropdown. The button
+shows a transient "Added N items ✓" confirmation (2 seconds) rather than
+navigating away, since you're usually mid-meal-planning and still on the
+recipe. See [`16-feature-grocery-list.md`](16-feature-grocery-list.md).
 
 ## Data
 See `recipes` table in [`02-data-model.md`](02-data-model.md).

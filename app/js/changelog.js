@@ -169,6 +169,443 @@ export const CHANGELOG_ENTRIES = [
       'The "To buy" list is grouped into sections by category, in shop-aisle order',
     ],
   },
+  {
+    id: 18,
+    date: '2026-10-01',
+    title: 'Grocery items categorize themselves',
+    items: [
+      'Typing a grocery item now guesses its category automatically — "Milk" picks Dairy, "Chicken" picks Meat, and so on',
+      'Anything not recognized falls back to Other, with the category dropdown always there to pick the right one by hand',
+    ],
+  },
+  {
+    id: 19,
+    date: '2026-10-02',
+    title: 'My To-dos reminders now fire at the right time',
+    items: [
+      'A reminder set for a specific time (e.g. 6:30am) now notifies then, not just whenever the once-daily check happened to run',
+    ],
+  },
+  {
+    id: 20,
+    date: '2026-10-02',
+    title: 'Grocery items can now be edited, and recipes can fill your list',
+    items: [
+      'Grocery items can now be edited (title, quantity, category) instead of delete-and-re-add, and the list gets its own search box',
+      'A new "Add ingredients to Grocery List" button on any recipe pushes its ingredients straight onto your To Buy list, auto-categorized',
+      'A repeating My To-dos reminder marked done by hand now correctly moves to its next occurrence instead of disappearing for good',
+      'Expense, grocery, and event cards now show who added them when that differs from who’s otherwise shown',
+      'Every "Save" button now shows a brief "Saving…" state so a slow connection can’t cause a double-submit',
+    ],
+  },
+  {
+    id: 21,
+    date: '2026-10-02',
+    title: 'Shared note, event-goal links, chore rotation, and goal celebrations',
+    items: [
+      'A shared sticky note on Home for quick messages to each other — "grabbed milk already", that sort of thing',
+      'A recurring event can now alternate between the two of you each occurrence (e.g. bin day) instead of always showing the same person',
+      'An event can be linked to a goal, showing up on its card (e.g. "Anniversary dinner" linked to your Wedding Fund)',
+      'Reaching a savings goal now gets a one-time confetti celebration',
+      'Rent/mortgage shows a quiet "paid on time N periods running" streak once you\'ve built one up',
+    ],
+  },
+  {
+    id: 22,
+    date: '2026-10-02',
+    title: 'Live sync, remind-your-partner, and a weekly digest',
+    items: [
+      'A change either of you makes — adding an expense, ticking off a grocery item, logging rent as paid — now shows up on the other person\'s phone automatically, no reload needed',
+      'A "🔔 Remind" button on any overdue item in "What\'s due" sends your partner a one-tap push nudge instead of texting them separately',
+      'A weekly push recaps the week — total spent, total saved toward goals, and what\'s coming up — sent once, every Sunday evening',
+    ],
+  },
+  {
+    id: 23,
+    date: '2026-10-02',
+    title: 'Finish or close a goal',
+    items: [
+      'A goal can now be marked finished — useful once you\'ve hit the target, or for a plain checklist-style goal with no target amount that was never going to "complete" on its own',
+      'Finished goals move into a collapsed "Closed goals" section at the bottom of the tab, and can be reopened any time',
+    ],
+  },
+  {
+    id: 24,
+    date: '2026-10-04',
+    title: 'Bug fixes: the partner-remind nudge, live sync, and search',
+    items: [
+      'Fixed the "🔔 Remind" nudge not actually working in most browsers',
+      'A partner\'s live update no longer interrupts you mid-edit on a goal or recipe, or collapses a section you had open',
+      'Added search boxes to Events and My To-dos, matching every other list',
+      'Documents now show who added them, like every other card type',
+    ],
+  },
+  {
+    id: 25,
+    date: '2026-10-04',
+    title: 'The app now asks if you want notifications',
+    items: [
+      'If you haven\'t turned on push notifications yet, the app now asks once — "Enable notifications" or "Not now"',
+      'Say "Not now" and it won\'t ask again, but you can still turn it on any time from ⚙️ Account & household',
+    ],
+  },
+  {
+    id: 26,
+    date: '2026-10-04',
+    title: 'Leave a household, or remove a member',
+    items: [
+      'A new "Household members" section in ⚙️ Account & household lets you leave the household',
+      'Whoever created the household can also remove the other member — useful if you split up and want to cut off their access',
+    ],
+  },
+  {
+    id: 27,
+    date: '2026-10-04',
+    title: 'Log a personal expense without splitting it',
+    items: [
+      'A new "Personal expense" checkbox on Add/Edit expense excludes it from the shared balance entirely',
+      'Useful for a gift or purely personal purchase you still want tracked — no need for a 100/0 split to fake it',
+    ],
+  },
+  {
+    id: 28,
+    date: '2026-10-04',
+    title: 'Comment on an expense or event',
+    items: [
+      'A new 💬 button on any expense or event opens a comment thread for back-and-forth notes — "did we ever get reimbursed for this?", "who\'s picking up the cake?"',
+      'Either partner can post or delete a comment',
+    ],
+  },
+  {
+    id: 29,
+    date: '2026-10-04',
+    title: 'Chore fairness tally',
+    items: [
+      'A rotating recurring event (bin day, etc.) now shows a running tally of how many turns each of you has had, next to "It\'s your turn"',
+    ],
+  },
+  {
+    id: 30,
+    date: '2026-10-04',
+    title: 'Download an event to your phone calendar',
+    items: [
+      'A new "🗓️" button on any event downloads it as a calendar file you can import into Apple/Google/Outlook Calendar',
+    ],
+  },
+  {
+    id: 31,
+    date: '2026-10-04',
+    title: 'Automatic backup to Google Drive',
+    items: [
+      'If you\'ve connected Google Drive, your data now backs up there automatically every week or so — no action needed',
+      'A new "Back up now" button in ⚙️ Account & household → Documents storage runs one immediately',
+    ],
+  },
+  {
+    id: 32,
+    date: '2026-10-04',
+    title: 'Accessibility pass',
+    items: [
+      'Every icon-only button (add, comments, calendar download) now has a screen-reader label',
+      'The app now respects your phone\'s "reduce motion" and "increase contrast" accessibility settings',
+    ],
+  },
+  {
+    id: 33,
+    date: '2026-10-04',
+    title: 'A nudge to install before you sign up',
+    items: [
+      'First time opening the app in a regular browser tab, it now offers to install to your Home Screen before you even sign up or log in — due-date reminders and offline access need that to work',
+      'Shown once; "Continue in browser" (or just dismissing it) skips it, and you can still install any time later from Share → Add to Home Screen',
+    ],
+  },
+  {
+    id: 34,
+    date: '2026-10-06',
+    title: 'Fixed the Events icon looking like a stuck date',
+    items: [
+      'The Events tab, appointment icon, and ".ics" download button used a calendar emoji that some phones render with a fixed, unrelated date baked right into the icon — replaced with one that doesn\'t',
+    ],
+  },
+  {
+    id: 35,
+    date: '2026-10-06',
+    title: 'Tidied up the calendar-download button',
+    items: [
+      'The "🗓️ .ics" button on each event is now just the icon — same download, less label clutter',
+    ],
+  },
+  {
+    id: 36,
+    date: '2026-10-06',
+    title: 'Fixed "can\'t upload docs" / "Google scripts isn\'t loading"',
+    items: [
+      'Uploading a document to Drive, or backing up, could fail with "Google scripts did not load in time" — a background caching bug was interfering with those scripts loading at all',
+      'If it still happens, it means something on your network (a content blocker, restrictive Wi-Fi) is blocking Google\'s own sign-in page — try a different network or turning off any ad/content blockers',
+    ],
+  },
+  {
+    id: 37,
+    date: '2026-10-06',
+    title: 'Backups now clean up after themselves',
+    items: [
+      'Only the 10 most recent backups are kept in Drive — older ones are deleted automatically so the folder doesn\'t fill up with years of dated files',
+    ],
+  },
+  {
+    id: 38,
+    date: '2026-10-07',
+    title: 'New "Statement overview" tab for bank statements',
+    items: [
+      'Upload a bank statement (CSV or PDF) and it\'s parsed into transactions, auto-categorized where confident — the month (or months, if your statement spans more than one) is detected automatically too, nothing to pick or confirm',
+      'Anything it can\'t confidently categorize lands in "Needs review" for you to assign a category to',
+      'Each statement gets a spending-by-category breakdown plus a trend vs. your last statement',
+      'Statements upload into your existing shared Drive folder, renamed to their month/year',
+    ],
+  },
+  {
+    id: 39,
+    date: '2026-10-07',
+    title: 'Fixed PDF statements silently finding zero transactions',
+    items: [
+      'PDF statement uploads were quietly failing to read anything at all — fixed a broken library link that affected every PDF upload',
+      'Fixed the actual transaction amount sometimes being swapped for the running balance shown next to it on bank statements that list one',
+    ],
+  },
+  {
+    id: 40,
+    date: '2026-10-07',
+    title: 'Bulk category assignment on statement transactions',
+    items: [
+      'Categorizing a transaction on a statement no longer closes the whole month — pick categories for as many transactions as you like, then hit one "Save changes" button to save them all at once',
+    ],
+  },
+  {
+    id: 41,
+    date: '2026-10-07',
+    title: 'Statement overview is now private — renamed "My Statements"',
+    items: [
+      'Your uploaded bank statements and their transactions are now visible only to you, not your partner — same as My To-dos',
+      'Renamed "Statement overview" to "My Statements" in the Money tab to reflect that',
+    ],
+  },
+  {
+    id: 42,
+    date: '2026-10-07',
+    title: 'Three new expense categories: Food, Pet, Online Shopping',
+    items: [
+      'Added Food, Pet, and Online Shopping to the category list on expenses and statement transactions',
+      'Dining out and takeaway (restaurants, Uber Eats, DoorDash, etc.) now auto-categorize as Food on statement uploads instead of Leisure',
+    ],
+  },
+  {
+    id: 43,
+    date: '2026-10-07',
+    title: 'Statement categorization now learns from your picks',
+    items: [
+      'Manually categorizing a transaction now teaches the app that merchant — the next one from the same place auto-categorizes instead of landing in "Needs review" again',
+      'Saving also re-checks everything else still in "Needs review" against what you\'ve taught it, across every statement, so your existing backlog gets cleaned up too, not just future uploads',
+    ],
+  },
+  {
+    id: 44,
+    date: '2026-10-07',
+    title: 'Income category for money coming into your account',
+    items: [
+      'Added an Income category on statement transactions (salary, refunds, Centrelink, dividends, etc. auto-detect) — expenses still only cover money going out, so this one\'s just for statements',
+    ],
+  },
+  {
+    id: 45,
+    date: '2026-10-07',
+    title: 'Fixed an incoming rent deposit being miscategorized as a rent expense',
+    items: [
+      'An incoming rent payment could get silently filed as a rent expense instead of income — categorization now checks whether money is coming in or going out before guessing, so this can\'t happen for any category',
+    ],
+  },
+  {
+    id: 46,
+    date: '2026-10-07',
+    title: 'Manage your learned categories',
+    items: [
+      'New "Manage learned categories" link on My Statements — see every merchant you\'ve taught the app, fix a bad guess, or delete it outright',
+    ],
+  },
+  {
+    id: 47,
+    date: '2026-10-07',
+    title: 'Fixed a learned category that could override everything else',
+    items: [
+      'A blank or near-blank transaction description (or a very short pick, like a single letter) could silently learn a rule that matched almost every transaction, overriding its real category — learning and matching now both ignore a key that short or empty',
+    ],
+  },
+  {
+    id: 48,
+    date: '2026-10-08',
+    title: 'Spending trend chart and a Yearly view for My Statements',
+    items: [
+      'A new line chart on My Statements shows your spending and income over time, with Month/Year/Custom date range options',
+      'My Statements can now also be viewed condensed by Year instead of by month, with the same category breakdown and year-over-year trend',
+    ],
+  },
+  {
+    id: 49,
+    date: '2026-10-08',
+    title: 'Add your own categories',
+    items: [
+      'New "Manage categories" link on Expenses (and My Statements) lets you add your own category, shared with your partner, on top of the built-in list',
+    ],
+  },
+  {
+    id: 50,
+    date: '2026-10-08',
+    title: '"By Category" bar chart and PDF export for My Statements',
+    items: [
+      'New "By Category" tab on My Statements’ chart shows a bar for each category’s spending in a month or year you pick',
+      'Added an "Export PDF" button there — opens a printable report for that period you can save as a PDF from your browser’s print dialog',
+    ],
+  },
+  {
+    id: 51,
+    date: '2026-10-08',
+    title: 'Colorful action chips on My Statements and Expenses',
+    items: [
+      '"Open the shared Drive folder", "Manage learned categories" and "Manage categories" are now colorful tappable chips instead of plain text links',
+    ],
+  },
+  {
+    id: 52,
+    date: '2026-10-08',
+    title: 'Fixed learned categories matching unrelated transactions',
+    items: [
+      'A learned category rule (e.g. "blue" → Food, from "Blue Mountains Cafe") could wrongly match any other transaction that merely contained that word anywhere, like "Westpac Blue Card Fee" — it now only matches a transaction whose own leading word is the same',
+    ],
+  },
+  {
+    id: 53,
+    date: '2026-10-08',
+    title: '"Delete all" for learned categories',
+    items: [
+      'New "Delete all" button on "Manage learned categories" clears every learned rule in one tap and one confirm, instead of deleting them one at a time',
+    ],
+  },
+  {
+    id: 54,
+    date: '2026-10-09',
+    title: 'Document notes',
+    items: [
+      'Documents can now have a free-text note, shown on their card',
+      'Searching documents now also matches notes, not just the title',
+    ],
+  },
+  {
+    id: 55,
+    date: '2026-10-09',
+    title: 'CSV export for expenses and goals',
+    items: [
+      'Export CSV on the Expenses tab downloads your full expense list — handy for taxes or your own records',
+      'Each goal gets its own Export CSV next to "+ Add transaction", for just that goal\'s saved/spent history',
+    ],
+  },
+  {
+    id: 56,
+    date: '2026-10-09',
+    title: 'Find & fix any transaction’s category',
+    items: [
+      'New search box on My Statements finds a transaction by description across every month at once, not just the one it’s in',
+      'Change its category right there and it saves immediately — works on already-categorized transactions too, not just ones in "Needs review"',
+    ],
+  },
+  {
+    id: 57,
+    date: '2026-10-12',
+    title: 'Photos are compressed before upload',
+    items: [
+      'A document photo (receipt, warranty plate, etc.) is now automatically resized and compressed before uploading to Drive — a multi-MB phone photo becomes a few hundred KB, with no real loss in readability',
+      'Skipped for anything already small, or that isn’t a photo — a PDF or other file type uploads exactly as before',
+    ],
+  },
+  {
+    id: 58,
+    date: '2026-10-12',
+    title: 'Choose a photo’s upload size yourself',
+    items: [
+      'Picking a photo to upload now shows Small/Medium/Large options with the real file size next to each one, instead of silently picking a size for you',
+      'Medium is pre-selected, but pick whichever size you want before uploading',
+    ],
+  },
+  {
+    id: 59,
+    date: '2026-10-12',
+    title: 'Undo a mistaken "Mark as received"/"Mark as paid" on BrackenRidge',
+    items: [
+      'A paid rent or mortgage period in the History section now has an "Undo" button, for when you mark one by mistake',
+      'Also removes the next period it auto-created, as long as nothing has happened to that one yet',
+    ],
+  },
+  {
+    id: 60,
+    date: '2026-10-12',
+    title: 'Undo no longer leaves two upcoming BrackenRidge periods showing',
+    items: [
+      'Undoing an older rent/mortgage period (from before the Undo button existed) could leave two unpaid cards showing at once',
+      'Undo now offers to remove the extra one too, showing its due date and amount so you can confirm it’s the right one',
+    ],
+  },
+  {
+    id: 61,
+    date: '2026-10-13',
+    title: 'One-tap 50/50 split on expenses',
+    items: [
+      'Adding or editing an expense now has a "Split 50/50" button that sets an even split in one tap, instead of typing numbers by hand',
+      'Removed the explanation text under the split fields',
+    ],
+  },
+  {
+    id: 62,
+    date: '2026-10-14',
+    title: 'Custom recurring dates for BrackenRidge rent/mortgage',
+    items: [
+      'Adding or editing a rent/mortgage period now has a "Specific day(s) of month" option, e.g. "15, 30" for rent that’s credited on fixed dates rather than every N days',
+      'Marking a period received/paid rolls to the next listed date, wrapping into next month once past all of them',
+    ],
+  },
+  {
+    id: 63,
+    date: '2026-10-15',
+    title: 'Tap to pick multiple recurring dates, instead of typing them',
+    items: [
+      'The "Specific day(s) of month" cadence on rent/mortgage periods now shows a 1–31 grid of days to tap, instead of typing a comma-separated list',
+      'Tap as many days as you need — e.g. both 15 and 30 — each one toggles independently',
+    ],
+  },
+  {
+    id: 64,
+    date: '2026-10-16',
+    title: 'Re-uploading a bank statement no longer doubles up transactions',
+    items: [
+      'My Statements now checks a newly uploaded statement against what’s already on file (same date, description and amount) and skips anything already recorded',
+      'If a whole file turns out to be already on file, nothing is saved — no duplicate statement card, no duplicate upload to Drive — and you’re told how much was skipped',
+    ],
+  },
+  {
+    id: 65,
+    date: '2026-10-19',
+    title: 'Fortnightly to-dos, and My To-dos gets its own tab',
+    items: [
+      'Repeating to-do reminders can now be set to "Fortnightly", alongside Daily/Weekly/Monthly (Events already had this option for recurring events)',
+      'My To-dos moved out of the Money tab’s sub-nav into its own top-level "To-dos" tab',
+    ],
+  },
+  {
+    id: 66,
+    date: '2026-10-24',
+    title: 'Paste a whole grocery list at once',
+    items: [
+      'New "📋 Paste list" button on Grocery List — paste a list copied from a notes app (one item per line, e.g. "Milk - 2") and add them all in one go',
+      'Quantities like "Milk - 2", "Milk x2" and "2 x Milk" are picked up automatically; categories are guessed the same way the one-at-a-time add form already does',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

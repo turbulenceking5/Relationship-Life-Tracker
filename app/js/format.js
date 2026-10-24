@@ -6,10 +6,27 @@ export function formatMoney(amount, currency = 'AUD') {
   }
 }
 
+// KB below 1MB (a photo's usual range once resized), MB above — matches
+// how a phone's own Photos/Files app shows a file size, which is the
+// frame of reference someone picking an upload size actually has.
+export function formatBytes(bytes) {
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function formatDate(dateStr) {
   if (!dateStr) return '';
   const d = new Date(dateStr + 'T00:00:00');
   return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// Used for a timestamptz value (e.g. a comment's created_at), unlike
+// formatDate() above which only ever handles a plain "YYYY-MM-DD" — the
+// `+ 'T00:00:00'` trick there would misparse a full timestamp.
+export function formatDateTime(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  return d.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 }
 
 export function todayStr() {
@@ -38,6 +55,40 @@ function toDateStr(d) {
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+// "YYYY-MM-DD" + n days, in local time throughout (toDateStr(), not
+// toISOString()) — used anywhere a due/reminder date needs to roll
+// forward by a fixed number of days (rent.js's "mark as paid → next
+// period," personal-todos.js's daily/weekly repeat). Was previously
+// duplicated in both of those files; one of the two copies used
+// toISOString() and was quietly off by a day for anyone east of UTC
+// (Brisbane included) for the exact reason todayStr()'s comment warns
+// about — consolidating here fixes that, not just the duplication.
+export function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return toDateStr(d);
+}
+
+// Companion to addDays() for a period due on fixed calendar days each
+// month (e.g. rent credited on the 15th and the 30th) rather than a
+// fixed day-count interval -- addDays() would drift here, since "every
+// 15 days" from the 15th doesn't land back on the 30th every time, and
+// never stays aligned once a 30/31-day month is involved. Rolls forward
+// to the next listed day in the current month, or wraps into next
+// month at the smallest one once past all of them -- clamped to that
+// month's last day, same approach as currentOccurrence()'s monthly case
+// above, so e.g. 30 still resolves in February.
+export function nextDueDateFromDaysOfMonth(dateStr, daysOfMonth) {
+  const sorted = [...new Set(daysOfMonth)].sort((a, b) => a - b);
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const next = sorted.find((day) => day > d);
+  const [targetYear, targetMonth, targetDay] = next != null
+    ? [y, m, next]
+    : [m === 12 ? y + 1 : y, m === 12 ? 1 : m + 1, sorted[0]];
+  const daysInTargetMonth = new Date(targetYear, targetMonth, 0).getDate();
+  return `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(Math.min(targetDay, daysInTargetMonth)).padStart(2, '0')}`;
 }
 
 // For a recurring event, maps it onto its occurrence within the CURRENT
@@ -85,11 +136,57 @@ export function currentOccurrence(dateStr, recurring, interval) {
   return `${today.slice(0, 4)}-${month}-${day}`;
 }
 
+// Companion to currentOccurrence() above, for a recurring event with
+// rotate_assignee set (see docs/03-feature-events.md): how many full
+// cycles have elapsed since the event's own anchor date, used to
+// alternate the assignee (even cycle count = the anchor assignee, odd =
+// the other household member). Same per-interval cycle math as
+// currentOccurrence(), just returning the cycle count instead of mapping
+// it onto a date.
+export function occurrenceCycleCount(dateStr, recurring, interval) {
+  if (!dateStr || !recurring) return 0;
+  const today = todayStr();
+
+  if (interval === 'monthly') {
+    const [ay, am] = dateStr.split('-');
+    const [ty, tm] = today.split('-');
+    return Math.max(0, (Number(ty) - Number(ay)) * 12 + (Number(tm) - Number(am)));
+  }
+
+  if (interval === 'weekly' || interval === 'fortnightly') {
+    const stepDays = interval === 'weekly' ? 7 : 14;
+    const anchor = new Date(dateStr + 'T00:00:00');
+    const t = new Date(today + 'T00:00:00');
+    const diffDays = Math.round((t - anchor) / 86400000);
+    return diffDays < 0 ? 0 : Math.floor(diffDays / stepDays);
+  }
+
+  // yearly (default/fallback)
+  const [ay] = dateStr.split('-');
+  const [ty] = today.split('-');
+  return Math.max(0, Number(ty) - Number(ay));
+}
+
+// Shared overdue/due-soon/ok day-threshold bucketing behind dueStatus()
+// (below) and expiryStatus() (documents.js, for a document's expiry
+// rather than a bill's due date) — a threshold change here updates both
+// at once instead of relying on two hand-copied day-count checks staying
+// in sync. Callers vary only the label wording via `labels`; `today` and
+// `ok` are optional since expiryStatus() doesn't special-case "today"
+// and shows no label once something isn't expiring soon.
+export function dayThresholdStatus(days, labels) {
+  if (days == null) return { label: '', cls: '' };
+  if (days < 0) return { label: labels.overdue(Math.abs(days)), cls: 'overdue' };
+  if (days === 0 && labels.today) return { label: labels.today(), cls: 'due-soon' };
+  if (days <= 14) return { label: labels.soon(days), cls: 'due-soon' };
+  return { label: labels.ok ? labels.ok(days) : '', cls: 'ok' };
+}
+
 export function dueStatus(dateStr) {
-  const days = daysUntil(dateStr);
-  if (days === null) return { label: '', cls: '' };
-  if (days < 0) return { label: `Overdue ${Math.abs(days)}d`, cls: 'overdue' };
-  if (days === 0) return { label: 'Due today', cls: 'due-soon' };
-  if (days <= 14) return { label: `Due in ${days}d`, cls: 'due-soon' };
-  return { label: `Due in ${days}d`, cls: 'ok' };
+  return dayThresholdStatus(daysUntil(dateStr), {
+    overdue: (d) => `Overdue ${d}d`,
+    today: () => 'Due today',
+    soon: (d) => `Due in ${d}d`,
+    ok: (d) => `Due in ${d}d`,
+  });
 }

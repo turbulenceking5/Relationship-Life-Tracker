@@ -32,7 +32,16 @@ database:
    minimal in-memory query builder (supporting `select/eq/order/insert/
    update/upsert/delete/single/maybeSingle`) covers nearly everything —
    see any commit in this repo's history that touched `goals.js` or
-   `events.js` for a working example to copy from.
+   `events.js` for a working example to copy from. Since `app.js` now
+   always calls `supabase.channel()`/`removeChannel()` at boot (Realtime
+   live sync — see
+   [`24-live-sync-and-nudges.md`](24-live-sync-and-nudges.md)) and
+   `home.js` calls `supabase.functions.invoke()` (the remind-partner
+   nudge), the mock needs no-op stubs for those too or the app throws on
+   load — a `channel()` returning `{ on() { return this }, subscribe()
+   { return this } }` and a `functions.invoke()` resolving `{ data, error:
+   null }` are enough; neither one needs to actually behave like
+   Realtime/a push send for a UI-logic test to pass.
 3. Serve `app/` and drive it with Playwright (already installed in the
    Claude Code sandbox this app has been developed in — see below).
 4. **Always restore the real file before committing**:

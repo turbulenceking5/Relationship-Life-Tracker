@@ -53,6 +53,9 @@ this" instead of a raw UUID.
 | `drive_folder_id` | text | optional, Google Drive folder id for shared document storage — see [`21-google-drive-documents.md`](21-google-drive-documents.md) |
 | `drive_folder_name` | text | optional, that folder's display name |
 | `drive_connected_by` | uuid → auth.users | optional, whichever partner ran the initial connect and owns the folder in their own Drive |
+| `shared_note` | text | optional, free-text sticky note shown on Home, editable by either partner — see [`22-feature-home-dashboard.md`](22-feature-home-dashboard.md) |
+| `last_reminded_at` | timestamptz | optional, cooldown tracking for the `remind-partner` edge function — see [`24-live-sync-and-nudges.md`](24-live-sync-and-nudges.md) |
+| `last_backup_at` | timestamptz | optional, when household data was last backed up to Drive — see [`25-feature-backup.md`](25-feature-backup.md) |
 
 ### `household_members`
 | column | type | notes |
@@ -84,6 +87,9 @@ embed failed with "Could not find a relationship."
 | `recurring_interval` | text | `weekly` \| `fortnightly` \| `monthly` \| `yearly`; default `yearly`. Only meaningful when `recurring` is true — a stray value on a non-recurring row is harmless and ignored |
 | `completed_occurrence` | date, nullable | the occurrence date manually marked done, compared against `currentOccurrence()` each render — see [`03-feature-events.md`](03-feature-events.md) |
 | `last_notified_date` | date | last day `notify-due-items` sent a push for this row — see [`19-notification-sources.md`](19-notification-sources.md) |
+| `rotate_assignee` | boolean | default false; alternates `assignee_user_id` between the two household members each occurrence — see [`03-feature-events.md`](03-feature-events.md) |
+| `assignee_user_id` | uuid → auth.users, nullable, `on delete set null` | the anchor assignee that `rotate_assignee`'s parity is computed from |
+| `related_goal_id` | uuid → custom_goals, nullable, `on delete set null` | optional link to a goal — see [`03-feature-events.md`](03-feature-events.md) |
 | `created_by` | uuid → auth.users | |
 | `created_at` / `updated_at` | timestamptz | |
 
@@ -101,8 +107,25 @@ embed failed with "Could not find a relationship."
 | `notes` | text | optional |
 | `split_percent` | numeric(5,2) | nullable; overrides the household default split for this expense only — see [`04-feature-expenses.md`](04-feature-expenses.md) |
 | `split_percent_user_id` | uuid → auth.users | nullable; which member `split_percent` is that member's share of (the other member gets the complement) |
+| `is_personal` | boolean | default false; excludes the expense from the "who owes who" balance entirely — see [`04-feature-expenses.md`](04-feature-expenses.md) |
 | `created_by` | uuid → auth.users | |
 | `created_at` / `updated_at` | timestamptz | |
+
+### `custom_categories`
+See [`04-feature-expenses.md`](04-feature-expenses.md) → "Custom
+categories". A household-added category on top of the hardcoded
+`CATEGORIES` list in `app/js/expenses.js` — shared across the
+household and across features (also pickable on My Statements, see
+[`27-feature-bank-statements.md`](27-feature-bank-statements.md)).
+
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `household_id` | uuid → households | |
+| `name` | text | unique per household |
+| `direction` | text | `'out'` (expense) \| `'in'` (income); default `'out'`. Only meaningful on My Statements — a logged expense is always an outflow |
+| `created_by` | uuid → auth.users | |
+| `created_at` | timestamptz | |
 
 ### `recurring_expenses`
 See [`04-feature-expenses.md`](04-feature-expenses.md). A template that
@@ -125,6 +148,22 @@ job, rather than a real ledger entry itself.
 | `created_by` | uuid → auth.users | |
 | `created_at` / `updated_at` | timestamptz | |
 
+### `item_comments`
+See [`04-feature-expenses.md`](04-feature-expenses.md) → "Comment
+thread". A comment on an `expenses` or `events` row — `entity_type`/
+`entity_id` is a plain polymorphic reference, not a real foreign key,
+since it points at rows in either table.
+
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `household_id` | uuid → households | |
+| `entity_type` | text | `'expense'` or `'event'` |
+| `entity_id` | uuid | the commented-on row's id (no FK — polymorphic) |
+| `author_id` | uuid → auth.users | |
+| `body` | text | required |
+| `created_at` | timestamptz | |
+
 ### `personal_todos`
 See [`20-feature-personal-todos.md`](20-feature-personal-todos.md). The
 one table scoped to a single user rather than the whole household — its
@@ -138,8 +177,8 @@ RLS policy is `user_id = auth.uid()`, not the usual
 | `user_id` | uuid → auth.users | the owner — the actual access boundary |
 | `prompt` | text | required, the reminder text |
 | `remind_date` | date | required |
-| `remind_time` | time | default `09:00`; shown in the UI but not currently honored precisely by push delivery — see [`20-feature-personal-todos.md`](20-feature-personal-todos.md) |
-| `repeat_frequency` | text | `none` \| `daily` \| `weekly` \| `monthly`; default `none` |
+| `remind_time` | time | default `09:00`; `notify-due-items` polls every 15 minutes and checks this against the current time, so it fires close to the minute it names — see [`20-feature-personal-todos.md`](20-feature-personal-todos.md) |
+| `repeat_frequency` | text | `none` \| `daily` \| `weekly` \| `fortnightly` \| `monthly`; default `none` |
 | `is_done` | boolean | default false |
 | `last_notified_date` | date | last day `notify-due-items` sent a push for this row — see [`19-notification-sources.md`](19-notification-sources.md) |
 | `created_at` / `updated_at` | timestamptz | |
@@ -222,9 +261,11 @@ period; "mark as received" inserts the next period's row automatically.
 | `due_date` | date | required |
 | `amount` | numeric(12,2) | |
 | `currency` | text | default `AUD` |
-| `interval_days` | integer | default 14 (fortnightly); carried forward to the auto-generated next period |
+| `interval_days` | integer, optional | default 14 (fortnightly); carried forward to the auto-generated next period. Nullable since `0042_rent_mortgage_custom_due_dates.sql` — a row using `due_days_of_month` below instead leaves this `null`. A check constraint requires at least one of the two to be set. |
+| `due_days_of_month` | smallint[], optional | explicit sorted list of calendar days (e.g. `{15,30}`) for a period due on fixed dates rather than a fixed day-count interval — e.g. rent actually credited on the 15th and the 30th, which drifts under `interval_days` since months aren't all the same length. "Mark as received" rolls to the next listed day via `nextDueDateFromDaysOfMonth()` (`format.js`) instead of `addDays()`. Added in `0042_rent_mortgage_custom_due_dates.sql`; see [`23-feature-rent-mortgage.md`](23-feature-rent-mortgage.md). |
 | `paid` | boolean | default false |
 | `paid_date` | date | set when marked received |
+| `next_period_id` | uuid → rent_payments, optional | the row auto-inserted by "mark as received" on *this* row, if any — lets Undo (`rent.js`) remove that auto-created period too when reverting a mistake, instead of leaving an orphaned extra one behind. Added in `0041_rent_mortgage_undo.sql`; `null` on any row from before that (including one already paid) or one marked paid before this existed. |
 | `notes` | text | optional |
 | `last_notified_date` | date | last day `notify-due-items` sent a push for this row — see [`19-notification-sources.md`](19-notification-sources.md) |
 | `created_by` | uuid → auth.users | |
@@ -246,15 +287,23 @@ amount and each is just a simple due/paid list. Only difference:
 | `due_date` | date | required |
 | `amount` | numeric(12,2) | |
 | `currency` | text | default `AUD` |
-| `interval_days` | integer | default 30 (monthly); carried forward to the auto-generated next period |
+| `interval_days` | integer, optional | default 30 (monthly); carried forward to the auto-generated next period. Nullable since `0042_rent_mortgage_custom_due_dates.sql`, same reason as `rent_payments.interval_days` above |
+| `due_days_of_month` | smallint[], optional | same purpose as `rent_payments.due_days_of_month` above |
 | `paid` | boolean | default false |
 | `paid_date` | date | set when marked paid |
+| `next_period_id` | uuid → mortgage_payments, optional | same purpose as `rent_payments.next_period_id` above — lets Undo remove the auto-created next period when reverting a mistaken "mark as paid" |
 | `notes` | text | optional |
 | `last_notified_date` | date | last day `notify-due-items` sent a push for this row — see [`19-notification-sources.md`](19-notification-sources.md) |
 | `created_by` | uuid → auth.users | |
 | `created_at` / `updated_at` | timestamptz | |
 
 ### `custom_goals`
+`closed_at` (nullable timestamptz) marks a goal finished/closed by hand,
+independent of whether its target was ever hit — see
+[`12-feature-goals.md`](12-feature-goals.md). Nullable timestamp rather
+than a boolean, same reasoning as `events.completed_occurrence`: it
+doubles as the "closed on" date shown on the card.
+
 See [`12-feature-goals.md`](12-feature-goals.md). One row per user-created
 goal (any number per household — a wedding fund, a holiday fund, etc.).
 
@@ -332,12 +381,77 @@ both content and order without extra table/RLS/CRUD overhead.
 | `created_by` | uuid → auth.users | |
 | `created_at` / `updated_at` | timestamptz | |
 
+### `bank_statements`
+See [`27-feature-bank-statements.md`](27-feature-bank-statements.md)
+(surfaced via the Money tab's My Statements segment). One row per
+represented **period**, not per upload — a statement spanning more than
+one calendar month produces several rows sharing the same underlying
+Drive file. Private to its uploader (see RLS summary below), like
+`personal_todos`.
+
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `household_id` | uuid → households | kept so `household_id` can't be forged to point at a household the user isn't actually in; not itself the access boundary |
+| `period_month` | smallint | 1–12 |
+| `period_year` | smallint | |
+| `label` | text | e.g. "March 2026" |
+| `original_filename` | text | the uploaded file's own name |
+| `drive_file_id` | text | shared across every period row from the same upload |
+| `drive_web_view_link` | text | optional |
+| `file_name` | text | the name it was given in Drive (`[Bank Statement] ...`) |
+| `mime_type` | text | optional |
+| `uploaded_by` | uuid → auth.users | the owner — the actual access boundary |
+| `created_at` | timestamptz | |
+
+### `bank_transactions`
+One row per parsed (or manually added) transaction within a statement.
+
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `household_id` | uuid → households | kept for the same forgery-prevention reason as above; ownership is actually checked via `statement_id`'s own `uploaded_by` |
+| `statement_id` | uuid → bank_statements, on delete cascade | |
+| `txn_date` | date | nullable |
+| `description` | text | required |
+| `amount` | numeric | signed — negative = money out |
+| `category` | text | nullable until categorized; one of `STATEMENT_CATEGORIES` in `app/js/statements.js` — `CATEGORIES` plus `income`, since a bank transaction (unlike a logged expense) can be money in as well as out |
+| `status` | text | `'unknown'` \| `'categorized'` |
+| `categorized_by` | uuid → auth.users | nullable |
+| `created_at` | timestamptz | |
+
+### `bank_transaction_category_rules`
+See [`27-feature-bank-statements.md`](27-feature-bank-statements.md) →
+"Learning from your picks." One row per merchant you've manually
+categorized — `guessCategory()` checks this (per-user) after the static
+`CATEGORY_KEYWORDS` list finds nothing, so a merchant you've corrected
+once auto-categorizes from then on. Private to the user who made the
+pick, like `bank_statements`/`bank_transactions`.
+
+| column | type | notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `household_id` | uuid → households | kept for the same forgery-prevention reason as above; not itself the access boundary |
+| `user_id` | uuid → auth.users | the owner — the actual access boundary |
+| `merchant_key` | text | extracted from a transaction's description by `extractMerchantKey()`, e.g. "woolworths" |
+| `category` | text | one of `CATEGORIES` |
+| `created_at` / `updated_at` | timestamptz | unique on `(user_id, merchant_key)` — re-categorizing the same merchant updates its existing rule rather than adding a second one |
+
 ## Row Level Security summary
 
 Every table above (except `auth.users`, which Supabase manages) has RLS
-enabled. The rule is uniform: **a row is visible/writable only to members
-of its `household_id`**, checked via a `SECURITY DEFINER` helper function
-`is_household_member(household_id)` so policies stay simple and avoid
-recursive-policy pitfalls. `profiles` is visible to yourself and anyone who
-shares a household with you. Full detail in
+enabled. The rule is uniform for most tables: **a row is visible/writable
+only to members of its `household_id`**, checked via a `SECURITY DEFINER`
+helper function `is_household_member(household_id)` so policies stay
+simple and avoid recursive-policy pitfalls. `profiles` is visible to
+yourself and anyone who shares a household with you.
+
+Three tables are the exception, scoped to a single user rather than the
+whole household: `personal_todos` (`user_id = auth.uid()`),
+`bank_statements`/`bank_transactions` (`uploaded_by = auth.uid()`, via
+the owning statement for `bank_transactions`), and
+`bank_transaction_category_rules` (`user_id = auth.uid()`) — see
+[`20-feature-personal-todos.md`](20-feature-personal-todos.md) and
+[`27-feature-bank-statements.md`](27-feature-bank-statements.md). Full
+detail on the household-scoped majority in
 [`08-auth-households.md`](08-auth-households.md).

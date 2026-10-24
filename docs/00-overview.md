@@ -19,6 +19,10 @@ that's easy to lose track of:
 - **Grocery List** — a shared shopping checklist.
 - **Recipes** — a shared recipe box, each with ingredients and
   instructions, collapsible to save room.
+- **My Statements** — upload a bank statement (CSV or PDF) and have
+  it parsed into transactions, auto-categorized where confident, with a
+  "Needs review" bucket for the rest and a spending report per statement.
+  Private per-user — each partner only sees their own.
 
 ## Who it's for
 
@@ -60,6 +64,13 @@ backend is configured.
 | [`18-feature-changelog.md`](18-feature-changelog.md) | The in-app "What's new" dialog and its `../CHANGELOG.md` counterpart |
 | [`19-notification-sources.md`](19-notification-sources.md) | Exactly what `notify-due-items` scans (rent, mortgage, goals, documents, events, personal to-dos) and why |
 | [`20-feature-personal-todos.md`](20-feature-personal-todos.md) | Private per-user reminder list, invisible to the other household member |
+| [`21-google-drive-documents.md`](21-google-drive-documents.md) | Why documents are stored in the household's own Google Drive instead of this app's server, and the `drive.file` scope tradeoffs that follow from it |
+| [`22-feature-home-dashboard.md`](22-feature-home-dashboard.md) | The Home tab: what's due, upcoming events/goals, and the "On your plate" glance |
+| [`23-feature-rent-mortgage.md`](23-feature-rent-mortgage.md) | Investment property rent + mortgage tracking (Money tab's BrackenRidge segment) |
+| [`24-live-sync-and-nudges.md`](24-live-sync-and-nudges.md) | Realtime live sync across phones, the "🔔 Remind" partner nudge, and the weekly digest push |
+| [`25-feature-backup.md`](25-feature-backup.md) | Automatic (opportunistic, not server-scheduled) backup of household data to Google Drive |
+| [`26-feature-install-prompt.md`](26-feature-install-prompt.md) | Pre-signup "Add to Home Screen" interstitial, and why it waits briefly for `beforeinstallprompt` |
+| [`27-feature-bank-statements.md`](27-feature-bank-statements.md) | My Statements (Money tab): upload a bank statement, auto-categorize its transactions, review "Needs review" unknowns, and a per-statement spending report — private per-user, like personal to-dos |
 
 The top-level [`ROADMAP.md`](../ROADMAP.md) tracks phases and status across
 all of the above, and [`../CHANGELOG.md`](../CHANGELOG.md) is a dated log of

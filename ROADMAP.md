@@ -125,7 +125,7 @@ status. Check items off as they land.
       tables (`rent_payments`/new `mortgage_payments`) are otherwise
       identical in shape. Mortgage payments due/overdue also show on the
       home dashboard's "What's due" feed alongside rent. See
-      [`docs/13-feature-money-tab.md`](docs/13-feature-money-tab.md).
+      [`docs/23-feature-rent-mortgage.md`](docs/23-feature-rent-mortgage.md).
 - [x] **Rent/Mortgage paid history collapsed into a "History" section**:
       paid periods for both used to sit right below their own section's
       unpaid ones, so Rent's growing history pushed Mortgage's current
@@ -133,7 +133,7 @@ status. Check items off as they land.
       History section at the bottom, each collapsed behind its own
       `<details>` (closed by default) — one tap away, not clogging the
       scroll between the two current sections. See
-      [`docs/13-feature-money-tab.md`](docs/13-feature-money-tab.md).
+      [`docs/23-feature-rent-mortgage.md`](docs/23-feature-rent-mortgage.md).
 - [x] **In-app "What's new" changelog**: a dialog on app load lists
       everything shipped since that browser last dismissed it, sourced
       from a hand-maintained array in `app/js/changelog.js`
@@ -145,12 +145,14 @@ status. Check items off as they land.
 - [x] **Home dashboard: events and goals split apart**: "Coming up" was
       one list mixing events and goals; now "Upcoming events" and
       "Upcoming goals" are separate sections, each with its own
-      empty-state message.
+      empty-state message. See
+      [`docs/22-feature-home-dashboard.md`](docs/22-feature-home-dashboard.md).
 - [x] **Home dashboard: "What's due" sorted by date across types**: rent,
       mortgage, and expiring documents used to be shown grouped by type
       (every rent period before every mortgage period, regardless of
       which was actually more urgent); now merged into one list sorted
-      by date. See [`docs/13-feature-money-tab.md`](docs/13-feature-money-tab.md).
+      by date. See
+      [`docs/22-feature-home-dashboard.md`](docs/22-feature-home-dashboard.md).
 - [x] **Repeatable events beyond yearly**: recurring events were yearly
       only (birthdays/anniversaries); a "Repeats" dropdown now also offers
       weekly, fortnightly, and monthly, for things like a standing
@@ -195,6 +197,136 @@ status. Check items off as they land.
       category weren't used — they don't work with this app's narrow
       OAuth scope without a join step per category per partner. See
       [`docs/21-google-drive-documents.md`](docs/21-google-drive-documents.md).
+- [x] **Statement overview**: new Money tab segment — upload a bank
+      statement (CSV or PDF), parsed client-side into transactions and
+      auto-categorized against the same category list Expenses uses,
+      with a "Needs review" bucket for anything it can't confidently
+      categorize and a per-statement spending report (category
+      breakdown + a trend comparison against the previous statement).
+      Statements upload into the household's existing shared Drive
+      folder (not a new dedicated subfolder — same `drive.file`
+      per-partner-access constraint documented for Documents' category
+      folders applies here too), renamed to their period — detected
+      automatically from the parsed transactions, not asked for on
+      every upload, and split into one row per represented month when a
+      single statement spans more than one (a billing-cycle export, a
+      multi-month history dump), all sharing the one uploaded Drive
+      file. See
+      [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md).
+- [x] **My Statements — made private per-user**: Statement overview
+      renamed to "My Statements" and converted from household-shared to
+      owner-only, mirroring My To-dos — each partner now only ever sees
+      their own uploaded statements/transactions, never their partner's.
+      RLS switched from `is_household_member(household_id)` to an
+      `uploaded_by = auth.uid()` check (via the statement's
+      `uploaded_by` for `bank_transactions`), and both tables dropped
+      from the `supabase_realtime` publication. The uploaded statement
+      *file* itself still lands in the one shared household Drive
+      folder (unchanged — see above for why), so it's technically
+      visible to a partner browsing that folder directly even though
+      the app's own UI never shows their parsed data; see
+      [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md).
+- [x] **My Statements — categorization made faster, broader, and
+      self-improving**: bulk category assignment (pick several
+      transactions' categories, save them all in one batch, instead of
+      one round-trip and one tab-collapse per pick); a real PDF-parsing
+      fix (a broken pdf.js library URL and a running-balance-vs-amount
+      mixup that both silently produced wrong data); three new expense
+      categories (Food, Pet, Online Shopping — split out of Leisure/
+      Household); an `income` category for money coming in (salary,
+      refunds, Centrelink, dividends, etc.), kept separate from the
+      shared `CATEGORIES` list since a logged expense is always an
+      outflow; a category's direction (expense vs. income) is now an
+      explicit `CATEGORY_DIRECTION` declaration, not inferred from a
+      category's name, so an incoming rent deposit can no longer get
+      silently misfiled as a rent *expense* just because both share the
+      word "rental"; and a learning system — manually categorizing an
+      unrecognized transaction teaches the app that merchant
+      (`bank_transaction_category_rules`, private per-user), with a
+      "Manage learned categories" sheet to view, fix, or delete what
+      it's learned, and a guard against a near-empty merchant key ever
+      learning a rule that silently matches almost everything. See
+      [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md).
+- [x] **My Statements — charting and reporting**: a "Spending trend"
+      line chart (Month/Year/Custom date range) plotting total
+      Spent/Received over time, plus a Yearly view condensing the
+      statement list by calendar year instead of by month; a "By
+      Category" tab on that same chart showing a horizontal bar per
+      category for one selected month or year (separate baselines, so
+      two categories' totals are directly comparable, unlike the
+      stacked `.contribution-bar` breakdown used elsewhere); and an
+      "Export PDF" button there that opens a printable report for the
+      selected period — no PDF library, just the browser's own print
+      dialog. All plain inline SVG, no charting library, consistent
+      with this app's zero-dependency approach. See
+      [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md).
+- [x] **Custom categories**: a household can now add its own category
+      (name + direction: expense or income) on top of the hardcoded
+      list, shared across the household and across both Expenses and
+      My Statements — new `custom_categories` table, a "Manage
+      categories" sheet, and every category picker now reading a
+      per-render-refreshed merged list instead of the old hardcoded
+      constant directly. See
+      [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md).
+- [x] **My Statements — find & fix any transaction's category**: a
+      search box at the top of the tab finds a transaction by
+      description across every uploaded statement at once (not just the
+      one month it happens to live in), with a category picker that
+      saves immediately — including on transactions already
+      categorized, not just ones in "Needs review". Complements the
+      already-shipped "By Category" chart (which answers "how much did
+      I spend on X this month") rather than replacing it. See
+      [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md).
+- [x] **Document photo upload size picker; push failure logging**:
+      picking a photo to upload now shows Small/800px, Medium/1600px,
+      and Large/original as radio options, each with its real computed
+      file size shown, so the person uploading sees the trade-off and
+      chooses — instead of a size being picked for them. No library,
+      client-side only. Skipped entirely for a non-photo file (a PDF
+      uploads exactly as before). Separately, all three push-sending
+      edge functions
+      (`notify-due-items`, `weekly-digest`, `remind-partner`) now log
+      *why* an individual push delivery failed instead of only noticing
+      a 404/410 "subscription gone" — confirmed along the way that
+      household-wide notifications were never tied to who created the
+      item (every source already queries every household member's
+      subscriptions), so an "I'm not getting notified" report is a
+      delivery issue on one device, now diagnosable from logs, not a
+      scoping bug. See
+      [`docs/21-google-drive-documents.md`](docs/21-google-drive-documents.md)
+      and [`docs/11-push-notifications.md`](docs/11-push-notifications.md).
+- [x] **BrackenRidge: undo a mistaken "Mark as received"/"Mark as
+      paid"**: a paid period in Rent/Mortgage history now has an "Undo"
+      button, for when one gets marked by accident. Reverses both halves
+      of the original action — flips the period back to unpaid *and*
+      removes the next period it auto-created, as long as that one's
+      still untouched (a new `next_period_id` column,
+      `0041_rent_mortgage_undo.sql`, remembers which row that was). If
+      the auto-created period has since been paid itself or deleted by
+      hand, only the mistaken row reverts — never guesses which row to
+      remove by matching date/amount instead of the stored id. A legacy
+      row (no `next_period_id`, from before this column existed) can
+      still leave a second unpaid period showing after Undo; when
+      exactly one other unpaid period exists, Undo now offers to remove
+      it too via an explicit confirm naming its own due date/amount,
+      never an automatic match. See
+      [`docs/23-feature-rent-mortgage.md`](docs/23-feature-rent-mortgage.md).
+- [x] **One-tap 50/50 split on expenses**: the add/edit expense form's
+      split field gained a "Split 50/50" button that sets an even split
+      in one tap instead of typing it by hand; saving still only writes
+      an override when the result differs from the household default.
+      Removed the explanation text under the split fields. See
+      [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md).
+- [x] **Custom recurring dates for BrackenRidge rent/mortgage**: a
+      period can now recur on explicit calendar days each month (e.g.
+      15 and 30, picked by tapping a 1–31 day grid) instead of only a
+      fixed day-count interval — rent credited on fixed dates drifts
+      under `interval_days` since months aren't all the same length.
+      New `due_days_of_month` column
+      (`0042_rent_mortgage_custom_due_dates.sql`); "Mark as received"/
+      "Mark as paid" rolls to the next listed day, wrapping into next
+      month and clamped to its last day. See
+      [`docs/23-feature-rent-mortgage.md`](docs/23-feature-rent-mortgage.md).
 
 ## Phase 0 — Foundations ✅ (this session)
 
@@ -239,6 +371,125 @@ schema.
       "Welcome" dialog (`app/js/onboarding.js`) explains the five tabs and
       where the invite code lives, shown once per browser before the
       "What's new" dialog on first load.
+- [x] **UX audit fixes batch**: grocery items can now be edited (title,
+      quantity, category) instead of delete-and-re-add, and gained a
+      search box; a recipe's ingredients can be pushed straight onto the
+      Grocery List with one tap, auto-categorized; a repeating personal
+      to-do marked done by hand now correctly advances to its next
+      occurrence instead of stopping permanently (it used to behave
+      differently from the same reminder firing via push); every form's
+      submit button now disables with a "Saving…" state during its
+      request; expense/grocery/event cards show who added them
+      (`created_by`) when that differs from who it's otherwise
+      attributed to — directly the "show who added/paid for things"
+      suggestion above; and `.actions-row` tap targets got bigger, with
+      extra spacing before Delete specifically. See
+      [`docs/16-feature-grocery-list.md`](docs/16-feature-grocery-list.md),
+      [`docs/17-feature-recipes.md`](docs/17-feature-recipes.md),
+      [`docs/20-feature-personal-todos.md`](docs/20-feature-personal-todos.md),
+      and [`docs/14-ui-patterns.md`](docs/14-ui-patterns.md).
+- [x] **Shared note, event-goal links, chore rotation, goal celebrations,
+      rent streak**: a free-text sticky note on Home either partner can
+      edit (`households.shared_note`); a recurring event can alternate
+      between the two household members each occurrence instead of
+      always showing the same person (`events.rotate_assignee` +
+      `assignee_user_id`, parity computed client-side, no per-occurrence
+      storage); an event can link to a goal
+      (`events.related_goal_id`); reaching a savings goal plays a
+      one-time confetti celebration; and rent/mortgage shows a quiet
+      "paid on time N periods running" line once a streak actually
+      exists. Along the way, fixed a latent bug where
+      `getMyHousehold()` never selected the Google Drive columns, so a
+      page reload after connecting Drive incorrectly re-prompted to
+      connect it again. See
+      [`docs/03-feature-events.md`](docs/03-feature-events.md),
+      [`docs/12-feature-goals.md`](docs/12-feature-goals.md),
+      [`docs/22-feature-home-dashboard.md`](docs/22-feature-home-dashboard.md),
+      and [`docs/23-feature-rent-mortgage.md`](docs/23-feature-rent-mortgage.md).
+- [x] **Live sync across phones (Realtime) + a "🔔 Remind" nudge**: every
+      shared-list table now broadcasts changes via Supabase Realtime, so
+      an add/edit/delete on one phone shows up on the other without a
+      reload (`app/js/realtime.js`); and a "🔔 Remind" button on each
+      overdue "What's due" card sends a one-tap push to your partner
+      instead of texting them separately (new `remind-partner` edge
+      function — the first one in this app called directly by a user
+      rather than by `pg_cron`). See
+      [`docs/24-live-sync-and-nudges.md`](docs/24-live-sync-and-nudges.md).
+- [x] **Finish/close a goal**: a "Finish goal"/"Reopen goal" button,
+      independent of hitting the target — previously a goal with no
+      target amount (a plain checklist-style goal) had no way to be
+      marked done, and even a goal with one stayed open forever once
+      reached unless deleted outright. Closed goals move into a
+      collapsed "Closed goals" section, same pattern as Events'
+      Upcoming/Done split. See
+      [`docs/12-feature-goals.md`](docs/12-feature-goals.md).
+- [x] **Bug-fix batch from a 3-agent audit**: fixed the "🔔 Remind" nudge
+      silently not working in any real browser (missing CORS headers —
+      see [`docs/24-live-sync-and-nudges.md`](docs/24-live-sync-and-nudges.md)),
+      Realtime live sync clobbering an in-progress Goals/Recipes inline
+      edit or collapsing an open section, a coincidental-constant bug in
+      `events.js`'s repeat-select default, and a real latent
+      UTC-vs-local-date bug in `rent.js`'s "mark as paid" flow (found
+      while deduplicating a hand-rolled `addDays()` into `format.js`).
+      Also: documents now show "added by," search boxes added to Events
+      and My To-dos, and a per-household cooldown on the remind nudge.
+- [x] **Proactively ask to enable push notifications**: previously the
+      only way to turn them on was finding the toggle in ⚙️ Account &
+      household. Now asked once per browser, chained onto the existing
+      onboarding → changelog dialog sequence, but only when it's
+      actually one tap away (push supported, app installed to the home
+      screen, not already on) — declining isn't permanent, the manual
+      toggle still works either way. See
+      [`docs/11-push-notifications.md`](docs/11-push-notifications.md).
+- [x] **Leave a household, or remove a member**: previously there was
+      no way to cut off a household member's access short of hand-running
+      SQL in the Supabase dashboard. A new "Household members" section
+      in ⚙️ Account & household offers "Leave household" on your own
+      row, and "Remove" on the other member's row if you're the one who
+      created the household — enforced server-side via a new
+      `SECURITY DEFINER` RPC, not just a hidden button. See
+      [`docs/08-auth-households.md`](docs/08-auth-households.md).
+- [x] **Comment thread on expenses and events**: a new 💬 button on
+      every expense and event card opens a thread of plain-text comments
+      — a back-and-forth note on one specific record instead of a text
+      message outside the app. One shared module/table
+      (`app/js/comments.js`, `item_comments`) backs both, keyed by a
+      polymorphic `entity_type`/`entity_id` pair rather than duplicated
+      per feature. See
+      [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md) and
+      [`docs/03-feature-events.md`](docs/03-feature-events.md).
+- [x] **Chore fairness tally**: a rotating recurring event now shows a
+      running "Alex 5 · Sam 4" tally of turns taken so far, next to "It's
+      your turn" — derived arithmetic on the existing cycle count, no new
+      data needed since the rotation was already fully deterministic.
+      See [`docs/03-feature-events.md`](docs/03-feature-events.md).
+- [x] **Download an event as .ics**: a "🗓️" button on every event
+      card downloads that one occurrence as a calendar file, built
+      client-side with no backend change (`app/js/ics.js`), for
+      importing into Apple/Google/Outlook Calendar. See
+      [`docs/03-feature-events.md`](docs/03-feature-events.md).
+- [x] **Automatic backup to Google Drive**: once Drive is connected,
+      household data now backs up there as a dated JSON file roughly
+      weekly, plus a manual "Back up now" button — opportunistic
+      (triggered on app open), not a real `pg_cron` job, since this
+      app's Drive access is deliberately client-only with no
+      server-side credential to run one. Rolling retention keeps only
+      the 10 most recent backups, deleting older ones automatically so
+      the Drive folder doesn't accumulate years of dated files. See
+      [`docs/25-feature-backup.md`](docs/25-feature-backup.md).
+- [x] **Accessibility pass**: every icon-only button (every "+" FAB, the
+      💬 comment button, the 🗓️ .ics-download button) now has an
+      `aria-label`; a decorative icon next to text saying the same thing
+      is `aria-hidden`; `styles.css` now honors `prefers-reduced-motion`
+      and `prefers-contrast: more` globally, same OS-driven-by-default
+      approach as dark mode — no new in-app toggle. See
+      [`docs/14-ui-patterns.md`](docs/14-ui-patterns.md).
+- [x] **Pre-signup "Add to Home Screen" interstitial**: a brand-new
+      visitor in a regular browser tab now sees an install prompt
+      *before* sign-up/log-in even loads — a real "Install app" button
+      on Chromium browsers, manual Share instructions on iOS Safari,
+      skipped entirely where neither applies. Shown once per browser.
+      See [`docs/26-feature-install-prompt.md`](docs/26-feature-install-prompt.md).
 
 ## Phase 2 — Reminders that actually reach you
 
@@ -257,7 +508,12 @@ schema.
       pill, surfacing on the home dashboard's "What's due", and a push
       notification once actually expired. See
       [`07-feature-documents.md`](docs/07-feature-documents.md).
-- [ ] Digest option: a daily/weekly summary instead of per-item pings
+- [x] **Weekly digest**: a once-a-week "state of us" push (total spent,
+      total saved toward goals, events coming up) alongside the
+      per-item pings, not instead of them — see
+      [`24-live-sync-and-nudges.md`](docs/24-live-sync-and-nudges.md).
+      Not user-configurable yet (fixed Sunday evening, no opt-out beyond
+      disabling push entirely).
 
 ## Phase 3 — Money features worth having
 
@@ -266,8 +522,20 @@ schema.
       the ⚙️ account sheet) and a "Settle up" action that logs a
       balancing payment. See
       [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md).
+- [x] **Personal expenses — don't split at all**: a "Personal expense"
+      checkbox on the add/edit expense form excludes it from the "who
+      owes who" balance entirely, instead of needing a dishonest 100/0
+      split to fake the same thing. Still counts toward the "This
+      month" total and category breakdown. See
+      [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md).
 - [ ] Multi-currency support (per-entry currency + household default)
-- [ ] CSV export of expenses and goal transactions for taxes/records
+- [x] **CSV export of expenses and goal transactions**: an "Export CSV"
+      action on the Expenses tab downloads the full expense list, and
+      each goal gets its own "Export CSV" next to "+ Add transaction"
+      for just that goal's ledger — both built with a small local
+      `toCsv()`/`downloadCsv()` pair (`app/js/csv.js`), no library. See
+      [`docs/04-feature-expenses.md`](docs/04-feature-expenses.md) and
+      [`docs/12-feature-goals.md`](docs/12-feature-goals.md).
 - [ ] Simple charts: spend by category, spend over time
 
 ## Phase 4 — Documents that pull their weight
@@ -276,18 +544,32 @@ schema.
       [`docs/12-feature-goals.md`](docs/12-feature-goals.md)); linking to
       an expense or event too is a possible follow-up
 - [ ] Thumbnail previews for images/PDFs in the documents list
-- [ ] Tags and full-text search over document titles/notes
+- [x] **Document notes field, searchable alongside title**: a free-text
+      "Notes (optional)" field on upload/edit (surfacing the `notes`
+      column that already existed in the schema), shown on the card when
+      set, and matched by the existing search box. See
+      [`docs/07-feature-documents.md`](docs/07-feature-documents.md#notes-shipped).
+- [ ] Tags for documents
 - [ ] Bulk export/download of all documents (zip) as a personal backup
 
 ## Phase 5 — Nice-to-haves / stretch
 
 - [ ] Shared shopping/errand list
-- [ ] iCal feed you can subscribe to from Apple Calendar for due dates
+- [ ] iCal **feed** you can subscribe to from Apple Calendar for due
+      dates (a live, auth-free endpoint covering every future
+      occurrence) — distinct from the per-event one-off `.ics` download
+      already shipped in Phase 1, which only ever covers one occurrence
+      at a time
 - [ ] iOS Shortcuts integration for quick voice add ("log an expense")
 - [ ] Face ID / Touch ID app lock (WebAuthn) since this holds financial data
 - [ ] Support a second household (e.g. tracking things with family too)
 - [ ] Activity log — who added/edited/deleted what, for transparency
-- [ ] Bank statement CSV import to auto-suggest expenses
+- [x] **Bank statement import and categorization** — shipped as the
+      "Statement overview" Money tab segment; see the entry under
+      "Shipped outside the original phases" above and
+      [`docs/27-feature-bank-statements.md`](docs/27-feature-bank-statements.md).
+      Doesn't yet auto-suggest logged expenses from a transaction — see
+      that doc's "Not done" section.
 - [ ] Wrap the PWA in Capacitor for a real App Store build, if ever wanted
 
 ## Suggestions for making it better

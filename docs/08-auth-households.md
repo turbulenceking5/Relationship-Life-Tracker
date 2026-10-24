@@ -95,6 +95,38 @@ policy scoped to `is_household_member(household_id)` — narrow enough
 that a hand-crafted request still can't rewrite `role`/`user_id`/
 `household_id`, which still have no write path outside the two RPCs.
 
+### Leaving a household / removing a member
+Until `remove_household_member(p_user_id)` (migration
+`0033_remove_household_member.sql`), there was no way to cut off a
+household member's access short of the project owner hand-running SQL
+in the dashboard — a household that split up would leave an ex-partner
+as a full member indefinitely (shared data, Realtime, push
+notifications). The ⚙️ account sheet's "Household members" section now
+lists the roster with a "Leave household" action on your own row, and,
+if you're the owner, a "Remove" action on the other member's row.
+
+Same `SECURITY DEFINER` reasoning as `create_household`/`join_household`
+above, but as a single SQL-language `DELETE` with a subquery rather than
+plpgsql with a separate authorization check — logically equivalent, just
+compiled differently:
+- Deletes `p_user_id`'s row only within a household they and the caller
+  (`auth.uid()`) actually share.
+- Allowed unconditionally when removing yourself; otherwise only when
+  the caller's own role in that shared household is `'owner'`.
+- If neither holds, the subquery matches no household, so the `DELETE`
+  affects zero rows — the same "no matching row, nothing happens" shape
+  RLS itself uses, rather than a raised exception.
+
+After leaving, `getMyHousehold()` returns `null` for that user, so the
+account sheet closes and re-runs the normal post-auth check
+(`afterAuth()` in `app.js`), routing to the create/join screen exactly
+as it would for a brand-new account — no separate "you left" screen
+needed. Doesn't also clean up `push_subscriptions` in the same
+statement: an orphaned subscription is harmless and self-heals the next
+time a push to it 404s/410s, same as `notify-due-items`/`remind-partner`
+already handle (see
+[`24-live-sync-and-nudges.md`](24-live-sync-and-nudges.md)).
+
 ## Permissions model
 Deliberately flat for v1: every member of a household has full read/write
 access to all of that household's data. There's no "read-only" or

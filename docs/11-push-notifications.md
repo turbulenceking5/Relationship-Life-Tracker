@@ -12,6 +12,13 @@ document expiry, and events. See
 [`19-notification-sources.md`](19-notification-sources.md) for exactly
 what's scanned, the per-source trigger rule, and why.
 
+Two more push sources exist alongside this one: an on-demand "🔔 Remind"
+nudge a user triggers by hand (not cron-scheduled, JWT-authenticated
+rather than shared-secret), and a once-a-week digest. Both are covered
+in [`24-live-sync-and-nudges.md`](24-live-sync-and-nudges.md) rather than
+here, since neither shares this document's cron/shared-secret design —
+this page is specifically about `notify-due-items`.
+
 ## Why this exists
 
 A tracker that requires you to remember to open it defeats its own
@@ -22,15 +29,17 @@ without a native app.
 ## How it works
 
 ```
-pg_cron (daily, 22:00 UTC = 08:00 Australia/Brisbane)
+pg_cron (every 15 minutes)
    │  net.http_post, with a shared secret header pulled from Vault
    ▼
 Edge Function: notify-due-items
    │  1. Reads its own VAPID keys + the shared secret from Vault
    │     (via the SECURITY DEFINER function get_edge_secrets(), which
    │     only service_role may call)
-   │  2. Scans rent/mortgage/goals/documents/events for anything due —
-   │     see 19-notification-sources.md for the exact rules
+   │  2. Scans rent/mortgage/goals/documents/events (gated to once a day,
+   │     at 08:00 Brisbane) and personal_todos (checked every poll
+   │     against its own remind_time) for anything due — see
+   │     19-notification-sources.md for the exact rules
    │  3. Looks up push_subscriptions for each affected household
    │  4. Sends a Web Push message to each subscription (npm:web-push)
    │  5. Marks last_notified_date (on the source row) and drops dead
@@ -41,15 +50,24 @@ Service worker (app/service-worker.js)
    │  'notificationclick' → focuses or opens the app
 ```
 
+The poll runs every 15 minutes rather than once a day specifically so
+`personal_todos`' own `remind_time` can be honored — see
+[`20-feature-personal-todos.md`](20-feature-personal-todos.md). Every
+other source still only notifies once a day, at a fixed 08:00
+Brisbane — the edge function gates those behind a
+`DAILY_CHECK_TIME`/`pastDailyCheck` check so the more frequent poll
+doesn't re-trigger them at every run.
+
 ## Pieces, file by file
 
 | Piece | Where |
 |---|---|
 | `push_subscriptions` table, `last_notified_date` columns, `get_edge_secrets()` | `supabase/migrations/0003_push_notifications.sql` |
-| Daily cron schedule | `supabase/migrations/0004_schedule_notifications.sql`, retimed to Brisbane in `0005_localize_australia.sql` |
+| Cron schedule | `supabase/migrations/0004_schedule_notifications.sql`, retimed to Brisbane in `0005_localize_australia.sql`, moved to a 15-minute poll in `0027_notify_poll_frequency.sql` |
 | The actual send/scan logic | `supabase/functions/notify-due-items/index.ts` |
 | Subscribe/unsubscribe from the browser | `app/js/notifications.js` |
-| Notification permission UI | Account sheet in `app/js/app.js` |
+| Notification permission UI | Account sheet (`app/js/app.js`'s `renderNotificationsSection`) — manual enable/disable, always available |
+| Proactive one-time prompt | `app/js/app.js`'s `showPushPromptIfNeeded()`, chained after onboarding/changelog on load — see below |
 | Showing the notification, handling taps | `app/service-worker.js` (`push`, `notificationclick`) |
 | Public VAPID key (safe to ship) | `app/js/config.js` |
 
@@ -73,13 +91,17 @@ rather than Supabase JWT verification, because its only caller is
 
 ## Notification behavior
 
-- Checked once a day, at 08:00 Australia/Brisbane time (22:00 UTC —
-  Queensland has no daylight saving, so this offset is fixed year-round;
-  see `0005_localize_australia.sql`). An item due today or overdue
-  triggers a notification; `last_notified_date` prevents sending more than
-  once per calendar day for the same item, but an item that's still
-  overdue tomorrow notifies again — a simple daily "escalation" while
-  overdue, matching the Phase 2 roadmap item.
+- The edge function is polled every 15 minutes, but rent/mortgage/goals/
+  documents/events only actually notify once that run, checked once a
+  day at a fixed 08:00 Australia/Brisbane time (Queensland has no
+  daylight saving, so this offset is fixed year-round; see
+  `0005_localize_australia.sql`). An item due today or overdue triggers a
+  notification; `last_notified_date` prevents sending more than once per
+  calendar day for the same item, but an item that's still overdue
+  tomorrow notifies again — a simple daily "escalation" while overdue,
+  matching the Phase 2 roadmap item. `personal_todos` is the one
+  exception — it notifies at its own `remind_time` instead of 08:00, see
+  [`20-feature-personal-todos.md`](20-feature-personal-todos.md).
 - "Due today" is evaluated against each device's own local calendar date
   (see `todayStr()` in `app/js/format.js`), so it lines up with what the
   person looking at their phone would call "today" — this matters because
@@ -89,6 +111,48 @@ rather than Supabase JWT verification, because its only caller is
   every member.
 - A subscription that the push service reports as gone (HTTP 404/410,
   e.g. uninstalled app, cleared browser data) is deleted automatically.
+- Any other `webpush.sendNotification()` failure — not just the 404/410
+  case above — is logged (`console.error`, visible in the function's
+  Supabase logs) with the subscription's `user_id`, the push service
+  host, the HTTP status code, and the error message, so "notifications
+  aren't arriving for one specific person" is diagnosable from server
+  logs rather than invisible. Deliberately *not* logged: the full
+  endpoint URL or the subscription's `p256dh`/`auth_key` — those are
+  effectively per-device send credentials, not just an identifier.
+  `notify-due-items`, `weekly-digest`, and `remind-partner` all do this
+  the same way. This was added after confirming (by reading the actual
+  query, not assuming) that household-wide notifications were never
+  scoped to who created the item in the first place — every source here
+  queries every `push_subscriptions` row for the whole household — so a
+  report of "my partner created it and I'm not getting notified" is a
+  delivery problem (a stale/revoked subscription on one specific device,
+  or the push service silently not displaying it — common on iOS if
+  notification permission for the installed PWA was turned off after
+  subscribing, which doesn't invalidate the subscription itself) rather
+  than a scoping bug, and this logging is what makes that distinction
+  checkable next time rather than guessed at.
+
+## Proactively asking to enable notifications
+
+Before this, the only way to turn on push notifications was to dig into
+⚙️ Account & household — easy to never notice. `app.js` now chains a
+third dialog onto the existing onboarding → changelog sequence (so only
+one dialog is ever open at once, same pattern both of those already
+use): once per browser, if push is supported, the app is installed to
+the home screen (`isStandalone()` — `enablePush()` doesn't work
+otherwise), and notifications aren't already on, it asks once with
+"Enable notifications" / "Not now." `shouldShowPushPrompt()` /
+`markPushPromptSeen()` in `notifications.js` track the "once per
+browser" part, the same seen-once `localStorage` pattern
+`onboarding.js`/`changelog.js` use. Declining isn't permanent — the
+manual toggle in the account sheet is unaffected and still there either
+way.
+
+Deliberately scoped to the case where it's actually one tap away: if the
+app isn't installed yet, no prompt is shown (nagging about notifications
+before someone can even enable them would be the wrong fix — getting
+them to install is a separate concern, the account sheet already handles
+explaining that when they do open it).
 
 ## Setting this up on your own fork
 
@@ -123,5 +187,6 @@ generating your own keys:
 - Events only notify same-day, not with N days' advance warning (see
   [`03-feature-events.md`](03-feature-events.md)) — an advance-reminder
   offset per event isn't built.
-- No user-facing digest/quiet-hours settings yet (roadmap Phase 2 also
-  lists a digest option as a nice-to-have, not yet built).
+- No quiet-hours settings yet. A weekly digest now exists (see
+  [`24-live-sync-and-nudges.md`](24-live-sync-and-nudges.md)) but it's
+  fixed to once a week, Sunday evening — not user-configurable.
