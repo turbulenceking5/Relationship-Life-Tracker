@@ -1,5 +1,5 @@
 import { h, mount, openSheet, closeSheet, makeSheet, withBusyLabel } from './dom.js';
-import { fetchRows, insertRow, updateRow, deleteRow } from './crud.js';
+import { fetchRows, insertRow, insertRows, updateRow, deleteRow } from './crud.js';
 import { getHouseholdMembers } from './household.js';
 
 const TABLE = 'grocery_items';
@@ -53,6 +53,99 @@ export function guessCategory(title) {
     if (keywords.some((k) => matchesKeyword(title, k))) return category;
   }
   return null;
+}
+
+// Splits a pasted multi-line list (e.g. copied out of a notes app) into
+// one {title, quantity} pair per non-blank line, so "Paste list" can
+// bulk-add a whole list in one go instead of one "+ Add item" per line.
+// Recognizes the handful of quantity conventions people actually type —
+// "Milk - 2", "Milk x2"/"Milk x 2", "2x Milk", "Milk (2L)" — in addition
+// to a bare "Eggs" with no quantity at all. Anything that doesn't match
+// one of those shapes is kept as-is with no quantity rather than dropped,
+// since a rough guess here is still better than silently losing the line.
+export function parseGroceryListText(text) {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map(parseGroceryLine);
+}
+
+function parseGroceryLine(rawLine) {
+  // Strip a leading bullet/numbering marker ("- ", "* ", "• ", "1. ", "1) ")
+  // some notes apps add automatically — it's noise, not part of the title.
+  const line = rawLine.replace(/^[-*•]\s+/, '').replace(/^\d+[.)]\s+/, '').trim();
+
+  // "2 x Milk" / "2x Milk" — leading quantity.
+  let m = line.match(/^(\d+(?:\.\d+)?)\s*[x×]\s*(.+)$/i);
+  if (m) return { title: m[2].trim(), quantity: m[1] };
+
+  // "Milk - 2" — a space-dash-space, so a hyphenated word like
+  // "ice-cream" (no surrounding spaces around its dash) isn't mistaken
+  // for a title/quantity split.
+  m = line.match(/^(.+?)\s+-\s+(.+)$/);
+  if (m) return { title: m[1].trim(), quantity: m[2].trim() };
+
+  // "Milk x2" / "Milk x 2" — trailing quantity.
+  m = line.match(/^(.+?)\s*[x×]\s*(\d+(?:\.\d+)?)$/i);
+  if (m) return { title: m[1].trim(), quantity: `x${m[2]}` };
+
+  // "Milk (2L)" / "Milk (2)"
+  m = line.match(/^(.+?)\s*\(([^)]+)\)$/);
+  if (m) return { title: m[1].trim(), quantity: m[2].trim() };
+
+  return { title: line, quantity: null };
+}
+
+function openPasteSheet(container, ctx) {
+  const { dialog, body } = makeSheet('Paste grocery list');
+  document.body.appendChild(dialog);
+  dialog.addEventListener('close', () => dialog.remove());
+
+  const errorEl = h('div', { class: 'error-msg', style: 'display:none' });
+  const textarea = h('textarea', {
+    rows: '8',
+    required: true,
+    placeholder: 'Milk - 2\nEggs\nCoffee',
+  });
+  const hint = h('div', { class: 'meta' }, 'One item per line. A category is guessed automatically for each, just like adding items one at a time.');
+  const submitBtn = h('button', { class: 'btn primary', type: 'submit' }, 'Add items');
+
+  const form = h('form', {
+    onsubmit: async (e) => {
+      e.preventDefault();
+      errorEl.style.display = 'none';
+      const items = parseGroceryListText(textarea.value);
+      if (!items.length) {
+        errorEl.textContent = 'Paste at least one item, one per line.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      const restore = withBusyLabel(submitBtn, 'Adding…');
+      try {
+        await insertRows(TABLE, items.map((item) => ({
+          household_id: ctx.household.id,
+          title: item.title,
+          quantity: item.quantity,
+          category: guessCategory(item.title) || 'other',
+          created_by: ctx.user.id,
+        })));
+        closeSheet(dialog);
+        render(container, ctx);
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+        restore();
+      }
+    },
+  }, [
+    h('div', { class: 'field' }, [h('label', {}, 'Paste your list'), textarea]),
+    hint,
+    errorEl,
+    submitBtn,
+  ]);
+  mount(body, form);
+  openSheet(dialog);
 }
 
 // Matches title or quantity — case-insensitive substring, same shape as
@@ -244,7 +337,10 @@ export async function render(container, ctx) {
   renderList();
 
   mount(container, [
-    h('button', { class: 'btn secondary small', style: 'margin-bottom:14px', onclick: () => openSheet(dialog) }, '+ Add item'),
+    h('div', { class: 'action-chip-row' }, [
+      h('button', { class: 'btn secondary small', onclick: () => openSheet(dialog) }, '+ Add item'),
+      h('button', { class: 'btn secondary small', onclick: () => openPasteSheet(container, ctx) }, '📋 Paste list'),
+    ]),
     rows.length ? h('div', { class: 'field' }, searchInput) : null,
     listContainer,
     dialog,

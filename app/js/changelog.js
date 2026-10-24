@@ -597,6 +597,15 @@ export const CHANGELOG_ENTRIES = [
       'My To-dos moved out of the Money tab’s sub-nav into its own top-level "To-dos" tab',
     ],
   },
+  {
+    id: 66,
+    date: '2026-10-24',
+    title: 'Paste a whole grocery list at once',
+    items: [
+      'New "📋 Paste list" button on Grocery List — paste a list copied from a notes app (one item per line, e.g. "Milk - 2") and add them all in one go',
+      'Quantities like "Milk - 2", "Milk x2" and "2 x Milk" are picked up automatically; categories are guessed the same way the one-at-a-time add form already does',
+    ],
+  },
 ];
 
 const KEY = 'changelogLastSeenId';

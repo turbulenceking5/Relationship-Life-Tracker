@@ -8,6 +8,32 @@ a user-facing change, add an entry here **and** to
 audiences (this one can be as technical as it needs to be; the in-app
 one has to stay short enough to read on a phone).
 
+## 2026-10-24 — Paste a whole grocery list at once
+
+A "📋 Paste list" button sits next to "+ Add item" on Grocery List. It
+opens a `makeSheet()` with a `<textarea>` instead of the usual single-item
+fields; submitting it parses the pasted text and bulk-inserts via
+`insertRows()` (already used for bank-statement transaction imports) in
+one request rather than one `insertRow()` per line.
+
+- `parseGroceryListText()`/`parseGroceryLine()` in `app/js/grocery.js`
+  split on newlines and recognize the quantity conventions people
+  actually type: `Milk - 2` (space-dash-space, so a hyphenated word like
+  `ice-cream` isn't mistaken for a title/quantity split), `Milk x2`/`Milk
+  x 2`, `2 x Milk`, and `Milk (2L)`. A leading bullet/number (`- `, `* `,
+  `• `, `1. `, `1) `) is stripped first. A line matching none of those
+  shapes is kept as-is with no quantity rather than dropped.
+  `guessCategory()` (already used by the one-at-a-time add form) runs
+  per parsed title, same fallback to `'other'`.
+- An empty parse (blank/whitespace-only paste) shows an inline error
+  instead of submitting nothing silently — the `<textarea>`'s own
+  `required` attribute only catches a literally empty field, not one
+  that's all whitespace.
+- Tested by swapping in a minimal in-memory `vendor/supabase.js` mock and
+  driving `grocery.js`'s `render()` directly with Playwright (see
+  `docs/15-development-testing.md`) — the real vendor file was restored
+  and verified byte-for-byte before committing.
+
 ## 2026-10-19 — Fortnightly to-dos, and My To-dos gets its own tab
 
 Two small, unrelated requests shipped together.

@@ -49,6 +49,20 @@ hand — auto-categorizing is a convenience on top of manual picking, not a
 replacement for it. Picking a category manually stops the guess from
 overwriting it on further typing, so a deliberate choice always sticks.
 
+## Paste list (shipped)
+A "📋 Paste list" button next to "+ Add item" opens a sheet with a
+`<textarea>` for pasting a list copied from elsewhere (a notes app, say),
+one item per line — "Milk - 2" / "Eggs" / "Coffee" — and bulk-adds them in
+one request (`insertRows`, not one `insertRow` per line).
+`parseGroceryListText()`/`parseGroceryLine()` (both in `app/js/grocery.js`)
+recognize a handful of quantity conventions people actually type — "Milk -
+2", "Milk x2"/"Milk x 2", "2 x Milk", "Milk (2L)" — stripping a leading
+bullet/number first; a line that matches none of those shapes is kept
+as-is with no quantity rather than dropped. Each parsed title runs through
+the same `guessCategory()` the one-at-a-time add form uses. An empty parse
+(blank or whitespace-only paste) shows an inline error instead of silently
+adding nothing.
+
 ## Importing from a recipe (shipped)
 A recipe's "+ Add ingredients to Grocery List" button (see
 [`17-feature-recipes.md`](17-feature-recipes.md)) inserts every
